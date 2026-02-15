@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: 240 10% 2%;
+  --foreground: 0 0% 98%;
+
+  --card: 240 10% 4%;
+  --card-foreground: 0 0% 98%;
+
+  --border: 240 5% 12%;
+  --border-light: 255 255 255 / 0.08;
+
+  /* Brand Colors - Tactical Palette */
+  --bull: 142 76% 45%;
+  --bear: 346 84% 61%;
+  --matrix: 250 89% 65%;
+  --terminal-gray: 240 5% 45%;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-border: hsl(var(--border));
+  --color-bull: hsl(var(--bull));
+  --color-bear: hsl(var(--bear));
+  --color-matrix: hsl(var(--matrix));
+  --color-terminal: hsl(var(--terminal-gray));
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular;
+}
+
+@layer base {
+  body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    /* App-like behavior */
+    height: 100vh;
+    height: 100dvh;
+  }
+}
+
+@layer utilities {
+  .app-grid {
+    display: grid;
+    grid-template-rows: 60px 1fr 80px;
+    height: 100vh;
+    height: 100dvh;
+    width: 100vw;
+  }
+
+  /* PREMIUM GLASS SYSTEM */
+  .glass-panel {
+    background: rgba(10, 10, 12, 0.7);
+    backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid hsla(var(--border-light));
+    box-shadow:
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.03),
+      0 4px 24px -1px rgba(0, 0, 0, 0.4);
+  }
+
+  .glass-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+    backdrop-filter: blur(12px);
+    border: 1px solid hsla(var(--border-light));
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* TELEMETRY TEXT */
+  .text-telemetry {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: hsl(var(--terminal-gray));
+  }
+
+  .glow-matrix {
+    filter: drop-shadow(0 0 8px hsla(var(--matrix) / 0.4));
+  }
+
+  /* ANIMATIONS */
+  @keyframes scanline {
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+
+    50% {
+      opacity: 0.4;
+    }
+
+    100% {
+      transform: translateY(100vh);
+      opacity: 0;
+    }
+  }
+
+  .animate-scanline {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, hsla(var(--matrix) / 0.3), transparent);
+    animation: scanline 8s linear infinite;
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  @keyframes shimmer-sweep {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .shimmer-trigger:hover .shimmer-effect {
+    animation: shimmer-sweep 1.5s ease-in-out forwards;
+  }
+}
+
+/* PREMIUM SCROLLBAR ARCHITECTURE */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsla(var(--border-light));
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
