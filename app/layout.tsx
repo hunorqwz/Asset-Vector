@@ -27,8 +27,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased select-none`}
       >
+        <div className="animate-scanline" />
+        <div className="vignette" />
         <div className="app-grid bg-background overflow-hidden relative">
-          <div className="animate-scanline" />
           {children}
         </div>
       </body>

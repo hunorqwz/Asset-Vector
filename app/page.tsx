@@ -10,58 +10,87 @@ export default async function Home() {
 
   return (
     <>
-      {/* HEADER: ELITE NAVIGATION ARCHITECTURE */}
-      <header className="glass-panel z-[100] flex items-center px-8">
+      {/* HEADER: COMMAND CENTER (High Density) */}
+      <header className="glass-panel z-[100] flex items-center px-8 relative overflow-hidden">
+          {/* MINI TICKER TAPE (Apple Style) */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-matrix/10">
+              <div className="h-full bg-matrix w-1/4 animate-[shimmer-sweep_4s_linear_infinite]"></div>
+          </div>
+
           <div className="w-full flex items-center justify-between">
               
               {/* BRAND: SURGICAL IDENTITY */}
-              <div className="flex items-center gap-4">
-                  <div className="w-9 h-9 glass-card rounded-lg flex items-center justify-center glow-matrix">
-                       <div className="w-3.5 h-3.5 bg-matrix rounded-sm rotate-45"></div>
+              <div className="flex items-center gap-12">
+                  <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 glass-card rounded flex items-center justify-center glow-matrix">
+                          <div className="w-3 h-3 bg-matrix rounded-sm rotate-45"></div>
+                      </div>
+                      <div className="flex flex-col -space-y-1">
+                          <span className="font-bold tracking-tighter text-sm uppercase">Vector</span>
+                          <span className="text-[7px] text-terminal font-mono tracking-[0.4em] uppercase opacity-50">Surgical_OS</span>
+                      </div>
                   </div>
-                  <div className="flex flex-col -space-y-1">
-                    <span className="font-bold tracking-tighter text-base uppercase">Vector</span>
-                    <span className="text-[8px] text-terminal font-mono tracking-[0.3em] uppercase">Intelligence Node</span>
+
+                  {/* MARKET INDICES (Silent Telemetry) */}
+                  <div className="hidden xl:flex items-center gap-6 border-l border-white/10 pl-12">
+                      <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-mono text-terminal uppercase">SPY</span>
+                          <span className="text-[10px] font-mono font-bold text-emerald-500">+0.07%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-mono text-terminal uppercase">QQQ</span>
+                          <span className="text-[10px] font-mono font-bold text-rose-500">-0.12%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-mono text-terminal uppercase">BTC</span>
+                          <span className="text-[10px] font-mono font-bold text-emerald-500">+1.42%</span>
+                      </div>
                   </div>
               </div>
 
               {/* SEARCH: INTEGRATED COMMAND */}
-              <div className="flex-1 max-w-md px-12">
+              <div className="flex-1 max-w-sm px-12">
                   <AssetCommand />
               </div>
 
-              {/* STATUS: SYSTEM TELEMETRY */}
+              {/* STATUS: SYSTEM METADATA */}
               <div className="flex items-center gap-8">
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-white/5 bg-white/[0.02]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></span>
-                    <span className="text-telemetry text-emerald-500">Node_Active</span>
+                  <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+                          <span className="text-telemetry text-emerald-500">Node_Stable</span>
+                      </div>
+                      <span className="text-[7px] font-mono text-terminal uppercase tracking-widest mt-0.5">Latency: 0.02ms</span>
                   </div>
-                  <div className="hidden lg:flex flex-col items-end">
-                    <span className="text-[8px] text-terminal font-bold uppercase tracking-widest">Mark_Status</span>
-                    <span className="text-[10px] font-mono text-zinc-300">STB: NOMINAL</span>
-                  </div>
+                  <button className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
+                      <div className="w-1 h-3 bg-terminal rounded-full"></div>
+                  </button>
               </div>
           </div>
       </header>
 
-      {/* MAIN: TACTICAL CONTENT AREA */}
-      <main className="overflow-y-auto scrollbar-hide px-8 pt-12 pb-24">
+      {/* MAIN: TACTICAL MATRIX AREA */}
+      <main className="overflow-y-auto scrollbar-hide px-8 py-8">
           <div className="max-w-[1400px] mx-auto">
               
-              {/* HERO: MISSION BRIEFING */}
-              <div className="mb-16 relative">
-                  <div className="inline-flex items-center gap-3 mb-6">
-                    <div className="h-px w-8 bg-matrix/40"></div>
-                    <span className="text-telemetry text-matrix">Mission_Briefing</span>
+              {/* HERO: MISSION BRIEFING (Compressed) */}
+              <div className="mb-12 flex items-end justify-between border-b border-terminal/10 pb-8">
+                  <div className="relative">
+                      <div className="flex items-center gap-2 mb-4">
+                          <div className="h-[1px] w-6 bg-matrix"></div>
+                          <span className="text-telemetry text-matrix">Vector_Matrix_Status</span>
+                      </div>
+                      <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-none">
+                        Tactical <br/> 
+                        <span className="text-terminal">Intelligence.</span>
+                      </h1>
                   </div>
-                  <h1 className="text-6xl sm:text-8xl font-bold tracking-tighter mb-6 leading-[0.85]">
-                    Tactical <br/> 
-                    <span className="text-terminal">Overview.</span>
-                  </h1>
-                  <p className="max-w-xl text-zinc-500 text-sm font-medium leading-relaxed uppercase tracking-wide">
-                    Real-time analysis of {signals.length} high-velocity market vectors. <br/>
-                    <span className="text-terminal font-mono text-[10px]">Synchronized via Titan kernel v1.0.4</span>
-                  </p>
+                  <div className="flex flex-col items-end max-w-xs text-right opacity-60">
+                      <p className="text-[10px] font-medium leading-relaxed uppercase tracking-wider text-zinc-400">
+                        {signals.length} High-Velocity Vectors <br/>
+                        Synchronized: <span className="text-white font-mono"><LiveTime /></span>
+                      </p>
+                  </div>
               </div>
 
               {/* MATRIX: THE GRID */}
@@ -94,47 +123,48 @@ export default async function Home() {
           </div>
       </main>
 
-      {/* FOOTER: TERMINAL TELEMETRY */}
+      {/* FOOTER: MINIMAL TELEMETRY */}
       <footer className="glass-panel z-[100] px-8 flex items-center">
-           <div className="w-full grid grid-cols-3 items-center">
+           <div className="w-full flex items-center justify-between">
                 
                 {/* SYSTEM METRICS */}
-                <div className="flex gap-12">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-telemetry">Kernel_Version</span>
-                      <span className="text-[10px] font-mono text-zinc-400">TITAN_V1.0c</span>
+                <div className="flex gap-10">
+                    <div className="flex items-center gap-2">
+                      <span className="text-telemetry">Kernel</span>
+                      <span className="text-terminal font-mono text-[9px]">T_V1.0c</span>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-telemetry">Sync_Latency</span>
-                      <span className="text-[10px] font-mono text-emerald-500">0.02ms</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-telemetry">Auth</span>
+                      <span className="text-emerald-500 font-mono text-[9px]">Verified</span>
                     </div>
                 </div>
 
-                {/* CENTRAL SYNC */}
-                <div className="flex justify-center">
-                   <div className="px-6 py-2.5 glass-card rounded-full flex items-center gap-4">
-                      <div className="w-2.5 h-2.5 rounded-full bg-matrix animate-pulse glow-matrix"></div>
-                      <span className="text-telemetry text-zinc-300">Neural_Engine_Synchronized</span>
-                   </div>
+                {/* CENTRAL SYNC (Minimalist) */}
+                <div className="flex items-center gap-4">
+                    <div className="h-[1px] w-12 bg-white/5"></div>
+                    <div className="flex items-center gap-3 px-4 py-1.5 border border-white/5 bg-white/[0.01] rounded-full">
+                        <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse glow-matrix"></div>
+                        <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-[0.2em] font-bold">Neural_Link</span>
+                    </div>
+                    <div className="h-[1px] w-12 bg-white/5"></div>
                 </div>
 
-                {/* CLOCK / STATUS */}
-                <div className="flex justify-end items-center gap-6">
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-telemetry text-emerald-500">Systems_Nominal</span>
-                        <div className="w-1.5 h-4 bg-emerald-500/10 rounded-full flex items-end">
-                           <div className="w-full h-full bg-emerald-500 animate-pulse rounded-full"></div>
+                {/* LEGEND / STATUS */}
+                <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-2">
+                        <span className="text-telemetry">Integrity</span>
+                        <div className="flex gap-0.5">
+                            {[1, 2, 3, 4].map(i => (
+                                <div key={i} className="w-1 h-3 bg-emerald-500/30 rounded-full">
+                                    {i < 4 && <div className="w-full h-full bg-emerald-500 rounded-full"></div>}
+                                </div>
+                            ))}
                         </div>
-                      </div>
-                      <span className="text-telemetry text-zinc-600 tracking-[0.4em]">
-                        <LiveTime />
-                      </span>
                     </div>
+                    <span className="text-telemetry opacity-40">Matrix_01</span>
                 </div>
            </div>
-      </footer>
+     </footer>
     </>
-
   );
 }

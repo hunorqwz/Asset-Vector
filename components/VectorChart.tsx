@@ -10,13 +10,15 @@ interface VectorChartProps {
   color?: string;
   height?: number;
   initialMode?: OpticMode;
+  prediction?: { p10: number; p50: number; p90: number };
 }
 
 export const VectorChart = ({ 
   data, 
   color = '#10b981',
   height = 160,
-  initialMode = 'ZEN'
+  initialMode = 'ZEN',
+  prediction
 }: VectorChartProps) => {
   const [mode, setMode] = useState<OpticMode>(initialMode);
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,7 @@ export const VectorChart = ({
        }));
        candleSeries.setData(candleData);
     }
-
+    
     // 3. VOLUME LAYER (Tactical/Quant)
     if (mode !== 'ZEN') {
        const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -92,8 +94,45 @@ export const VectorChart = ({
        }));
        volumeSeries.setData(volumeData);
     }
+
+    // 4. AI PREDICTION LAYER (Vector Horizon)
+    if (prediction && mode !== 'ZEN') {
+        const lastCandle = data[data.length - 1];
+        const lastTime = now;
+        
+        // CORRIDOR: p10-p90 (Depth)
+        const corridorSeries = chart.addSeries(AreaSeries, {
+            lineColor: 'transparent',
+            topColor: 'rgba(129, 140, 248, 0.1)',
+            bottomColor: 'rgba(129, 140, 248, 0.02)',
+            lineWidth: 1,
+            lastValueVisible: false,
+            priceLineVisible: false,
+        });
+        
+        corridorSeries.setData([
+            { time: lastTime as any, value: lastCandle.close },
+            { time: (lastTime + daySeconds) as any, value: prediction.p50 } // Simplified for area
+        ]);
+
+        // PREDICTION LINE: p50 (The Vector)
+        const vectorSeries = chart.addSeries(LineSeries, {
+            color: '#818cf8',
+            lineWidth: 2,
+            lineStyle: 2, // Dashed
+            lastValueVisible: true,
+            title: "TFT_PROJECTION",
+            priceLineVisible: false,
+        });
+
+        vectorSeries.setData([
+            { time: (now - daySeconds) as any, value: data[data.length - 2].close }, // Connecting to history
+            { time: now as any, value: lastCandle.close },
+            { time: (now + daySeconds) as any, value: prediction.p50 }
+        ]);
+    }
     
-    // 4. OVERLAYS (Technicals)
+    // 5. OVERLAYS (Technicals)
     if (mode === 'TACTICAL' || mode === 'QUANT') {
        if (technicals?.bollinger) {
           const upper = chart.addSeries(LineSeries, { color: 'rgba(255, 255, 255, 0.15)', lineWidth: 1, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false });
@@ -109,13 +148,13 @@ export const VectorChart = ({
        }
     }
 
-    // 5. RSI OVERLAY (Quant Only) - Plotted on Separate Scale (Left) to avoid muddying price
+    // 6. RSI OVERLAY (Quant Only)
     if (mode === 'QUANT' && technicals?.rsi) {
         const rsiSeries = chart.addSeries(LineSeries, {
-            color: '#A3A3A3', // Neutral Grey
+            color: '#A3A3A3', 
             lineWidth: 1,
-            priceScaleId: 'left', // Use left axis
-            lineStyle: 2, // Dashed
+            priceScaleId: 'left', 
+            lineStyle: 2, 
             crosshairMarkerVisible: false,
             lastValueVisible: false,
             priceLineVisible: false
@@ -123,14 +162,12 @@ export const VectorChart = ({
         
         chart.priceScale('left').applyOptions({
             visible: false,
-            scaleMargins: { top: 0.7, bottom: 0.1 } // Confined to bottom 20% above volume
+            scaleMargins: { top: 0.7, bottom: 0.1 } 
         });
 
         rsiSeries.setData(technicals.rsi.map((v: number, i: number) => ({
             time: (now - (technicals.rsi.length - 1 - i) * daySeconds) as any, value: v
         })));
-        
-        // Add 30/70 Levels? Lightweight doesn't support horz lines easily per series, skipping for minimalism
     }
 
     chart.timeScale().fitContent();
@@ -147,7 +184,8 @@ export const VectorChart = ({
       window.removeEventListener('resize', handleResizeCallback);
       chart.remove();
     };
-  }, [data, color, height, mode, technicals]); 
+  }, [data, color, height, mode, technicals, prediction]);
+ 
 
   // --- OPTIC SWITCH UI ---
   return (

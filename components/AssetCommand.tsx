@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Command } from "cmdk";
-import { searchAssets, addAsset } from "@/app/actions";
+import { searchAssets, addAsset, removeAsset } from "@/app/actions";
 
 export function AssetCommand() {
   const [open, setOpen] = useState(false);
@@ -22,7 +22,7 @@ export function AssetCommand() {
   }, []);
 
   useEffect(() => {
-    if (query.length < 2) {
+    if (query.length < 2 || query.startsWith("/")) {
       setResults([]);
       return;
     }
@@ -38,6 +38,17 @@ export function AssetCommand() {
 
   const handleSelect = async (ticker: string, name: string) => {
     await addAsset(ticker, name);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const handleCommand = async (fullCommand: string) => {
+    const [cmd, arg] = fullCommand.split(" ");
+    if (cmd === "/remove" && arg) {
+      await removeAsset(arg.toUpperCase());
+    } else if (cmd === "/clear") {
+       // Logic to clear watchlist could go here
+    }
     setOpen(false);
     setQuery("");
   };
@@ -71,7 +82,12 @@ export function AssetCommand() {
                   <Command.Input 
                     value={query}
                     onValueChange={setQuery}
-                    placeholder="Search by ticker or company name..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && query.startsWith("/")) {
+                        handleCommand(query);
+                      }
+                    }}
+                    placeholder="Search tickers or type '/' for CLI..."
                     className="flex-1 bg-transparent text-[11px] text-white focus:outline-none font-medium uppercase tracking-[0.1em] h-full"
                   />
                   {loading && <div className="w-3 h-3 border-2 border-white/10 border-t-matrix rounded-full animate-spin"></div>}
@@ -79,9 +95,22 @@ export function AssetCommand() {
                
                <Command.List className="max-h-[350px] overflow-y-auto p-1.5 scrollbar-hide">
                  <Command.Empty className="py-10 text-center text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">
-                    No vectors identified
+                    {query.startsWith('/') ? 'Invalid Command Sequence' : 'No vectors identified'}
                  </Command.Empty>
                  
+                 {/* CLI COMMAND MODE */}
+                 {query.startsWith("/") && (
+                    <div className="p-2">
+                        <span className="text-[10px] font-bold text-matrix px-2 py-1 mb-2 block tracking-widest">SYSTEM_CLI</span>
+                        <Command.Item onSelect={() => setQuery("/remove ")} className="flex cursor-pointer select-none items-center rounded-xl px-4 py-2.5 outline-none data-[selected=true]:bg-white/5 transition-all text-[11px] font-mono text-zinc-300">
+                            <span className="text-matrix mr-3">/remove</span> <span className="opacity-40">[TICKER] - Purge Asset Vector</span>
+                        </Command.Item>
+                        <Command.Item onSelect={() => handleCommand("/clear")} className="flex cursor-pointer select-none items-center rounded-xl px-4 py-2.5 outline-none data-[selected=true]:bg-white/5 transition-all text-[11px] font-mono text-zinc-300">
+                            <span className="text-matrix mr-3">/clear</span> <span className="opacity-40">- Flush Matrix Memory</span>
+                        </Command.Item>
+                    </div>
+                 )}
+
                  {results.map((item) => (
                    <Command.Item
                      key={item.ticker}
@@ -104,11 +133,18 @@ export function AssetCommand() {
                    </Command.Item>
                  ))}
                </Command.List>
+
+               {/* HANDLING ACTUAL COMMAND EXECUTION */}
+               {query.startsWith("/") && query.includes(" ") && (
+                  <div className="px-4 py-3 bg-matrix/5 border-t border-matrix/20 animate-pulse">
+                      <span className="text-[9px] font-mono text-matrix uppercase tracking-widest">Execute: {query}</span>
+                  </div>
+               )}
                
                <div className="flex items-center justify-between px-4 h-8 bg-white/5 border-t border-white/5 text-[8px] font-mono text-zinc-600 uppercase tracking-widest">
-                  <span>Surgical Wealth Intelligence Node</span>
+                  <span>Surgical_CLI v1.0.a</span>
                   <div className="flex gap-3">
-                     <span>Enter to Select</span>
+                     <span>Enter to Execute</span>
                      <span>Esc to Close</span>
                   </div>
                </div>

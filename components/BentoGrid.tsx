@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 
 // 1. SPARKLINE COMPONENT (Ultra-Minimalist)
@@ -109,6 +109,19 @@ export const WatchlistItem = ({
   aiSignal?: number;
   onRemove?: () => void;
 }) => {
+  const [pulseClass, setPulseClass] = useState("");
+  const prevPriceRef = useRef(price);
+
+  useEffect(() => {
+    if (price !== prevPriceRef.current) {
+        const isHigher = price > prevPriceRef.current;
+        setPulseClass(isHigher ? "animate-pulse-bull" : "animate-pulse-bear");
+        prevPriceRef.current = price;
+        const timer = setTimeout(() => setPulseClass(""), 1000);
+        return () => clearTimeout(timer);
+    }
+  }, [price]);
+
   const fmt = (n: number) => new Intl.NumberFormat('en-US', { 
     style: 'currency', 
     currency: 'USD',
@@ -127,44 +140,47 @@ export const WatchlistItem = ({
         className="group relative block glass-card shimmer-trigger mb-2 overflow-hidden"
       >
           {/* SHIMMER EFFECT LAYER */}
-          <div className="shimmer-effect absolute inset-0 bg-gradient-to-r from-transparent via-matrix/5 to-transparent -translate-x-full pointer-events-none"></div>
+          <div className="shimmer-effect group-hover:animate-[shimmer-sweep_1.5s_ease-in-out_forwards] pointer-events-none"></div>
 
           {/* ACTIVE INDICATOR */}
-          <div className={`absolute left-0 top-0 bottom-0 w-[2px] transition-transform scale-y-0 group-hover:scale-y-100 ${isBull ? 'bg-emerald-500 shadow-[0_0_15px_#10b981]' : 'bg-rose-500 shadow-[0_0_15px_#f43f5e]'}`}></div>
+          <div className={`absolute left-0 top-0 bottom-0 w-[1.5px] transition-transform scale-y-0 group-hover:scale-y-100 ${isBull ? 'bg-emerald-500 shadow-[0_0_15px_#10b981]' : 'bg-rose-500 shadow-[0_0_15px_#f43f5e]'}`}></div>
           
-          <div className="px-8 py-5 flex items-center gap-12 relative z-10">
+          <div className="px-6 py-4 flex items-center gap-10 relative z-10">
               
               {/* COL 1: IDENTITY (Surgical) */}
-              <div className="w-48 flex items-center gap-6 shrink-0">
-                   <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xs border transition-all duration-500 group-hover:scale-110 ${isBull ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400' : 'bg-rose-500/5 border-rose-500/10 text-rose-400'}`}>
+              <div className="w-44 flex items-center gap-5 shrink-0">
+                   <div className={`w-9 h-9 rounded flex items-center justify-center font-bold text-[10px] border transition-all duration-500 group-hover:scale-105 ${isBull ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400' : 'bg-rose-500/5 border-rose-500/10 text-rose-400'}`}>
                         {ticker}
                    </div>
                    
                    <div className="flex flex-col min-w-0">
-                        <span className="text-telemetry opacity-60 mb-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                        <span className="text-[11px] font-bold text-white tracking-tight mb-0.5 whitespace-nowrap overflow-hidden text-ellipsis group-hover:text-matrix transition-colors">
                             {name || "Asset_Vector"}
                         </span>
                         <div className="flex items-center gap-2">
-                             {aiSignal && <div className="w-1.5 h-1.5 rounded-full bg-matrix glow-matrix"></div>}
-                             <span className="text-[11px] font-mono text-white font-bold tracking-tight">DATA_INT: 0.98</span>
+                             <div className="flex gap-0.5">
+                                {[1, 2, 3, 4, 5].map(i => (
+                                    <div key={i} className={`w-1 h-1.5 rounded-full ${i < 5 ? 'bg-matrix shadow-[0_0_4px_hsla(var(--matrix)/0.5)]' : 'bg-white/10'}`}></div>
+                                ))}
+                             </div>
+                             <span className="text-[7.5px] font-mono text-terminal font-bold uppercase tracking-widest opacity-60">SYNC_INT</span>
                         </div>
                    </div>
               </div>
 
               {/* COL 2: SPARKLINE (Tactical) */}
-              <div className="flex-1 h-12 relative group-hover:opacity-100 opacity-60 transition-opacity">
-                   <Sparkline data={history} color={color} height={48} />
+              <div className="flex-1 h-10 relative opacity-40 group-hover:opacity-100 transition-opacity duration-500">
+                   <Sparkline data={history} color={color} height={40} />
               </div>
 
               {/* COL 3: PRICE ARCHITECTURE */}
-              <div className="w-56 flex items-center justify-end gap-10 shrink-0">
+              <div className="w-48 flex items-center justify-end gap-8 shrink-0">
                    <div className="flex flex-col items-end">
-                        <span className="text-telemetry text-zinc-500 mb-1">Live_Valuation</span>
-                        <div className="font-mono text-lg font-bold text-white tracking-tighter group-hover:text-matrix transition-colors">
+                        <div className={`font-mono text-base font-bold text-white tracking-tighter data-value transition-all group-hover:translate-x-[-4px] rounded px-1 -mx-1 ${pulseClass}`}>
                             {fmt(price)}
                         </div>
-                        <div className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${isBull ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                            {fmtPct(change)}
+                        <div className={`text-[9px] font-bold font-mono px-1 py-0.5 rounded-sm ${isBull ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                            {isBull ? '+' : ''}{fmtPct(change)}
                         </div>
                    </div>
 
@@ -175,9 +191,9 @@ export const WatchlistItem = ({
                           e.stopPropagation();
                           onRemove?.();
                       }}
-                      className="w-10 h-10 flex items-center justify-center rounded-lg border border-white/5 text-zinc-700 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
+                      className="w-8 h-8 flex items-center justify-center rounded border border-white/5 text-zinc-800 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100 active:scale-90"
                    >
-                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                            <path d="M18 6L6 18M6 6l12 12" />
                        </svg>
                    </button>

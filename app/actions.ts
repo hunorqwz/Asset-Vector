@@ -120,7 +120,19 @@ export async function removeAsset(ticker: string) {
   }
 }
 
+import { predictNextHorizon } from "@/lib/inference";
+
 export async function getAssetDetails(ticker: string) {
     const decodedTicker = decodeURIComponent(ticker);
-    return await fetchMarketData(decodedTicker, 365);
+    const signal = await fetchMarketData(decodedTicker, 365);
+    
+    // 🧠 AI BRAIN LINK: Fetching Temporal Fusion Prediction
+    // We map only the close prices for the sequence analysis
+    const sequence = signal.history.slice(-50).map(h => [0, 0, 0, h.close, 0]);
+    const prediction = await predictNextHorizon(sequence);
+    
+    return { 
+        ...signal, 
+        prediction 
+    };
 }
