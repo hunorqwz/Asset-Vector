@@ -1,23 +1,12 @@
 @import "tailwindcss";
+@import "../styles/design-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: 240 10% 2%;
-  --foreground: 0 0% 98%;
-
-  --card: 240 10% 4%;
-  --card-foreground: 0 0% 98%;
-
-  --border: 240 5% 12%;
-  --border-light: 255 255 255 / 0.08;
-
-  /* Brand Colors - Tactical Palette */
-  --bull: 142 76% 45%;
-  --bear: 346 84% 61%;
-  --matrix: 250 89% 65%;
-  --terminal-gray: 240 5% 45%;
-}
+/* 
+ * VECTOR DESIGN SYSTEM 3.0 
+ * Premium typography with Inter + mono for data.
+ */
 
 @theme inline {
   --color-background: hsl(var(--background));
@@ -29,94 +18,28 @@
   --color-matrix: hsl(var(--matrix));
   --color-terminal: hsl(var(--terminal-gray));
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular;
-}
+  /* Layout */
+  --spacing-header: var(--header-height);
+  --spacing-footer: var(--footer-height);
 
-@layer base {
-  body {
-    background: radial-gradient(circle at 50% 50%, hsl(var(--background)), #000);
-    color: hsl(var(--foreground));
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    overflow: hidden;
-    height: 100vh;
-    height: 100dvh;
-    position: relative;
-  }
+  /* Typography — Inter for UI, Geist Mono for data */
+  --font-sans: var(--font-inter), 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, 'Menlo', monospace;
 
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-    opacity: 0.015;
-    pointer-events: none;
-    z-index: 1;
-  }
-}
+  --tracking-tighter: -0.03em;
+  --tracking-tightest: -0.05em;
+  --tracking-widest: 0.15em;
 
-@layer utilities {
-  .app-grid {
-    display: grid;
-    grid-template-rows: 64px 1fr 64px;
-    height: 100vh;
-    height: 100dvh;
-    width: 100vw;
-    position: relative;
-    z-index: 2;
-  }
+  /* Shadows & Glows */
+  --shadow-matrix: 0 0 20px hsla(var(--matrix) / 0.25);
+  --shadow-bull: 0 0 15px hsla(var(--bull) / 0.3);
+  --shadow-bear: 0 0 15px hsla(var(--bear) / 0.3);
 
-  /* PREMIUM GLASS SYSTEM 2.0 */
-  .glass-panel {
-    background: rgba(8, 8, 10, 0.8);
-    backdrop-filter: blur(40px) saturate(200%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-  }
+  /* Animations */
+  --animate-scanline: scanline 12s linear infinite;
+  --animate-shimmer: shimmer-sweep 2.5s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
 
-  footer.glass-panel {
-    border-bottom: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  .glass-card {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
-    transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
-  }
-
-  .glass-card:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.8);
-  }
-
-  /* TELEMETRY & DATA */
-  .text-telemetry {
-    font-family: var(--font-mono);
-    font-size: 7.5px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.3em;
-    color: hsl(var(--terminal-gray));
-    opacity: 0.7;
-  }
-
-  .data-value {
-    font-family: var(--font-mono);
-    letter-spacing: -0.05em;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .glow-matrix {
-    filter: drop-shadow(0 0 12px hsla(var(--matrix) / 0.5));
-  }
-
-  /* ANIMATIONS */
   @keyframes scanline {
     0% {
       transform: translateY(-100%);
@@ -137,26 +60,6 @@
     }
   }
 
-  .animate-scanline {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, hsla(var(--matrix) / 0.4), transparent);
-    animation: scanline 12s linear infinite;
-    z-index: 1000;
-    pointer-events: none;
-    box-shadow: 0 0 20px hsla(var(--matrix) / 0.2);
-  }
-
-  .shimmer-effect {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
-    transform: translateX(-100%);
-  }
-
   @keyframes shimmer-sweep {
     0% {
       transform: translateX(-100%);
@@ -167,16 +70,161 @@
     }
   }
 
-  .shimmer-trigger:hover .shimmer-effect {
-    animation: shimmer-sweep 1.5s ease-in-out forwards;
+  @keyframes pulse-glow {
+
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 0.6;
+      transform: scale(0.95);
+    }
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+}
+
+@layer base {
+  body {
+    background: radial-gradient(circle at 50% 50%, hsl(var(--background)), #000);
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    height: 100vh;
+    height: 100dvh;
+    position: relative;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Structural Noise Grain */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.012;
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+@layer utilities {
+  .app-grid {
+    display: grid;
+    grid-template-rows: 64px 1fr 48px;
+    height: 100vh;
+    height: 100dvh;
+    width: 100vw;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* PREMIUM GLASS SYSTEM */
+  .glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(200%);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    z-index: 50;
+  }
+
+  footer.glass-panel {
+    border-bottom: none;
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .glass-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-border-bright);
+    border-left: 1px solid var(--glass-border-bright);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .glass-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.18);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.9);
+  }
+
+  /* LABEL SYSTEM — clean, readable, modern */
+  .label-sm {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: hsl(var(--terminal-gray));
+    text-transform: uppercase;
+  }
+
+  .label-xs {
+    font-family: var(--font-sans);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: hsl(var(--terminal-gray));
+  }
+
+  /* Legacy .text-telemetry — now uses cleaner styling */
+  .text-telemetry {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: hsl(var(--terminal-gray));
+  }
+
+  .data-value {
+    font-family: var(--font-mono);
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .glow-matrix {
+    filter: drop-shadow(0 0 8px hsla(var(--matrix) / 0.4));
+  }
+
+  .glow-bull {
+    filter: drop-shadow(0 0 8px hsla(var(--bull) / 0.4));
+  }
+
+  .glow-bear {
+    filter: drop-shadow(0 0 8px hsla(var(--bear) / 0.4));
+  }
+
+  /* SCALPEL UTILITIES */
+  .mask-radial {
+    mask-image: radial-gradient(circle, black 0%, transparent 100%);
+  }
+
+  .mask-linear-v {
+    mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
   }
 
   /* HAPTIC PRICE PULSES */
   @keyframes pulse-bull {
     0% {
-      background: hsla(var(--bull) / 0.4);
+      background: hsla(var(--bull) / 0.45);
       color: #fff;
-      text-shadow: 0 0 10px #10b981;
+      text-shadow: 0 0 8px #10b981;
     }
 
     100% {
@@ -186,9 +234,9 @@
 
   @keyframes pulse-bear {
     0% {
-      background: hsla(var(--bear) / 0.4);
+      background: hsla(var(--bear) / 0.45);
       color: #fff;
-      text-shadow: 0 0 10px #f43f5e;
+      text-shadow: 0 0 8px #f43f5e;
     }
 
     100% {
@@ -197,11 +245,11 @@
   }
 
   .animate-pulse-bull {
-    animation: pulse-bull 0.8s cubic-bezier(0, 0, 0.2, 1) forwards;
+    animation: pulse-bull 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .animate-pulse-bear {
-    animation: pulse-bear 0.8s cubic-bezier(0, 0, 0.2, 1) forwards;
+    animation: pulse-bear 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 }
 

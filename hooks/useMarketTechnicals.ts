@@ -24,7 +24,7 @@ export function useMarketTechnicals(data: OHLCV[], mode: OpticMode): Technicals 
     const sma50 = SMA.calculate({ period: 50, values: prices });
 
     // 2. TACTICAL LAYER (Volatility & Momentum)
-    let bollinger = { upper: [], middle: [], lower: [] } as any;
+    let bollinger = { upper: [] as number[], middle: [] as number[], lower: [] as number[] };
     let rsi: number[] = [];
 
     if (mode === 'TACTICAL' || mode === 'QUANT') {
@@ -39,23 +39,15 @@ export function useMarketTechnicals(data: OHLCV[], mode: OpticMode): Technicals 
     }
 
     // 3. QUANT LAYER (Signal Divergence)
-    let macd = { macd: [], signal: [], histogram: [] } as any;
+    let macd = { macd: [] as number[], signal: [] as number[], histogram: [] as number[] };
 
     if (mode === 'QUANT') {
       const m = MACD.calculate({
         values: prices,
-        fastPeriod: 12,
-        slowPeriod: 26,
-        signalPeriod: 9,
-        SimpleMAOscillator: false,
-        SimpleMASignal: false
+        fastPeriod: 12, slowPeriod: 26, signalPeriod: 9,
+        SimpleMAOscillator: false, SimpleMASignal: false
       });
-      
-      macd = {
-        macd: m.map(x => x.MACD),
-        signal: m.map(x => x.signal),
-        histogram: m.map(x => x.histogram)
-      };
+      macd = { macd: m.map(x => x.MACD!), signal: m.map(x => x.signal!), histogram: m.map(x => x.histogram!) };
     }
 
     return {

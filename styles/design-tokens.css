@@ -1,0 +1,37 @@
+/* 
+ * ASSET VECTOR DESIGN SYSTEM 
+ * Centralized Design Tokens for Surgical Market Intelligence
+ */
+
+:root {
+    /* Core Palette (HSL) */
+    --background: 240 10% 2%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 4%;
+    --card-foreground: 0 0% 98%;
+
+    --border: 240 5% 12%;
+    --border-light: 255 255 255 / 0.08;
+
+    /* Brand Colors - Tactical Palette */
+    --bull: 142 76% 45%;
+    --bear: 346 84% 61%;
+    --matrix: 250 89% 65%;
+    --terminal-gray: 240 5% 45%;
+
+    /* Glass tokens */
+    --glass-bg: rgba(8, 8, 10, 0.82);
+    --glass-blur: 40px;
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --glass-border-bright: rgba(255, 255, 255, 0.12);
+
+    /* Animation Durations */
+    --duration-fast: 150ms;
+    --duration-normal: 300ms;
+    --duration-slow: 500ms;
+
+    /* Layout Spacing */
+    --header-height: 72px;
+    --footer-height: 56px;
+}

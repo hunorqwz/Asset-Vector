@@ -1,204 +1,190 @@
 import YahooFinance from 'yahoo-finance2';
-const yahooFinance = new YahooFinance();
-import { predictNextHorizon } from "./inference";
-// const yahooFinance = new YahooFinance(); // Removed to fix import error
+import { predictNextHorizon, PredictionResult } from "./inference";
 import { KalmanFilter } from "./kalman";
 import { getFromCache, setInCache, CACHE_TTL } from "./cache";
 import { RegimeDetector, MarketRegime } from "./regime";
 import { SentimentAnalyzer } from "./sentiment";
 
-// RATE LIMITER: Simple Semaphore-like queue delay
-const REQUEST_QUEUE_DELAY = 1500; // Increased to be safer for Yahoo
-
-export type OHLCV = {
-  time: number; // Unix timestamp (seconds)
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-};
-
-export type MarketSignal = {
-  ticker: string;
-  price: number;
-  smoothPrice: number;
-  uncertainty: number;
-  snr: number;
-  aiPrediction?: number; // Added for UI
-  trend: "BULLISH" | "BEARISH" | "NEUTRAL";
-  regime: MarketRegime;
-  sentiment: "BULLISH" | "BEARISH" | "NEUTRAL";
-  history: OHLCV[]; 
-};
-
-// SIMULATION FALLBACK CONSTANTS
+const yahooFinance = new YahooFinance();
+const REQUEST_QUEUE_DELAY = 1200;
 const DRIFT = 0.0002;
 const VOLATILITY = 0.015;
 
-// Fetch Headlines (Simulated Mock for now)
-const MOCK_HEADLINES = {
-    "BTC-USD": ["Bitcoin surges to record high", "Crypto adoption growing"],
-    "NVDA": ["AI chip demand remains strong", "NVIDIA earnings beat"],
-    "SPY": ["Fed signals rate cuts", "Market rally continues"], 
-    "VIX": ["Uncertainty drops", "Fear index at lows"]
+export type OHLCV = { time: number; open: number; high: number; low: number; close: number; volume: number };
+
+export type ChartInterval = '1m' | '5m' | '15m' | '1h' | '1d';
+
+export type MarketSignal = {
+  ticker: string; price: number; smoothPrice: number; uncertainty: number; snr: number;
+  aiPrediction?: number; trend: "BULLISH" | "BEARISH" | "NEUTRAL"; regime: MarketRegime;
+  sentiment: "BULLISH" | "BEARISH" | "NEUTRAL"; history: OHLCV[]; 
+  prediction?: PredictionResult;
+};
+
+interface YahooChartResult { quotes: { date: string; open: number; high: number; low: number; close: number; volume: number }[] }
+interface YahooSearchResult { news: { title: string }[] }
+
+/**
+ * Industry-standard time range → interval mapping.
+ * Mirrors what TradingView, Bloomberg, and Yahoo Finance use.
+ * 
+ * | Range | Interval | Yahoo Limit         |
+ * |-------|----------|---------------------|
+ * | 1D    | 5m       | max 60 days         |
+ * | 5D    | 15m      | max 60 days         |
+ * | 1M    | 1h       | max 730 days        |
+ * | 3M    | 1d       | unlimited           |
+ * | 6M    | 1d       | unlimited           |
+ * | 1Y    | 1d       | unlimited           |
+ * | 5Y    | 1d       | unlimited           |
+ * | ALL   | 1d       | unlimited (from IPO)|
+ * 
+ * lookbackSeconds = 0 is a sentinel meaning "fetch from the very beginning"
+ */
+export const RANGE_INTERVAL_MAP: Record<string, { interval: ChartInterval; lookbackSeconds: number }> = {
+  '1D': { interval: '5m',  lookbackSeconds: 1 * 86400 },
+  '5D': { interval: '15m', lookbackSeconds: 5 * 86400 },
+  '1M': { interval: '1h',  lookbackSeconds: 30 * 86400 },
+  '3M': { interval: '1d',  lookbackSeconds: 90 * 86400 },
+  '6M': { interval: '1d',  lookbackSeconds: 180 * 86400 },
+  '1Y': { interval: '1d',  lookbackSeconds: 365 * 86400 },
+  '5Y': { interval: '1d',  lookbackSeconds: 5 * 365 * 86400 },
+  'ALL': { interval: '1d', lookbackSeconds: 0 },
 };
 
 /**
- * Fetches LIVE market data with Caching & Rate Limiting.
- * Uses Yahoo Finance (Free Tier) with a graceful simulation fallback.
+ * Fetch OHLCV data with a specific interval. 
+ * lookbackSeconds = 0 means "fetch all available history from IPO".
  */
-export async function fetchMarketData(ticker: string, historyLength: number = 50): Promise<MarketSignal> {
-  // 1. CHECK CACHE FIRST (Zero-Latency Path)
-  const cached = getFromCache<MarketSignal>(ticker);
-  if (cached) {
-    // console.log(`[CACHE HIT] ${ticker}`);
-    return cached;
-  }
-
-  // 2. FETCH FROM PROVIDER (Throttled Path)
-  // Add random jitter to prevent simultaneous requests (Race Condition Fix)
-  await new Promise(resolve => setTimeout(resolve, Math.random() * REQUEST_QUEUE_DELAY + 200));
-
-  let history: OHLCV[] = [];
-  let currentPrice = 0;
+export async function fetchHistoryWithInterval(
+  ticker: string, 
+  interval: ChartInterval = '1d',
+  lookbackSeconds: number = 0
+): Promise<OHLCV[]> {
+  const cacheKey = `chart:${ticker}:${interval}:${lookbackSeconds}`;
+  const cached = getFromCache<OHLCV[]>(cacheKey);
+  if (cached) return cached;
 
   try {
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - 6);
-    // Use timestamp (seconds) for period1 to be safe across all versions
-    const startTimestamp = Math.floor(startDate.getTime() / 1000);
-
-    const result = await yahooFinance.chart(ticker, {
-        period1: startTimestamp,
-        interval: '1d'
-    }, { validateResult: false }) as any;
+    // 0 = fetch from the very beginning (stock IPO), otherwise use lookback
+    const start = lookbackSeconds === 0 ? 0 : Math.floor(Date.now() / 1000) - lookbackSeconds;
+    const result = await yahooFinance.chart(
+      ticker, 
+      { period1: start, interval }, 
+      { validateResult: false }
+    ) as unknown as YahooChartResult;
     
-    if (result && result.quotes && result.quotes.length > 0) {
-      history = result.quotes
-        .filter((q: any) => q.close !== null && q.open !== null)
-        .map((q: any) => ({
-            time: Math.floor(new Date(q.date).getTime() / 1000),
-            open: q.open,
-            high: q.high,
-            low: q.low,
-            close: q.close,
-            volume: q.volume || 0
-        }))
-        .slice(-historyLength);
-      
-      currentPrice = history[history.length - 1].close;
-    } else {
-      throw new Error("No data returned from Yahoo Finance");
-    }
+    if (!result?.quotes?.length) throw new Error('No data returned');
+    
+    const data = result.quotes
+      .filter(q => q.close && q.open && q.high && q.low)
+      .map(q => ({
+        time: Math.floor(new Date(q.date).getTime() / 1000),
+        open: q.open, 
+        high: q.high, 
+        low: q.low, 
+        close: q.close, 
+        volume: q.volume || 0
+      }));
 
-  } catch (error) {
-    console.warn(`[Asset Vector] Live fetch failed for ${ticker}. Using Simulation.`, error);
-    // FALLBACK: Generate Fake OHLCV (GBM)
-    currentPrice = ticker === "BTC-USD" ? 98500 : ticker === "NVDA" ? 145 : 100;
-    const now = Math.floor(Date.now() / 1000);
-    const daySeconds = 86400;
-
-    for (let i = 0; i < historyLength; i++) {
-        const shock = (Math.random() - 0.5) * 2;
-        const change = currentPrice * (DRIFT + VOLATILITY * shock);
-        const open = currentPrice;
-        const close = currentPrice + change;
-        const high = Math.max(open, close) * (1 + Math.random() * 0.005);
-        const low = Math.min(open, close) * (1 - Math.random() * 0.005);
-        const volume = Math.floor(Math.random() * 1000000);
-        
-        history.push({
-            time: now - (historyLength - 1 - i) * daySeconds,
-            open, high, low, close, volume
-        });
-        currentPrice = close;
-    }
+    // Cache intraday data for shorter periods, daily for longer
+    const ttl = interval === '1d' ? CACHE_TTL.MARKET_DATA : 30 * 1000; // 30s for intraday
+    setInCache(cacheKey, data, ttl);
+    
+    return data;
+  } catch { 
+    return generateFallbackHistory(ticker, 200, interval); 
   }
+}
 
-  // 3. INTELLIGENCE ENGINE (Kalman Filter)
-  // R (Measurement Noise) is high for Crypto, lower for Stocks
-  const isCrypto = ticker.includes("-USD") || ticker === "BTC";
-  const R = isCrypto ? 500 : 2; 
-  const Q = isCrypto ? 100 : 0.5; // Process Noise (True Volatility)
-
-  const kf = new KalmanFilter(R, Q);
-  
-  let lastSmoothPrice = 0;
-  let lastUncertainty = 0;
-
-  history.forEach(tick => {
-    const res = kf.filter(tick.close);
-    lastSmoothPrice = res.prediction;
-    lastUncertainty = res.uncertainty;
-  });
-
-  // 3. Calculate Signal Metrics
-  const snr = kf.getSNR();
-  
-  // --- INTELLIGENCE FUSION (Kalman + TFT AI) ---
-  const aiInput = history.map(t => [t.open, t.high, t.low, t.close, t.volume]);
-  const aiResult = await predictNextHorizon(aiInput);
-  
-  // Tactical Decision Logic (Kalman Slope Analysis)
-  // If smooth price is rising -> BULLISH
-  const slope = (lastSmoothPrice - history[history.length - 5].close) / 5;
-  
-  let trend: "BULLISH" | "BEARISH" | "NEUTRAL" = "NEUTRAL";
-  
-  // A. Determine Base Trend (Math)
-  if (Math.abs(slope) < (isCrypto ? 50 : 0.5)) trend = "NEUTRAL";
-  else if (slope > 0) trend = "BULLISH";
-  else trend = "BEARISH";
-
-  // B. AI Override (If High Confidence)
-  // If AI predicts a specific P50 horizon that contradicts the slope
-  const aiReturn = (aiResult.p50 - currentPrice) / currentPrice;
-  if (Math.abs(aiReturn) > 0.015) { // Strong AI Signal (>1.5%)
-      if (aiReturn > 0) trend = "BULLISH";
-      else trend = "BEARISH";
-      // console.log(`[AI OVERRIDE] ${ticker} to ${trend}`);
-  }
-
-// Fetch Headlines (Live via Yahoo Search)
-  let headlines: string[] = [];
+async function fetchHistory(ticker: string, len: number): Promise<OHLCV[]> {
   try {
-     const cleanTicker = ticker.split('-')[0]; // Remove -USD for better news matching
-     const newsResult = await yahooFinance.search(cleanTicker, { newsCount: 5 }, { validateResult: false }) as { news: { title: string }[] };
-     
-     if (newsResult.news && newsResult.news.length > 0) {
-        // limit to 5 most recent
-        headlines = newsResult.news.slice(0, 5).map((n: any) => n.title);
-     }
-  } catch (e) {
-     console.warn(`[Asset Vector] News fetch failed for ${ticker}. Using fallback.`);
+    // period1: 0 = fetch from the very beginning (stock IPO date)
+    const result = await yahooFinance.chart(ticker, { period1: 0, interval: '1d' }, { validateResult: false }) as unknown as YahooChartResult;
+    if (!result?.quotes?.length) throw new Error();
+    return result.quotes.filter(q => q.close && q.open).map(q => ({
+      time: Math.floor(new Date(q.date).getTime() / 1000),
+      open: q.open, high: q.high, low: q.low, close: q.close, volume: q.volume || 0
+    })).slice(-len);
+  } catch { return generateFallbackHistory(ticker, len); }
+}
+
+function generateFallbackHistory(ticker: string, len: number, interval: ChartInterval = '1d'): OHLCV[] {
+  let price = ticker.includes("BTC") ? 98000 : 150;
+  const history: OHLCV[] = [];
+  const now = Math.floor(Date.now() / 1000);
+  
+  // Map interval to seconds between candles
+  const intervalSeconds: Record<ChartInterval, number> = {
+    '1m': 60,
+    '5m': 300,
+    '15m': 900,
+    '1h': 3600,
+    '1d': 86400,
+  };
+  const step = intervalSeconds[interval];
+  
+  // Reduce volatility for shorter intervals
+  const vol = interval === '1d' ? VOLATILITY : VOLATILITY * 0.3;
+  
+  for (let i = 0; i < len; i++) {
+    const change = price * (DRIFT + vol * (Math.random() - 0.5) * 2);
+    const c = price + change;
+    history.push({ 
+      time: now - (len - 1 - i) * step, 
+      open: price, 
+      high: Math.max(price, c) * 1.005, 
+      low: Math.min(price, c) * 0.995, 
+      close: c, 
+      volume: Math.random() * 1e6 
+    });
+    price = c;
   }
+  return history;
+}
 
-  // Fallback if no news found or error
-  if (headlines.length === 0) {
-     headlines = ["Market conditions neutral", "Trading volume steady"];
-  }
+async function fetchHeadlines(ticker: string): Promise<string[]> {
+  try {
+    const sym = ticker.split('-')[0];
+    const res = await yahooFinance.search(sym, { newsCount: 5 }, { validateResult: false }) as unknown as YahooSearchResult;
+    return res.news?.length ? res.news.map(n => n.title) : ["Market stable", "Volume steady"];
+  } catch { return ["Market stable", "Volume steady"]; }
+}
 
-  const sentScore = SentimentAnalyzer.analyze(headlines);
-  const sentiment = SentimentAnalyzer.getLabel(sentScore);
+export async function fetchMarketData(ticker: string, len: number = 2500): Promise<MarketSignal> {
+  const cached = getFromCache<MarketSignal>(ticker);
+  if (cached) return cached;
 
-  const regimeData = RegimeDetector.detect(history.map(h => h.close));
+  await new Promise(r => setTimeout(r, Math.random() * REQUEST_QUEUE_DELAY));
+  
+  const history = await fetchHistory(ticker, len);
+  const currentPrice = history[history.length - 1].close;
+
+  const isCrypto = ticker.includes("-USD") || ticker === "BTC";
+  const kf = new KalmanFilter(isCrypto ? 500 : 2, isCrypto ? 100 : 0.5);
+  let smooth = 0, uncert = 0;
+  history.forEach(t => { const r = kf.filter(t.close); smooth = r.prediction; uncert = r.uncertainty; });
+
+  const [ai, news] = await Promise.all([
+    predictNextHorizon(history.map(t => [t.open, t.high, t.low, t.close, t.volume]), ticker),
+    fetchHeadlines(ticker)
+  ]);
+
+  const slope = (smooth - history[history.length - 5].close) / 5;
+  let trend: "BULLISH" | "BEARISH" | "NEUTRAL" = Math.abs(slope) < (isCrypto ? 50 : 0.5) ? "NEUTRAL" : (slope > 0 ? "BULLISH" : "BEARISH");
+  
+  const aiRet = (ai.p50 - currentPrice) / currentPrice;
+  if (Math.abs(aiRet) > 0.015) trend = aiRet > 0 ? "BULLISH" : "BEARISH";
 
   const signal: MarketSignal = {
-    ticker,
-    price: parseFloat(currentPrice.toFixed(2)),
-    smoothPrice: parseFloat(lastSmoothPrice.toFixed(2)),
-    uncertainty: parseFloat(lastUncertainty.toFixed(2)),
-    snr: parseFloat(snr.toFixed(4)),
-    aiPrediction: parseFloat(aiResult.p50.toFixed(2)),
-    trend,
-    regime: regimeData.regime,
-    sentiment,
+    ticker, price: Number(currentPrice.toFixed(2)), smoothPrice: Number(smooth.toFixed(2)),
+    uncertainty: Number(uncert.toFixed(2)), snr: Number(kf.getSNR().toFixed(4)),
+    aiPrediction: Number(ai.p50.toFixed(2)), trend,
+    regime: RegimeDetector.detect(history.map(h => h.close)).regime,
+    sentiment: SentimentAnalyzer.getLabel(SentimentAnalyzer.analyze(news)),
     history
   };
 
-  // 5. WRITE TO CACHE
   setInCache(ticker, signal, CACHE_TTL.MARKET_DATA);
-
   return signal;
 }

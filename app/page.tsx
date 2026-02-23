@@ -1,7 +1,13 @@
+import { Metadata } from "next";
 import { WatchlistGrid, WatchlistItem } from "@/components/BentoGrid";
 import { getMarketSignals, removeAsset } from "@/app/actions";
 import { AssetCommand } from "@/components/AssetCommand";
 import { LiveTime } from "@/components/LiveTime";
+
+export const metadata: Metadata = {
+  title: "Surgical Market Intelligence | Dashboard",
+  description: "Real-time vector tracking and AI-driven market intelligence dashboard. Monitor high-velocity assets with surgical precision.",
+};
 
 export const revalidate = 60;
 
@@ -10,161 +16,119 @@ export default async function Home() {
 
   return (
     <>
-      {/* HEADER: COMMAND CENTER (High Density) */}
       <header className="glass-panel z-[100] flex items-center px-8 relative overflow-hidden">
-          {/* MINI TICKER TAPE (Apple Style) */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-matrix/10">
-              <div className="h-full bg-matrix w-1/4 animate-[shimmer-sweep_4s_linear_infinite]"></div>
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-matrix/10 overflow-hidden">
+          <div className="h-full bg-matrix w-1/3 animate-shimmer" />
+        </div>
+        <div className="w-full flex items-center justify-between">
+          <div className="flex items-center gap-10">
+            <div className="flex items-center gap-3" aria-hidden="true">
+              <div className="w-8 h-8 glass-card rounded-lg flex items-center justify-center glow-matrix">
+                <div className="w-3 h-3 bg-matrix rounded-sm rotate-45" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold tracking-tight text-sm">Vector</span>
+                <span className="text-[10px] text-zinc-500 tracking-wide">Dashboard</span>
+              </div>
+            </div>
+            <div className="hidden xl:flex items-center gap-5 border-l border-white/10 pl-10">
+              <IndexItem symb="SPY" val="+0.07%" up />
+              <IndexItem symb="QQQ" val="-0.12%" />
+              <IndexItem symb="BTC" val="+1.42%" up />
+            </div>
           </div>
-
-          <div className="w-full flex items-center justify-between">
-              
-              {/* BRAND: SURGICAL IDENTITY */}
-              <div className="flex items-center gap-12">
-                  <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 glass-card rounded flex items-center justify-center glow-matrix">
-                          <div className="w-3 h-3 bg-matrix rounded-sm rotate-45"></div>
-                      </div>
-                      <div className="flex flex-col -space-y-1">
-                          <span className="font-bold tracking-tighter text-sm uppercase">Vector</span>
-                          <span className="text-[7px] text-terminal font-mono tracking-[0.4em] uppercase opacity-50">Surgical_OS</span>
-                      </div>
-                  </div>
-
-                  {/* MARKET INDICES (Silent Telemetry) */}
-                  <div className="hidden xl:flex items-center gap-6 border-l border-white/10 pl-12">
-                      <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-mono text-terminal uppercase">SPY</span>
-                          <span className="text-[10px] font-mono font-bold text-emerald-500">+0.07%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-mono text-terminal uppercase">QQQ</span>
-                          <span className="text-[10px] font-mono font-bold text-rose-500">-0.12%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-mono text-terminal uppercase">BTC</span>
-                          <span className="text-[10px] font-mono font-bold text-emerald-500">+1.42%</span>
-                      </div>
-                  </div>
-              </div>
-
-              {/* SEARCH: INTEGRATED COMMAND */}
-              <div className="flex-1 max-w-sm px-12">
-                  <AssetCommand />
-              </div>
-
-              {/* STATUS: SYSTEM METADATA */}
-              <div className="flex items-center gap-8">
-                  <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
-                          <span className="text-telemetry text-emerald-500">Node_Stable</span>
-                      </div>
-                      <span className="text-[7px] font-mono text-terminal uppercase tracking-widest mt-0.5">Latency: 0.02ms</span>
-                  </div>
-                  <button className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
-                      <div className="w-1 h-3 bg-terminal rounded-full"></div>
-                  </button>
-              </div>
+          <div className="flex-1 max-w-sm px-12">
+            <AssetCommand />
           </div>
+          <div className="flex items-center gap-6" aria-label="System status">
+            <div className="flex flex-col items-end">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-bull shadow-bull" aria-hidden="true" />
+                <span className="text-[10px] font-medium text-emerald-500">Online</span>
+              </div>
+              <span className="text-[10px] text-zinc-600 mt-0.5">Latency 0.02ms</span>
+            </div>
+          </div>
+        </div>
       </header>
 
-      {/* MAIN: TACTICAL MATRIX AREA */}
-      <main className="overflow-y-auto scrollbar-hide px-8 py-8">
-          <div className="max-w-[1400px] mx-auto">
-              
-              {/* HERO: MISSION BRIEFING (Compressed) */}
-              <div className="mb-12 flex items-end justify-between border-b border-terminal/10 pb-8">
-                  <div className="relative">
-                      <div className="flex items-center gap-2 mb-4">
-                          <div className="h-[1px] w-6 bg-matrix"></div>
-                          <span className="text-telemetry text-matrix">Vector_Matrix_Status</span>
-                      </div>
-                      <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-none">
-                        Tactical <br/> 
-                        <span className="text-terminal">Intelligence.</span>
-                      </h1>
-                  </div>
-                  <div className="flex flex-col items-end max-w-xs text-right opacity-60">
-                      <p className="text-[10px] font-medium leading-relaxed uppercase tracking-wider text-zinc-400">
-                        {signals.length} High-Velocity Vectors <br/>
-                        Synchronized: <span className="text-white font-mono"><LiveTime /></span>
-                      </p>
-                  </div>
+      <main className="overflow-y-auto scrollbar-hide px-8 py-6">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="mb-10 flex items-end justify-between border-b border-white/5 pb-8">
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-[1px] w-6 bg-matrix" />
+                <span className="text-[10px] font-medium text-matrix tracking-wide">Market Overview</span>
               </div>
-
-              {/* MATRIX: THE GRID */}
-              <WatchlistGrid>
-                  {signals.map((signal, i) => {
-                      let change = 0;
-                      if (signal.history.length >= 2) {
-                          const prev = signal.history[signal.history.length - 2].close;
-                          const curr = signal.price;
-                          change = ((curr - prev) / prev) * 100;
-                      }
-
-                      return (
-                      <WatchlistItem
-                          key={i}
-                          ticker={signal.ticker}
-                          name={signal.ticker} 
-                          price={signal.price}
-                          change={change} 
-                          history={signal.history.map(h => h.close)}
-                          aiSignal={signal.aiPrediction}
-                          onRemove={async () => {
-                              "use server";
-                              await removeAsset(signal.ticker);
-                          }}
-                      />
-                      );
-                  })}
-              </WatchlistGrid>
+              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.1]">
+                Watchlist
+              </h1>
+            </div>
+            <div className="flex flex-col items-end">
+              <p className="text-[11px] text-zinc-500 text-right leading-relaxed">
+                {signals.length} assets tracked<br/>
+                Updated <span className="text-zinc-300 font-mono text-[10px]"><LiveTime /></span>
+              </p>
+            </div>
           </div>
+
+          <WatchlistGrid>
+            {signals.map((s, i) => {
+              const change = s.history.length >= 2 ? ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100 : 0;
+              return (
+                <WatchlistItem 
+                  key={i} ticker={s.ticker} name={s.ticker} price={s.price} change={change} 
+                  history={s.history.map(h => h.close)} aiSignal={s.aiPrediction}
+                  onRemove={async () => { "use server"; await removeAsset(s.ticker); }}
+                />
+              );
+            })}
+          </WatchlistGrid>
+        </div>
       </main>
 
-      {/* FOOTER: MINIMAL TELEMETRY */}
       <footer className="glass-panel z-[100] px-8 flex items-center">
-           <div className="w-full flex items-center justify-between">
-                
-                {/* SYSTEM METRICS */}
-                <div className="flex gap-10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-telemetry">Kernel</span>
-                      <span className="text-terminal font-mono text-[9px]">T_V1.0c</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-telemetry">Auth</span>
-                      <span className="text-emerald-500 font-mono text-[9px]">Verified</span>
-                    </div>
-                </div>
-
-                {/* CENTRAL SYNC (Minimalist) */}
-                <div className="flex items-center gap-4">
-                    <div className="h-[1px] w-12 bg-white/5"></div>
-                    <div className="flex items-center gap-3 px-4 py-1.5 border border-white/5 bg-white/[0.01] rounded-full">
-                        <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse glow-matrix"></div>
-                        <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-[0.2em] font-bold">Neural_Link</span>
-                    </div>
-                    <div className="h-[1px] w-12 bg-white/5"></div>
-                </div>
-
-                {/* LEGEND / STATUS */}
-                <div className="flex items-center gap-8">
-                    <div className="flex items-center gap-2">
-                        <span className="text-telemetry">Integrity</span>
-                        <div className="flex gap-0.5">
-                            {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="w-1 h-3 bg-emerald-500/30 rounded-full">
-                                    {i < 4 && <div className="w-full h-full bg-emerald-500 rounded-full"></div>}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <span className="text-telemetry opacity-40">Matrix_01</span>
-                </div>
-           </div>
-     </footer>
+        <div className="w-full flex items-center justify-between">
+          <div className="flex gap-8">
+            <Stat label="Version" value="1.0" color="text-zinc-500" />
+            <Stat label="Auth" value="Verified" color="text-emerald-500" />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="h-[1px] w-8 bg-white/5" />
+            <div className="flex items-center gap-2.5 px-3.5 py-1 border border-white/5 bg-white/[0.01] rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse glow-matrix" />
+              <span className="text-[10px] text-zinc-500 font-medium tracking-wide">Connected</span>
+            </div>
+            <div className="h-[1px] w-8 bg-white/5" />
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-zinc-600">Integrity</span>
+              <div className="flex gap-0.5" aria-label="Integrity bars: 4 of 4">
+                {[...Array(4)].map((_, i) => <div key={i} className="w-1 h-3 bg-bull rounded-full" />)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
     </>
+  );
+}
+
+function IndexItem({ symb, val, up }: { symb: string, val: string, up?: boolean }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-medium text-zinc-500">{symb}</span>
+      <span className={`text-[11px] font-mono font-semibold tabular-nums ${up ? 'text-bull' : 'text-bear'}`}>{val}</span>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }: { label: string, value: string, color: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-zinc-600">{label}</span>
+      <span className={`${color} font-mono text-[10px]`}>{value}</span>
+    </div>
   );
 }
