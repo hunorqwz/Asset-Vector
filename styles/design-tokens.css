@@ -16,8 +16,11 @@
 
     /* Brand Colors - Tactical Palette */
     --bull: 142 76% 45%;
+    /* Matrix/Bullish Green */
     --bear: 346 84% 61%;
-    --matrix: 250 89% 65%;
+    /* Warning Red */
+    --matrix: 120 100% 50%;
+    /* Raw Terminal Neon Green */
     --terminal-gray: 240 5% 45%;
 
     /* Glass tokens */

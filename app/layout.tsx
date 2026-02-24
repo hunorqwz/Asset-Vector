@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import { Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono, VT323 } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -11,6 +10,12 @@ const inter = Inter({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const pixelFont = VT323({
+  variable: "--font-pixel",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -66,7 +71,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${geistMono.variable} antialiased select-none`}
+        className={`${inter.variable} ${geistMono.variable} ${pixelFont.variable} antialiased select-none`}
       >
         <div className="animate-scanline" />
         <div className="vignette" />

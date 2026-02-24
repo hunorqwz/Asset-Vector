@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import YahooFinance from 'yahoo-finance2';
 import { revalidatePath } from "next/cache";
 import { predictNextHorizon } from "@/lib/inference";
+import { fetchStockDetails, StockDetails } from "@/lib/stock-details";
 
 const yahooFinance = new YahooFinance();
 
@@ -13,7 +14,7 @@ export async function getMarketSignals(): Promise<MarketSignal[]> {
   let tickers: string[] = [];
   try {
     const dbAssets = await db.query.assets.findMany({ where: eq(assets.isActive, true), limit: 12 });
-    tickers = dbAssets.map(a => a.ticker);
+    tickers = dbAssets.map((a: { ticker: string }) => a.ticker);
   } catch {}
 
   if (tickers.length === 0) tickers = ["BTC-USD", "NVDA", "SPY", "VIX"];
@@ -69,10 +70,17 @@ export async function removeAsset(ticker: string) {
 
 export async function getAssetDetails(ticker: string) {
   const sym = decodeURIComponent(ticker);
-  const signal = await fetchMarketData(sym, 2500);
+  
+  // Fetch chart/prediction data AND comprehensive stock details in parallel
+  const [signal, stockDetails] = await Promise.all([
+    fetchMarketData(sym, 2500),
+    fetchStockDetails(sym),
+  ]);
+  
   const sequence = signal.history.slice(-50).map(h => [h.open, h.high, h.low, h.close, h.volume]);
   const pred = await predictNextHorizon(sequence, sym);
-  return { ...signal, prediction: pred };
+  
+  return { ...signal, prediction: pred, stockDetails };
 }
 
 /**
