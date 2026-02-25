@@ -57,14 +57,14 @@ export function AssetCommand() {
   // The modal overlay — rendered via portal to escape header's overflow:hidden
   const commandPalette = open ? (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xl flex items-start justify-center pt-[15vh] p-4" 
+      className="fixed inset-0 z-[9999] bg-black/80 flex items-start justify-center pt-[15vh] p-4" 
       onClick={() => setOpen(false)}
     >
       <div 
-        className="w-full max-w-lg bg-zinc-950/95 border border-white/10 shadow-[0_0_80px_-12px_rgba(0,0,0,0.8)] rounded-2xl overflow-hidden"
+        className="w-full max-w-lg bg-[#0a0a0a] border border-white/20 shadow-none overflow-hidden"
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
-        <Command className="w-full" label="Asset search command palette">
+        <Command className="w-full" label="Asset search command palette" shouldFilter={false}>
           <div className="flex items-center border-b border-white/5 px-4 h-12">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-500 mr-3 shrink-0" aria-hidden="true">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
@@ -77,41 +77,41 @@ export function AssetCommand() {
               className="flex-1 bg-transparent text-sm text-white focus:outline-none font-medium h-full placeholder:text-zinc-600" 
               autoFocus
             />
-            {loading && <div className="w-3 h-3 border-2 border-white/10 border-t-matrix rounded-full animate-spin ml-2" aria-label="Loading" />}
+            {loading && <div className="w-3 h-3 border-2 border-white/10 border-t-white rounded-full animate-spin ml-2" aria-label="Loading" />}
             <button 
               onClick={() => setOpen(false)}
-              className="ml-3 px-1.5 py-0.5 text-[9px] font-mono text-zinc-600 bg-white/5 rounded border border-white/8 hover:text-zinc-400 transition-colors"
+              className="ml-4 px-2 py-1 text-[11px] font-bold font-mono text-zinc-500 bg-transparent border border-white/20 hover:text-white hover:bg-white/10 transition-all shadow-none"
             >
               ESC
             </button>
           </div>
           <Command.List className="max-h-[350px] overflow-y-auto p-1.5 scrollbar-hide">
-            <Command.Empty className="py-12 text-center">
-              <div className="text-[11px] font-medium text-zinc-500 mb-1">
-                {query.startsWith('/') ? 'Unknown command' : 'No results found'}
+            <Command.Empty className="py-20 text-center">
+              <div className="text-[13px] font-bold text-zinc-400 mb-2 uppercase tracking-widest">
+                {query.startsWith('/') ? 'Protocol Command Unknown' : 'No Assets Found'}
               </div>
-              <div className="text-[10px] text-zinc-700">
-                {query.startsWith('/') ? 'Try /remove [TICKER]' : 'Try searching for a ticker symbol like AAPL or NVDA'}
+              <div className="text-[11px] text-zinc-600 font-medium max-w-[240px] mx-auto leading-relaxed">
+                {query.startsWith('/') ? 'Use /remove [TICKER] to purge assets from secure watchlist.' : 'Input a valid ticker symbol (e.g. NVDA, BTC) to initialize tracking.'}
               </div>
             </Command.Empty>
             {query.startsWith("/") && (
               <div className="p-2">
-                <span className="text-[10px] font-semibold text-matrix px-2 py-1 mb-2 block tracking-wide">Commands</span>
-                <Command.Item onSelect={() => setQuery("/remove ")} className="flex cursor-pointer select-none items-center rounded-xl px-4 py-2.5 outline-none data-[selected=true]:bg-white/5 transition-all text-[11px] font-mono text-zinc-300">
-                  <span className="text-matrix mr-3">/remove</span> <span className="opacity-40">[TICKER] — Remove asset</span>
+                <span className="text-[11px] font-bold text-white px-4 py-2 mt-2 block tracking-[0.2em] uppercase">System Commands</span>
+                <Command.Item onSelect={() => setQuery("/remove ")} className="flex cursor-pointer select-none items-center px-5 py-4 outline-none data-[selected=true]:bg-white/10 transition-all text-[12px] font-mono font-bold text-zinc-300 border border-transparent data-[selected=true]:border-white/20">
+                  <span className="text-white mr-4 bg-white/10 px-2 py-0.5 border border-white/20">/remove</span> <span className="text-zinc-500">[TICKER]</span> <span className="ml-auto text-zinc-600 text-[10px] font-sans font-bold uppercase tracking-widest">Purge Protocol</span>
                 </Command.Item>
               </div>
             )}
             {results.map(item => (
-              <Command.Item key={item.ticker} value={item.ticker} onSelect={() => onSelect(item.ticker, item.name)} className="flex cursor-pointer select-none items-center rounded-xl px-4 py-2.5 outline-none data-[selected=true]:bg-white/5 group transition-all">
+              <Command.Item key={item.ticker} value={item.ticker} onSelect={() => onSelect(item.ticker, item.name)} className="flex cursor-pointer select-none items-center px-5 py-4 outline-none data-[selected=true]:bg-white/10 group transition-all border border-transparent data-[selected=true]:border-white/20 mb-1">
                 <div className="flex flex-col flex-1">
-                  <span className="font-bold text-xs tracking-tight text-zinc-200 group-data-[selected=true]:text-white transition-colors">{item.ticker}</span>
-                  <span className="text-[9px] font-medium text-zinc-500 truncate tracking-wide">{item.name}</span>
+                  <span className="font-bold text-[14px] tracking-tight text-zinc-100 group-data-[selected=true]:text-white transition-colors">{item.ticker}</span>
+                  <span className="text-[11px] font-bold text-zinc-500 truncate tracking-wide uppercase mt-0.5">{item.name}</span>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-[8px] font-mono text-zinc-600 bg-white/5 px-2 py-0.5 rounded border border-white/5 group-data-[selected=true]:border-matrix/20 group-data-[selected=true]:text-zinc-400">{item.exch}</span>
-                  <div className="w-6 h-6 rounded flex items-center justify-center bg-transparent group-data-[selected=true]:bg-matrix/10 transition-colors">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" className="text-transparent group-data-[selected=true]:text-matrix">
+                <div className="flex items-center gap-6">
+                  <span className="text-[11px] font-bold font-mono text-zinc-600 bg-transparent px-3 py-1 border border-white/20 group-data-[selected=true]:border-white/40 group-data-[selected=true]:text-white transition-all">{item.exch}</span>
+                  <div className="w-8 h-8 flex items-center justify-center bg-transparent transition-all border border-transparent group-data-[selected=true]:border-white/20 group-data-[selected=true]:bg-white/10">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" className="text-transparent group-data-[selected=true]:text-white">
                       <path d="M5 12l5 5L20 7" />
                     </svg>
                   </div>
@@ -133,17 +133,17 @@ export function AssetCommand() {
       <button 
         onClick={() => setOpen(true)} 
         aria-label="Open command palette"
-        className="w-full flex items-center justify-between h-9 px-4 glass-card rounded-xl hover:border-white/10 group active:scale-[0.98] transition-all"
+        className="w-full flex items-center justify-between h-10 px-5 glass-card hover:border-white/30 group active:scale-[0.98] transition-all bg-[#0a0a0a]"
       >
-        <div className="flex items-center gap-3">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-terminal" aria-hidden="true">
+        <div className="flex items-center gap-4">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-zinc-500 group-hover:text-white transition-colors" aria-hidden="true">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
           </svg>
-          <span className="text-[10px] text-zinc-500 group-hover:text-zinc-400 transition-colors">Search assets...</span>
+          <span className="text-[12px] font-bold text-zinc-500 group-hover:text-white transition-colors uppercase tracking-[0.15em]">Surgical Search...</span>
         </div>
-        <div className="flex items-center gap-1.5 opacity-40 group-hover:opacity-80 transition-opacity" aria-hidden="true">
-          <span className="text-[10px] font-mono text-zinc-600">⌘</span>
-          <span className="text-[10px] font-mono text-zinc-600">K</span>
+        <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 transition-all font-bold" aria-hidden="true">
+          <div className="px-2 py-0.5 border border-white/20 text-[11px] font-mono text-zinc-400 group-hover:text-white group-hover:border-white/40 transition-all">⌘</div>
+          <div className="px-2 py-0.5 border border-white/20 text-[11px] font-mono text-zinc-400 group-hover:text-white group-hover:border-white/40 transition-all">K</div>
         </div>
       </button>
 

@@ -14,13 +14,15 @@
     --border: 240 5% 12%;
     --border-light: 255 255 255 / 0.08;
 
-    /* Brand Colors - Tactical Palette */
-    --bull: 142 76% 45%;
-    /* Matrix/Bullish Green */
-    --bear: 346 84% 61%;
-    /* Warning Red */
-    --matrix: 120 100% 50%;
-    /* Raw Terminal Neon Green */
+    /* Brand Colors - Developer Terminal Palette */
+    --bull: 156 72% 48%;
+    /* IDE Pass Green */
+    --warning: 45 93% 47%;
+    /* IDE Warning Yellow */
+    --bear: 0 85% 62%;
+    /* IDE Error Red */
+    --matrix: 204 100% 40%;
+    /* IDE Primary Blue */
     --terminal-gray: 240 5% 45%;
 
     /* Glass tokens */

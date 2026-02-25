@@ -6,38 +6,26 @@ import { eq } from "drizzle-orm";
 import YahooFinance from 'yahoo-finance2';
 import { revalidatePath } from "next/cache";
 import { predictNextHorizon } from "@/lib/inference";
-import { fetchStockDetails, StockDetails } from "@/lib/stock-details";
+import { fetchStockDetails } from "@/lib/stock-details";
 
 const yahooFinance = new YahooFinance();
 
 export async function getMarketSignals(): Promise<MarketSignal[]> {
-  let tickers: string[] = [];
+  let tickers: string[] = ["BTC-USD", "NVDA", "SPY", "VIX"];
   try {
     const dbAssets = await db.query.assets.findMany({ where: eq(assets.isActive, true), limit: 12 });
-    tickers = dbAssets.map((a: { ticker: string }) => a.ticker);
+    if (dbAssets.length) tickers = dbAssets.map((a: any) => a.ticker);
   } catch {}
 
-  if (tickers.length === 0) tickers = ["BTC-USD", "NVDA", "SPY", "VIX"];
-
-  const results: MarketSignal[] = [];
-  const batches = [];
-  for (let i = 0; i < tickers.length; i += 4) batches.push(tickers.slice(i, i + 4));
-
-  for (const batch of batches) {
-    const batchData = await Promise.all(batch.map(t => fetchMarketData(t, 100)));
-    results.push(...batchData);
-  }
-  
-  return results;
+  const results = await Promise.all(tickers.map(t => fetchMarketData(t, 100).catch(() => null)));
+  return results.filter((r): r is MarketSignal => r !== null);
 }
-
-interface YahooSearchQuote { symbol: string; shortname?: string; longname?: string; exchange: string; quoteType: string; isYahooFinance: boolean }
 
 export async function searchAssets(query: string) {
   if (!query || query.length < 2) return [];
   try {
-    const res = await yahooFinance.search(query) as { quotes: YahooSearchQuote[] };
-    return res.quotes.filter(q => q.isYahooFinance).map(q => ({
+    const res = await yahooFinance.search(query) as any;
+    return res.quotes.filter((q: any) => q.isYahooFinance).map((q: any) => ({
       ticker: q.symbol, name: q.shortname || q.longname || q.symbol, exch: q.exchange, type: q.quoteType
     })).slice(0, 5);
   } catch { return []; }
@@ -46,7 +34,7 @@ export async function searchAssets(query: string) {
 export async function addAsset(ticker: string, name: string) {
   try {
     const current = await db.query.assets.findMany({ where: eq(assets.isActive, true), columns: { ticker: true } });
-    if (current.length >= 12) return { success: false, error: "Limit reached (12 assets)" };
+    if (current.length >= 12) return { success: false, error: "LIMIT_REACHED" };
 
     await db.insert(assets).values({ ticker, name: name.substring(0, 50), isActive: true, sector: "Unknown" })
       .onConflictDoUpdate({ target: assets.ticker, set: { isActive: true } });
@@ -54,7 +42,7 @@ export async function addAsset(ticker: string, name: string) {
     revalidatePath("/");
     return { success: true };
   } catch {
-    return { success: false, error: "Database error" };
+    return { success: false, error: "DB_ERROR" };
   }
 }
 
@@ -70,29 +58,18 @@ export async function removeAsset(ticker: string) {
 
 export async function getAssetDetails(ticker: string) {
   const sym = decodeURIComponent(ticker);
-  
-  // Fetch chart/prediction data AND comprehensive stock details in parallel
   const [signal, stockDetails] = await Promise.all([
     fetchMarketData(sym, 2500),
     fetchStockDetails(sym),
   ]);
   
   const sequence = signal.history.slice(-50).map(h => [h.open, h.high, h.low, h.close, h.volume]);
-  const pred = await predictNextHorizon(sequence, sym);
+  const prediction = await predictNextHorizon(sequence, sym);
   
-  return { ...signal, prediction: pred, stockDetails };
+  return { ...signal, prediction, stockDetails };
 }
 
-/**
- * Fetch chart data for a specific time range.
- * Maps the range to the industry-standard interval automatically.
- * Called by the chart client component when the user changes time range.
- */
 export async function fetchChartData(ticker: string, range: string): Promise<OHLCV[]> {
-  const config = RANGE_INTERVAL_MAP[range];
-  if (!config) {
-    // Fallback to all available daily data
-    return fetchHistoryWithInterval(ticker, '1d', 0);
-  }
+  const config = RANGE_INTERVAL_MAP[range] || { interval: '1d', lookbackSeconds: 0 };
   return fetchHistoryWithInterval(ticker, config.interval, config.lookbackSeconds);
 }

@@ -16,22 +16,19 @@ export default async function Home() {
 
   return (
     <>
-      <header className="glass-panel z-[100] flex items-center px-8 relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-matrix/10 overflow-hidden">
-          <div className="h-full bg-matrix w-1/3 animate-shimmer" />
-        </div>
-        <div className="w-full flex items-center justify-between">
-          <div className="flex items-center gap-10">
-            <div className="flex items-center gap-3" aria-hidden="true">
-              <div className="w-8 h-8 glass-card rounded-lg flex items-center justify-center glow-matrix">
-                <div className="w-3 h-3 bg-matrix rounded-sm rotate-45" />
+      <header className="glass-panel z-[100] flex items-center px-8 sticky top-0 border-b border-white/5 bg-black/80 backdrop-blur-xl">
+        <div className="w-full flex items-center justify-between py-4">
+          <div className="flex items-center gap-12">
+            <div className="flex items-center gap-3.5" aria-hidden="true">
+              <div className="w-9 h-9 glass-card rounded-xl flex items-center justify-center glow-matrix bg-matrix/5 border-matrix/20">
+                <div className="w-2.5 h-2.5 bg-matrix rounded-sm rotate-45 shadow-[0_0_12px_hsla(var(--matrix)/0.6)]" />
               </div>
               <div className="flex flex-col">
-                <span className="font-semibold tracking-tight text-sm">Vector</span>
-                <span className="text-[10px] text-zinc-500 tracking-wide">Dashboard</span>
+                <span className="font-bold tracking-tightest text-[16px] text-white uppercase leading-none mb-1">Vector</span>
+                <span className="text-[12px] font-bold text-zinc-500 tracking-[0.2em] uppercase leading-none">Intelligence</span>
               </div>
             </div>
-            <div className="hidden xl:flex items-center gap-5 border-l border-white/10 pl-10">
+            <div className="hidden xl:flex items-center gap-8 border-l border-white/10 pl-12">
               <IndexItem symb="SPY" val="+0.07%" up />
               <IndexItem symb="QQQ" val="-0.12%" />
               <IndexItem symb="BTC" val="+1.42%" up />
@@ -40,34 +37,34 @@ export default async function Home() {
           <div className="flex-1 max-w-sm px-12">
             <AssetCommand />
           </div>
-          <div className="flex items-center gap-6" aria-label="System status">
+          <div className="flex items-center gap-8" aria-label="System status">
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-bull shadow-bull" aria-hidden="true" />
-                <span className="text-[10px] font-medium text-emerald-500">Online</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-bull animate-pulse shadow-bull" aria-hidden="true" />
+                <span className="text-[12px] font-bold text-bull uppercase tracking-[0.15em]">Live Vector</span>
               </div>
-              <span className="text-[10px] text-zinc-600 mt-0.5">Latency 0.02ms</span>
+              <span className="text-[11px] font-mono font-bold text-zinc-500 mt-1 uppercase tracking-widest">Latency: 0.02ms</span>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="overflow-y-auto scrollbar-hide px-8 py-6">
+      <main className="overflow-y-auto scrollbar-hide px-8 py-10">
         <div className="max-w-[1400px] mx-auto">
-          <div className="mb-10 flex items-end justify-between border-b border-white/5 pb-8">
+          <div className="mb-12 flex items-end justify-between border-b border-white/5 pb-10">
             <div className="relative">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-[1px] w-6 bg-matrix" />
-                <span className="text-[10px] font-medium text-matrix tracking-wide">Market Overview</span>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-[2px] w-8 bg-matrix" />
+                <span className="text-[11px] font-bold text-matrix tracking-[0.2em] uppercase">Market Overview</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.1]">
+              <h1 className="text-5xl sm:text-6xl font-bold tracking-tightest leading-[1]">
                 Watchlist
               </h1>
             </div>
-            <div className="flex flex-col items-end">
-              <p className="text-[11px] text-zinc-500 text-right leading-relaxed">
-                {signals.length} assets tracked<br/>
-                Updated <span className="text-zinc-300 font-mono text-[10px]"><LiveTime /></span>
+            <div className="flex flex-col items-end gap-3">
+              <p className="text-[12px] font-bold text-zinc-500 text-right tracking-[0.15em] uppercase leading-relaxed">
+                <span className="text-zinc-300">{signals.length} ACTIVE ASSETS</span> TRACKED<br/>
+                SYNCED <span className="text-matrix font-mono font-bold tracking-normal"><LiveTime /></span>
               </p>
             </div>
           </div>
@@ -87,25 +84,25 @@ export default async function Home() {
         </div>
       </main>
 
-      <footer className="glass-panel z-[100] px-8 flex items-center">
+      <footer className="glass-panel z-[100] px-8 py-4 border-t border-white/5 bg-black/60 backdrop-blur-md">
         <div className="w-full flex items-center justify-between">
-          <div className="flex gap-8">
-            <Stat label="Version" value="1.0" color="text-zinc-500" />
-            <Stat label="Auth" value="Verified" color="text-emerald-500" />
+          <div className="flex gap-12">
+            <Stat label="Protocol" value="Vector 1.0" color="text-zinc-500" />
+            <Stat label="Identity" value="Auth: Verified" color="text-bull" />
           </div>
           <div className="flex items-center gap-4">
-            <div className="h-[1px] w-8 bg-white/5" />
-            <div className="flex items-center gap-2.5 px-3.5 py-1 border border-white/5 bg-white/[0.01] rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse glow-matrix" />
-              <span className="text-[10px] text-zinc-500 font-medium tracking-wide">Connected</span>
+            <div className="h-[1px] w-12 bg-white/5" />
+            <div className="flex items-center gap-3 px-5 py-1.5 bg-matrix/5 border border-matrix/20 rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" />
+              <span className="text-[11px] text-matrix font-bold tracking-widest uppercase">Connected</span>
             </div>
-            <div className="h-[1px] w-8 bg-white/5" />
+            <div className="h-[1px] w-12 bg-white/5" />
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-zinc-600">Integrity</span>
-              <div className="flex gap-0.5" aria-label="Integrity bars: 4 of 4">
-                {[...Array(4)].map((_, i) => <div key={i} className="w-1 h-3 bg-bull rounded-full" />)}
+          <div className="flex items-center gap-10">
+            <div className="flex items-center gap-4">
+              <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest">Protocol Integrity</span>
+              <div className="flex gap-2" aria-label="Integrity bars: 4 of 4">
+                {[...Array(4)].map((_, i) => <div key={i} className="w-2 h-5 bg-bull/60 rounded-full shadow-[0_0_10px_hsla(var(--bull)/0.4)]" />)}
               </div>
             </div>
           </div>
@@ -117,18 +114,18 @@ export default async function Home() {
 
 function IndexItem({ symb, val, up }: { symb: string, val: string, up?: boolean }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] font-medium text-zinc-500">{symb}</span>
-      <span className={`text-[11px] font-mono font-semibold tabular-nums ${up ? 'text-bull' : 'text-bear'}`}>{val}</span>
+    <div className="flex items-center gap-4">
+      <span className="text-[12px] font-bold text-zinc-500 tracking-widest uppercase">{symb}</span>
+      <span className={`text-[13px] font-mono font-bold tabular-nums tracking-tighter ${up ? 'text-bull drop-shadow-[0_0_8px_hsla(var(--bull)/0.2)]' : 'text-bear drop-shadow-[0_0_8px_hsla(var(--bear)/0.2)]'}`}>{val}</span>
     </div>
   );
 }
 
 function Stat({ label, value, color }: { label: string, value: string, color: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] text-zinc-600">{label}</span>
-      <span className={`${color} font-mono text-[10px]`}>{value}</span>
+    <div className="flex items-center gap-3">
+      <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-wider">{label}</span>
+      <span className={`${color} font-mono font-bold text-[12px]`}>{value}</span>
     </div>
   );
 }

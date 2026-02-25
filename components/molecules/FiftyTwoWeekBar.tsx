@@ -11,7 +11,7 @@ export function FiftyTwoWeekBar({ low, high, current }: { low: number; high: num
       <div className="relative h-2 bg-white/5 rounded-full overflow-visible">
         <div className="absolute h-full rounded-full bg-gradient-to-r from-bear/30 via-white/10 to-bull/30" style={{ width: '100%' }} />
         <div 
-          className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-matrix shadow-[0_0_12px_rgba(129,140,248,0.5)] transition-all"
+          className="absolute top-1/2 -translate-y-1/2 w-1.5 h-4 bg-white shadow-none transition-all"
           style={{ left: `${clampedPos}%`, marginLeft: '-7px' }}
         />
       </div>

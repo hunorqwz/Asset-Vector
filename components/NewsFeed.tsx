@@ -8,8 +8,8 @@ interface NewsFeedProps {
 export function NewsFeed({ articles }: NewsFeedProps) {
   if (!articles || articles.length === 0) {
     return (
-      <div className="p-8 text-center border border-dashed border-white/5 rounded-xl">
-        <span className="text-xs text-zinc-600">No recent market narrative found.</span>
+      <div className="p-12 text-center border-2 border-dashed border-white/20 bg-[#0a0a0a]">
+        <span className="text-[14px] font-bold text-zinc-500 tracking-widest uppercase">No verified market narrative found in current vector.</span>
       </div>
     );
   }
@@ -21,27 +21,26 @@ export function NewsFeed({ articles }: NewsFeedProps) {
           key={idx} 
           href={article.link} 
           target="_blank" 
-          rel="noopener noreferrer"
-          className="glass-panel p-4 group hover:border-matrix/30 transition-all block relative overflow-hidden"
+          className="bg-[#0a0a0a] border border-white/10 p-4 group hover:border-white/30 transition-all block relative overflow-hidden"
         >
           {/* Subtle accent */}
-          <div className="absolute top-0 left-0 w-1 h-full bg-zinc-800 group-hover:bg-matrix/50 transition-colors" />
+          <div className="absolute top-0 left-0 w-1 h-full bg-zinc-800 group-hover:bg-white/50 transition-colors" />
           
           <div className="flex flex-col h-full">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-[10px] text-matrix font-bold uppercase tracking-widest">{article.publisher}</span>
-              <span className="text-[10px] text-zinc-600 font-mono">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-[11px] text-zinc-300 font-bold uppercase tracking-[0.15em]">{article.publisher}</span>
+              <span className="text-[11px] text-zinc-500 font-mono font-bold">
                 {new Date(article.providerPublishTime * 1000).toLocaleDateString()}
               </span>
             </div>
             
-            <h4 className="text-[13px] font-semibold text-white group-hover:text-matrix transition-colors leading-snug mb-3">
+            <h4 className="text-[13px] font-semibold text-white group-hover:text-zinc-300 transition-colors leading-snug mb-3">
               {article.title}
             </h4>
             
-            <div className="mt-auto flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <span className="text-[9px] text-zinc-400 font-medium">Read Analysis</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="text-matrix">
+            <div className="mt-6 flex items-center gap-2 text-white/50 group-hover:text-white opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-4px] group-hover:translate-x-0">
+              <span className="text-[11px] font-bold uppercase tracking-widest">Read Full Analysis</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
             </div>

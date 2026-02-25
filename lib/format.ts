@@ -42,5 +42,6 @@ export function fmtRatio(n: number | null | undefined): string {
 
 export function fmtPct(n: number | null | undefined): string {
   if (n === null || n === undefined) return '—';
-  return `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
+  const val = n * 100;
+  return `${val > 0 ? '+' : ''}${val.toFixed(2)}%`;
 }

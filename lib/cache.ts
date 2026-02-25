@@ -4,6 +4,7 @@ const cache = new Map<string, CacheEntry<unknown>>();
 export const CACHE_TTL = {
   MARKET_DATA: 60 * 1000,
   PREDICTION: 60 * 60 * 1000,
+  STOCK_DETAILS: 60 * 60 * 1000, // 1 Hour
 };
 
 export function getFromCache<T>(key: string): T | null {

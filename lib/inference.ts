@@ -33,6 +33,17 @@ export async function predictNextHorizon(inputSequence: number[][], ticker: stri
 }
 
 function generateFallback(seq: number[][]): PredictionResult {
-  const last = seq[seq.length - 1][3] || 100;
-  return { p10: last * 0.95, p50: last * 1.00, p90: last * 1.05, source: "Heuristic" };
+  if (seq.length < 10) return { p10: 0, p50: 0, p90: 0, source: "Incomplete Data" };
+  const last = seq[seq.length - 1][3];
+  
+  // Calculate 10-period drift (Linear projection)
+  const drift = (last - seq[seq.length - 10][3]) / 10;
+  const p50 = last + (drift * 5); // 5-period forecast
+  
+  return { 
+    p10: p50 * 0.97, 
+    p50: p50, 
+    p90: p50 * 1.03, 
+    source: "Structural Drift (Fallback)" 
+  };
 }

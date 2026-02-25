@@ -1,11 +1,18 @@
-import React from 'react';
+export function MetricCard({ label, value, subValue, trend }: { label: string; value: string; subValue?: string; trend?: "BULLISH" | "BEARISH" }) {
+  const isBull = trend === "BULLISH";
+  const isBear = trend === "BEARISH";
 
-export function MetricCard({ label, value, subValue }: { label: string; value: string; subValue?: string }) {
   return (
-    <div className="glass-card rounded-xl p-4 group">
-      <span className="text-[10px] text-zinc-500 tracking-wide block mb-1.5">{label}</span>
-      <span className="text-[13px] font-mono font-semibold text-white tabular-nums tracking-tight block">{value}</span>
-      {subValue && <span className="text-[10px] text-zinc-600 mt-1 block">{subValue}</span>}
+    <div className="p-4 flex flex-col justify-between h-full bg-[#0a0a0a] border border-white/10 -ml-px -mt-px first:ml-0 hover:bg-[#111111] transition-colors">
+      <div className="flex flex-col">
+        <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block mb-2">{label}</span>
+        <span className="text-[17px] font-mono font-bold text-white tabular-nums tracking-tight block leading-none">{value}</span>
+      </div>
+      {subValue && (
+        <span className={`text-[11px] font-mono font-bold mt-2 tabular-nums ${isBull ? 'text-bull' : isBear ? 'text-bear' : 'text-zinc-500'}`}>
+          {subValue}
+        </span>
+      )}
     </div>
   );
 }

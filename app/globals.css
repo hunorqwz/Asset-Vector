@@ -31,15 +31,15 @@
   --tracking-tightest: -0.05em;
   --tracking-widest: 0.15em;
 
-  /* Shadows & Glows */
-  --shadow-matrix: 0 0 20px hsla(var(--matrix) / 0.25);
-  --shadow-bull: 0 0 15px hsla(var(--bull) / 0.3);
-  --shadow-bear: 0 0 15px hsla(var(--bear) / 0.3);
+  /* Flat minimal variables, removing neon shadows / animations */
+  --shadow-matrix: none;
+  --shadow-bull: none;
+  --shadow-bear: none;
 
-  /* Animations */
-  --animate-scanline: scanline 12s linear infinite;
-  --animate-shimmer: shimmer-sweep 2.5s ease-in-out infinite;
-  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  /* Utility Animations - Keeping minimal load states if any */
+  --animate-scanline: none;
+  --animate-shimmer: none;
+  --animate-pulse-glow: none;
 
   @keyframes scanline {
     0% {
@@ -100,7 +100,7 @@
 
 @layer base {
   body {
-    background: radial-gradient(circle at 50% 50%, hsl(var(--background)), #000);
+    background: #000;
     color: hsl(var(--foreground));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -135,9 +135,9 @@
     z-index: 2;
   }
 
-  /* PREMIUM GLASS SYSTEM -> RETRO TERMINAL (Pixel Art Aesthetic) */
+  /* INSTITUTIONAL BRUTALISM: Flat panels, sharp borders */
   .glass-panel {
-    background: #000000;
+    background: #0a0a0a;
     border-bottom: 1px solid var(--glass-border);
     z-index: 50;
   }
@@ -148,45 +148,42 @@
   }
 
   .glass-card {
-    background: transparent;
-    border: 1px solid var(--glass-border-bright);
-    transition: none;
-    border-radius: 0 !important;
-    /* Force atomic right angles */
+    background: #0a0a0a;
+    border: 1px solid var(--glass-border);
+    transition: background 0.2s ease, border-color 0.2s ease;
   }
 
   .glass-card:hover {
-    background: transparent;
-    border-color: hsla(var(--matrix) / 0.8);
-    transform: none;
-    box-shadow: none;
+    background: #111111;
+    border-color: rgba(255, 255, 255, 0.15);
   }
 
   /* LABEL SYSTEM — clean, readable, modern */
   .label-sm {
-    font-family: var(--font-pixel);
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     color: hsl(var(--terminal-gray));
     text-transform: uppercase;
   }
 
   .label-xs {
-    font-family: var(--font-pixel);
+    font-family: var(--font-no);
     font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    color: hsl(var(--terminal-gray));
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: hsl(var(--terminal-gray) / 0.7);
+    text-transform: uppercase;
   }
 
   /* Legacy .text-telemetry — now uses cleaner styling */
   .text-telemetry {
-    font-family: var(--font-pixel);
-    font-size: 13px;
-    font-weight: 500;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.12em;
     color: hsl(var(--terminal-gray));
   }
 
@@ -197,15 +194,15 @@
   }
 
   .glow-matrix {
-    filter: drop-shadow(0 0 8px hsla(var(--matrix) / 0.4));
+    filter: none;
   }
 
   .glow-bull {
-    filter: drop-shadow(0 0 8px hsla(var(--bull) / 0.4));
+    filter: none;
   }
 
   .glow-bear {
-    filter: drop-shadow(0 0 8px hsla(var(--bear) / 0.4));
+    filter: none;
   }
 
   /* SCALPEL UTILITIES */
@@ -222,7 +219,7 @@
     0% {
       background: hsla(var(--bull) / 0.45);
       color: #fff;
-      text-shadow: 0 0 8px #10b981;
+      text-shadow: 0 0 8px #23d18b;
     }
 
     100% {
@@ -234,7 +231,7 @@
     0% {
       background: hsla(var(--bear) / 0.45);
       color: #fff;
-      text-shadow: 0 0 8px #f43f5e;
+      text-shadow: 0 0 8px #f14c4c;
     }
 
     100% {
@@ -262,8 +259,8 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {

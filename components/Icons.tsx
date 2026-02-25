@@ -34,3 +34,13 @@ export function CalendarIcon() {
 export function SECIcon() {
   return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
 }
+
+export function BullIcon() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 8 4-4V0h-4l-4 4"/><path d="M22 4c-5 0-9 4-9 9s4 9 9 9"/><path d="m6 8-4-4V0h4l4 4"/><path d="M2 4c5 0 9 4 9 9s-4 9-9 9"/><path d="M8 11h8"/></svg>;
+}
+
+export function BearIcon() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><circle cx="12" cy="7" r="2"/><path d="M10 14h4"/></svg>;
+}
+
+

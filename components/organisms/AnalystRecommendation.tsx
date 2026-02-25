@@ -10,7 +10,7 @@ export function AnalystRecommendation({ rec, mean, count }: { rec: string | null
 
   return (
     <div className="flex items-center justify-between">
-      <div className={`px-4 py-2 rounded-lg text-sm font-semibold tracking-wide border ${badgeColor}`}>
+      <div className={`px-4 py-2 text-sm font-semibold tracking-wide border shadow-none ${badgeColor}`}>
         {label}
       </div>
       <div className="flex flex-col items-end">
