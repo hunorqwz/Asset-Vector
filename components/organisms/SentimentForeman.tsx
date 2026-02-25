@@ -20,19 +20,29 @@ export const SentimentForeman = React.memo(function SentimentForeman({ news, rep
       </div>
 
       <div className="p-4 space-y-6">
-        {/* LINGUISTIC DNA */}
+        {/* LINGUISTIC DNA -> DRIVERS */}
         <div className="space-y-4">
-          <span className="text-[11px] text-zinc-500 uppercase font-bold tracking-[0.15em] block">Linguistic Markers</span>
-          <div className="flex flex-wrap gap-2">
-            {report.keywords.length > 0 ? report.keywords.slice(0, 10).map((kw, i) => (
+          <div className="flex justify-between items-end">
+            <span className="text-[11px] text-zinc-500 uppercase font-bold tracking-[0.15em] block">Macro Drivers</span>
+            {report.drift && (
+               <span className="text-[9px] font-mono tracking-widest text-zinc-500 uppercase border border-white/10 px-2 py-0.5">
+                 Drift: <span className={report.drift.includes('BULL') ? 'text-bull' : report.drift.includes('BEAR') ? 'text-bear' : 'text-zinc-400'}>{report.drift.replace('_', ' ')}</span>
+               </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            {report.drivers && report.drivers.length > 0 ? report.drivers.slice(0, 3).map((d, i) => (
               <div 
                 key={i} 
-                className="px-3 py-1 text-[11px] border border-white/10 bg-transparent text-zinc-300 font-bold uppercase font-mono tracking-widest transition-colors hover:border-white/20 hover:bg-[#111111]"
+                className="px-3 py-2 text-[11px] border border-white/10 bg-transparent flex justify-between items-center transition-colors hover:border-white/20 hover:bg-[#111111]"
               >
-                {kw.word}
+                <span className="text-zinc-300 font-bold uppercase tracking-wider">{d.driver}</span>
+                <span className={`text-[9px] font-mono font-bold tracking-widest ${d.impact === 'BULLISH' ? 'text-bull' : d.impact === 'BEARISH' ? 'text-bear' : 'text-zinc-500'}`}>
+                  {d.impact}
+                </span>
               </div>
             )) : (
-              <span className="text-[11px] text-zinc-600 italic">No significant markers detected in current stream.</span>
+              <span className="text-[11px] text-zinc-600 italic border border-white/5 p-3">No significant institutional drivers identified.</span>
             )}
           </div>
         </div>
@@ -50,7 +60,7 @@ export const SentimentForeman = React.memo(function SentimentForeman({ news, rep
                  className="flex flex-col gap-2 group/news border-l-2 border-white/10 pl-5 hover:border-white/30 transition-all py-1"
                >
                  <div className="flex justify-between items-center text-[11px] text-zinc-500 font-bold uppercase tracking-widest">
-                    <span>{new Date(n.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    <span>{new Date(n.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>
                  </div>
                  <span className="text-[13px] text-zinc-300 group-hover/news:text-white transition-colors leading-relaxed line-clamp-2 font-medium">{n.title}</span>
                </a>

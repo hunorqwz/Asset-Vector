@@ -5,7 +5,7 @@ import { useMarketTechnicals, OpticMode } from '@/hooks/useMarketTechnicals';
 import { OHLCV } from '@/lib/market-data';
 import { fetchChartData } from '@/app/actions';
 import { CHART_COLORS } from '@/lib/chart-config';
-import { GlassBoxTheory } from './organisms/GlassBoxTheory';
+import { GlassBoxTheory, THEORY_CONTENT } from './organisms/GlassBoxTheory';
 
 interface VectorChartProps {
   data: OHLCV[];
@@ -15,6 +15,7 @@ interface VectorChartProps {
   initialMode?: OpticMode;
   prediction?: { p10: number; p50: number; p90: number };
   stochasticPaths?: { day: number; price: number }[][];
+  lastTick?: { price: number; volume?: number; time: number } | null;
 }
 
 interface TooltipState {
@@ -38,7 +39,55 @@ const MenuToggle = ({ active, onClick, label }: { active: boolean, onClick: () =
   </button>
 );
 
-export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', height = 400, initialMode = 'TACTICAL', prediction, stochasticPaths = [] }: VectorChartProps) => {
+const GlassBoxLegendItem = ({ 
+  label, value, theoryKey, color, 
+  isDashed = false, isDotted = false 
+}: { 
+  label: string, value?: string | number | null, theoryKey?: string, color: string, 
+  isDashed?: boolean, isDotted?: boolean
+}) => {
+  const content = theoryKey ? THEORY_CONTENT[theoryKey] : null;
+  return (
+    <div className="flex items-center gap-1.5 group relative">
+      <div 
+        className={`w-2 h-0.5 ${isDashed ? 'border-t border-dashed' : isDotted ? 'border-t border-dotted' : ''}`} 
+        style={isDashed || isDotted ? { borderColor: color, backgroundColor: 'transparent' } : { backgroundColor: color }} 
+      />
+      <span className={`text-[10px] font-bold text-zinc-400 uppercase ${content ? 'cursor-help' : ''}`}>
+        {label} {value !== undefined && value !== null && <span className="text-zinc-300 ml-1">{value}</span>}
+      </span>
+      
+      {content && (
+        <div className="hidden group-hover:block absolute left-0 top-full mt-2 w-80 bg-[#0a0a0c] border border-white/10 p-4 z-[100] shadow-2xl pointer-events-none animate-in fade-in slide-in-from-top-1 duration-200">
+           <div className="space-y-3">
+             <div className="flex items-center gap-2 mb-1">
+               <div className="w-1.5 h-1.5 bg-white" />
+               <h4 className="text-[11px] font-bold text-white uppercase tracking-widest">{content.title}</h4>
+             </div>
+             <p className="text-[10px] text-zinc-400 leading-relaxed border-l border-white/10 pl-2 ml-1">{content.description}</p>
+             <div className="bg-[#111] border border-white/5 p-2 font-mono ml-3">
+               <span className="text-[9px] text-zinc-500 uppercase block mb-1">State Equation</span>
+               <code className="text-[10px] text-matrix whitespace-pre-wrap">{content.formula}</code>
+             </div>
+             <div className="ml-1">
+               <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest block mb-2">Algorithmic Protocol</span>
+               <ul className="space-y-1.5 pl-2 leading-relaxed">
+                 {content.steps.map((step, i) => (
+                   <li key={i} className="text-[10px] text-zinc-400 flex items-start gap-1.5">
+                      <span className="text-matrix opacity-70 mt-0.5">►</span> 
+                      <span className="flex-1">{step}</span>
+                   </li>
+                 ))}
+               </ul>
+             </div>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', height = 400, initialMode = 'TACTICAL', prediction, stochasticPaths = [], lastTick }: VectorChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [activeRange, setActiveRange] = useState<TimeRange>('ALL');
@@ -50,7 +99,7 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
   
   const [indicators, setIndicators] = useState({
     sma20: true, sma50: true, ema20: false, ema50: false, ema200: false,
-    bollinger: false, kalman: true, volume: true, levels: false, trendlines: false
+    bollinger: false, kalman: true, vwap: false, obv: false, volume: true, levels: false, trendlines: false
   });
 
   const [chartData, setChartData] = useState<OHLCV[]>(initialData);
@@ -135,10 +184,11 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
     });
     mainSeries.setData(chartData.map(d => ({ time: d.time as UTCTimestamp, open: d.open, high: d.high, low: d.low, close: d.close })));
 
+    let volSeries: any = null;
     if (indicators.volume) {
-      const vol = chart.addSeries(HistogramSeries, { color: '#262626', priceFormat: { type: 'volume' }, priceScaleId: 'volume', priceLineVisible: false });
+      volSeries = chart.addSeries(HistogramSeries, { color: '#262626', priceFormat: { type: 'volume' }, priceScaleId: 'volume', priceLineVisible: false });
       chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 }, visible: false });
-      vol.setData(chartData.map(d => ({ time: d.time as UTCTimestamp, value: d.volume, color: d.close >= d.open ? `${upCol}55` : `${downCol}55` })));
+      volSeries.setData(chartData.map(d => ({ time: d.time as UTCTimestamp, value: d.volume, color: d.close >= d.open ? `${upCol}55` : `${downCol}55` })));
     }
 
     // For attaching crosshair values
@@ -180,15 +230,32 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
         technicals.trendlines.forEach(line => {
           const l = chart.addSeries(LineSeries, { color: line.type === 'SUPPORT' ? CHART_COLORS.LEVEL_SUPPORT : CHART_COLORS.LEVEL_RESISTANCE, lineWidth: 2 as any, lineStyle: LineStyle.Solid, priceLineVisible: false, lastValueVisible: false });
           
-          const endData = chartData[chartData.length - 1];
-          const slope = (line.p2.price - line.p1.price) / (line.p2.time - line.p1.time);
-          const projectedEndPrice = line.p1.price + slope * (endData.time - line.p1.time);
-
-          l.setData([
-            { time: line.p1.time as UTCTimestamp, value: line.p1.price }, 
-            { time: endData.time as UTCTimestamp, value: projectedEndPrice }
-          ]);
+          const slopePerIndex = (line.p2.price - line.p1.price) / (line.p2.index - line.p1.index);
+          const points = [];
+          
+          // Render the line precisely over the discrete trading candles to ensure it aligns identically with the mathematical touch logic.
+          for(let k = line.p1.index; k < chartData.length; k++) {
+             points.push({
+                time: chartData[k].time as UTCTimestamp,
+                value: line.p1.price + slopePerIndex * (k - line.p1.index)
+             });
+          }
+          
+          l.setData(points);
         });
+      }
+      if (indicators.vwap) { const s = addLine(technicals.vwap, '#38bdf8', 2); if (s) currentSeriesMap.set('vwap', s); }
+      if (indicators.obv && technicals.obv) {
+        const obvSeries = chart.addSeries(LineSeries, { 
+          color: '#d946ef', 
+          lineWidth: 2 as any, 
+          priceScaleId: 'obv', 
+          priceLineVisible: false, 
+          lastValueVisible: false,
+          crosshairMarkerVisible: false 
+        });
+        chart.priceScale('obv').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 }, visible: false });
+        obvSeries.setData(technicals.obv.map((v, i) => ({ time: chartData[i]?.time as UTCTimestamp, value: v })).filter(d => Boolean(d.time)));
       }
     }
 
@@ -288,8 +355,38 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
 
     const resize = () => chart.applyOptions({ width: chartContainerRef.current?.clientWidth || 0, height: chartHeight });
     window.addEventListener('resize', resize);
+
+    // REAL-TIME TAPE INTEGRATION
+    if (lastTick) {
+      const { price, time } = lastTick;
+      const lastBar = chartData[chartData.length - 1];
+      
+      // We only update if the tick is newer or equal to the last bar
+      if (time >= lastBar.time) {
+        // High-precision update logic
+        const updatedBar = {
+          time: lastBar.time as UTCTimestamp,
+          open: lastBar.open,
+          high: Math.max(lastBar.high, price),
+          low: Math.min(lastBar.low, price),
+          close: price
+        };
+        
+        mainSeries.update(updatedBar);
+        
+        // Update volume if possible
+        if (indicators.volume && lastTick.volume) {
+          volSeries?.update({
+             time: lastBar.time as UTCTimestamp,
+             value: lastBar.volume + lastTick.volume,
+             color: price >= lastBar.open ? `${upCol}55` : `${downCol}55`
+          });
+        }
+      }
+    }
+
     return () => { window.removeEventListener('resize', resize); chart.remove(); };
-  }, [chartData, color, chartHeight, technicals, prediction, indicators, activeRange]);
+  }, [chartData, color, chartHeight, technicals, prediction, indicators, activeRange, lastTick]);
 
   return (
     <div ref={fullscreenRef} className="relative w-full flex flex-col bg-transparent">
@@ -315,6 +412,8 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
                 <div className="h-px bg-white/5 my-1" />
                 <MenuToggle active={indicators.bollinger} onClick={() => setIndicators(s => ({ ...s, bollinger: !s.bollinger }))} label="Bollinger Bands" />
                 <MenuToggle active={indicators.kalman} onClick={() => setIndicators(s => ({ ...s, kalman: !s.kalman }))} label="Neural Vector" />
+                <MenuToggle active={indicators.vwap} onClick={() => setIndicators(s => ({ ...s, vwap: !s.vwap }))} label="VWAP" />
+                <MenuToggle active={indicators.obv} onClick={() => setIndicators(s => ({ ...s, obv: !s.obv }))} label="Inst. OBV" />
                 <MenuToggle active={indicators.volume} onClick={() => setIndicators(s => ({ ...s, volume: !s.volume }))} label="Volume" />
                 <MenuToggle active={indicators.levels} onClick={() => setIndicators(s => ({ ...s, levels: !s.levels }))} label="S/R Levels" />
                 <MenuToggle active={indicators.trendlines} onClick={() => setIndicators(s => ({ ...s, trendlines: !s.trendlines }))} label="Trendlines" />
@@ -345,6 +444,7 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
               sma50: technicals?.sma50?.[technicals.sma50.length - 1],
               ema200: technicals?.ema200?.[technicals.ema200.length - 1],
               kalman: technicals?.kalman?.[technicals.kalman.length - 1],
+              vwap: technicals?.vwap?.[technicals.vwap.length - 1],
               p50: prediction?.p50,
               p90: prediction?.p90,
               p10: prediction?.p10
@@ -367,15 +467,22 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
                 
                 {/* ACTIVE INDICATORS LEGEND */}
                 <div className="flex flex-wrap items-center gap-3 mt-1">
-                  {indicators.sma20 && <div className="flex items-center gap-1.5"><div className="w-2 h-0.5" style={{ backgroundColor: CHART_COLORS.SMA_20 }} /><span className="text-[10px] font-bold text-zinc-400 uppercase">SMA 20 <span className="text-zinc-300 ml-1">{indDisplay.sma20?.toFixed(2) ?? ''}</span></span></div>}
-                  {indicators.sma50 && <div className="flex items-center gap-1.5"><div className="w-2 h-0.5" style={{ backgroundColor: CHART_COLORS.SMA_50 }} /><span className="text-[10px] font-bold text-zinc-400 uppercase">SMA 50 <span className="text-zinc-300 ml-1">{indDisplay.sma50?.toFixed(2) ?? ''}</span></span></div>}
-                  {indicators.ema200 && <div className="flex items-center gap-1.5"><div className="w-2 h-0.5" style={{ backgroundColor: CHART_COLORS.EMA_200 }} /><span className="text-[10px] font-bold text-zinc-400 uppercase">EMA 200 <span className="text-zinc-300 ml-1">{indDisplay.ema200?.toFixed(2) ?? ''}</span></span></div>}
-                  {indicators.bollinger && <div className="flex items-center gap-1.5"><div className="w-2 h-0.5" style={{ backgroundColor: CHART_COLORS.BOLLINGER_BANDS_LEGEND }} /><span className="text-[10px] font-bold text-zinc-400 uppercase">BB</span></div>}
+                  {indicators.sma20 && <GlassBoxLegendItem label="SMA 20" value={indDisplay.sma20?.toFixed(2)} theoryKey="SMA" color={CHART_COLORS.SMA_20} />}
+                  {indicators.vwap && <GlassBoxLegendItem label="VWAP" value={indDisplay.vwap?.toFixed(2)} color="#38bdf8" />}
+                  {indicators.sma50 && <GlassBoxLegendItem label="SMA 50" value={indDisplay.sma50?.toFixed(2)} theoryKey="SMA" color={CHART_COLORS.SMA_50} />}
+                  {indicators.ema200 && <GlassBoxLegendItem label="EMA 200" value={indDisplay.ema200?.toFixed(2)} theoryKey="EMA" color={CHART_COLORS.EMA_200} />}
+                  {indicators.bollinger && <GlassBoxLegendItem label="BB" theoryKey="Bollinger" color={CHART_COLORS.BOLLINGER_BANDS_LEGEND} />}
                   {indicators.kalman && (
                     <>
-                      <div className="flex items-center gap-1.5"><div className="w-2 h-0.5 border-t border-dashed" style={{ borderColor: CHART_COLORS.NEURAL_VECTOR }} /><span className="text-[10px] font-bold text-zinc-400 uppercase">Vector <span className="text-zinc-300 ml-1">{indDisplay.kalman?.toFixed(2) ?? indDisplay.p50?.toFixed(2) ?? ''}</span></span></div>
-                      <div className="flex items-center gap-1.5"><div className="w-2 h-0.5 border-t border-dotted" style={{ borderColor: CHART_COLORS.BULLISH }} /><span className="text-[10px] font-bold text-zinc-400 uppercase">P90 <span className="text-zinc-300 ml-1">{indDisplay.p90 ? indDisplay.p90.toFixed(2) : ''}</span></span></div>
-                      <div className="flex items-center gap-1.5"><div className="w-2 h-0.5 border-t border-dotted" style={{ borderColor: CHART_COLORS.BEARISH }} /><span className="text-[10px] font-bold text-zinc-400 uppercase">P10 <span className="text-zinc-300 ml-1">{indDisplay.p10 ? indDisplay.p10.toFixed(2) : ''}</span></span></div>
+                      <GlassBoxLegendItem 
+                        label="Vector" 
+                        value={indDisplay.kalman?.toFixed(2) ?? indDisplay.p50?.toFixed(2)} 
+                        theoryKey="Kalman" 
+                        color={CHART_COLORS.NEURAL_VECTOR} 
+                        isDashed 
+                      />
+                      <GlassBoxLegendItem label="P90" value={indDisplay.p90?.toFixed(2)} color={CHART_COLORS.BULLISH} isDotted />
+                      <GlassBoxLegendItem label="P10" value={indDisplay.p10?.toFixed(2)} color={CHART_COLORS.BEARISH} isDotted />
                     </>
                   )}
                 </div>

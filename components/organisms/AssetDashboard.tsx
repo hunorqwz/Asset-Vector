@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { runMonteCarloSimulation } from "@/lib/monte-carlo";
+import { runMonteCarloSimulation, MonteCarloResult } from "@/lib/monte-carlo";
 import { VectorChart } from "@/components/VectorChart";
 import { MarketSignal } from "@/lib/market-data";
 import { PredictionResult } from "@/lib/inference";
@@ -23,8 +23,13 @@ import { DCFSandbox } from "@/components/organisms/DCFSandbox";
 import { MultiModelValuation } from "@/components/organisms/MultiModelValuation";
 import { MonteCarloSimulation } from "@/components/organisms/MonteCarloSimulation";
 import { TechnicalConfluencePanel } from "@/components/organisms/TechnicalConfluencePanel";
+import { AlgorithmicTargetsPanel } from "@/components/organisms/AlgorithmicTargetsPanel";
+import { InstitutionalFlowPanel } from "@/components/organisms/InstitutionalFlowPanel";
 import { StrategicOracle } from "@/components/organisms/StrategicOracle";
+import { useAlpacaTape } from "@/hooks/useAlpacaTape";
+import { LivePriceCard } from "@/components/molecules/LivePriceCard";
 import { NeuralAnomalyReport } from "@/components/organisms/NeuralAnomalyReport";
+import { RiskEntropyPanel } from "@/components/organisms/RiskEntropyPanel";
 import { FundamentalIntelligence } from "@/components/organisms/FundamentalIntelligence";
 import { NeuralDiagnostics } from "@/components/organisms/NeuralDiagnostics";
 import { SentimentDeepDive } from "@/components/organisms/SentimentDeepDive";
@@ -37,37 +42,23 @@ type TabType = typeof TABS[number];
 
 export function AssetDashboard({ ticker, signal }: { ticker: string, signal: MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails } }) {
   const [activeTab, setActiveTab] = useState<TabType>('OVERVIEW');
-  const [aiInsight, setAiInsight] = useState<StrategicInsight | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const aiAttemptedRef = useRef<string | null>(null);
+  const [isNeuralEngaged, setIsNeuralEngaged] = useState(false);
   const d = signal.stockDetails;
   const p = d.price;
 
-  const simulation = useMemo(() => {
-    return runMonteCarloSimulation({
+  const { lastTick } = useAlpacaTape(ticker);
+
+  const [simulation, setSimulation] = useState<MonteCarloResult | null>(null);
+
+  useEffect(() => {
+    // Run simulation only on the client to avoid Math.random() SSR hydration mismatches
+    setSimulation(runMonteCarloSimulation({
       currentPrice: p.current,
       historicalPrices: signal.history.map(h => h.close),
       daysToSimulate: 30, // Show next month on chart
       simulations: 5000   // Full institutional resolution
-    });
-  }, [p.current, ticker]);
-
-  useEffect(() => {
-    let isMounted = true;
-    if (aiInsight || isAiLoading || aiAttemptedRef.current === ticker) return;
-    aiAttemptedRef.current = ticker;
-    setIsAiLoading(true);
-    generateStrategicAnalysis(ticker, signal.history, d.news).then(res => {
-      if (isMounted) { res ? setAiInsight(res) : setAiError("CAPACITY_LIMIT"); }
-    }).catch(() => {
-      if (isMounted) setAiError("CONNECTION_ERROR");
-    }).finally(() => {
-      if (isMounted) setIsAiLoading(false);
-    });
-    return () => { isMounted = false; };
-  }, [ticker, aiInsight, isAiLoading]);
-
+    }));
+  }, [p.current, ticker, signal.history]);
   return (
     <div className="space-y-12 animate-in fade-in duration-700">
       {/* CHART - INTEGRATED INTO THE GRID SYSTEM */}
@@ -75,16 +66,22 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
         <VectorChart 
           data={signal.history} 
           prediction={signal.prediction} 
-          stochasticPaths={simulation.isValid ? simulation.paths : []}
+          stochasticPaths={simulation?.isValid ? simulation.paths : []}
           ticker={ticker} 
           color={signal.trend === "BULLISH" ? "#22c55e" : "#ef4444"} 
           height={520} 
+          lastTick={lastTick ? { price: lastTick.price, time: Math.floor(new Date(lastTick.timestamp).getTime() / 1000) } : null}
         />
       </section>
 
       {/* METRICS ROW - ATOMIC DATA BOXES */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-0">
-        <MetricCard label="Price" value={fmt(p.current)} subValue={p.dayChange >= 0 ? `+${fmt(p.dayChange)}` : fmt(p.dayChange)} trend={p.dayChange >= 0 ? "BULLISH" : "BEARISH"} />
+        <LivePriceCard 
+          label="Price" 
+          initialPrice={p.current} 
+          lastTick={lastTick} 
+          dayChange={p.dayChange} 
+        />
         <MetricCard label="Volume" value={fmtCount(p.volume)} subValue={`Avg: ${fmtCount(p.averageVolume)}`} />
         <MetricCard label="Day High" value={fmt(p.dayHigh)} />
         <MetricCard label="Day Low" value={fmt(p.dayLow)} />
@@ -115,25 +112,43 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
         {activeTab === 'OVERVIEW' && (
           <>
             <div className="lg:col-span-8 space-y-12">
+              {!isNeuralEngaged && (
+                 <div className="glass-card border border-bull/30 bg-bull/5 p-6 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-bull shadow-bull" />
+                    <div>
+                      <h3 className="text-[13px] font-bold text-white uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-bull animate-pulse" />
+                        Neural Engine Offline
+                      </h3>
+                      <p className="text-[12px] text-zinc-400 max-w-lg leading-relaxed">Engage the institutional Gemini 2.0 framework to extract live narrative velocity and 90-day probabilistic scenarios.</p>
+                    </div>
+                    <button 
+                      onClick={() => setIsNeuralEngaged(true)} 
+                      className="whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-colors"
+                    >
+                      <div className="w-2 h-2 bg-black rounded-full" />
+                      Engage Neural Engine
+                    </button>
+                 </div>
+              )}
+
               <section className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="w-1 h-3.5 bg-white shadow-none" />
                   <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">Neural Intelligence Core</h2>
                 </div>
-                {isAiLoading ? (
-                  <div className="h-64 border border-dashed border-white/20 bg-transparent flex flex-col items-center justify-center gap-4">
-                    <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-ping" />
-                    <span className="text-[12px] uppercase font-bold text-zinc-500 tracking-[0.4em] animate-pulse">Scanning Neural Vector...</span>
-                  </div>
-                ) : <StrategicOracle insight={aiInsight} ticker={ticker} history={signal.history} error={aiError} />}
-                <NeuralAnomalyReport history={signal.history} technicals={signal.technicalAnalysis} insight={aiInsight} />
+                <StrategicOracle ticker={ticker} history={signal.history} news={d.news} globalTrigger={isNeuralEngaged} />
+                <NeuralAnomalyReport history={signal.history} technicals={signal.technicalAnalysis} insight={null} />
               </section>
 
               <TechnicalConfluencePanel tech={signal.technicalAnalysis} />
+              <AlgorithmicTargetsPanel tech={signal.technicalAnalysis} />
+              <InstitutionalFlowPanel tech={signal.technicalAnalysis} optionsFlow={d.optionsFlow} currentPrice={p.current} />
+              <RiskEntropyPanel metrics={d.riskMetrics} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <NeuralDiagnostics history={signal.history} />
-                <SentimentDeepDive news={d.news} sentiment={signal.sentiment} />
+                <SentimentDeepDive ticker={ticker} news={d.news} sentiment={signal.sentiment} globalTrigger={isNeuralEngaged} />
               </div>
 
               <section className="space-y-6">
@@ -152,13 +167,44 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                 peer={d.peerBenchmark}
               />
 
-              <MonteCarloSimulation simulation={simulation} />
+              {simulation && <MonteCarloSimulation simulation={simulation} />}
               
-              <DataSection title="Summary Statistics" icon={<StatsIcon />}>
-                <DataRow label="EPS (Trailing)" value={`$${d.keyStats.trailingEps?.toFixed(2)}`} />
-                <DataRow label="EPS (Forward)" value={`$${d.keyStats.forwardEps?.toFixed(2)}`} />
-                <DataRow label="Short Ratio" value={fmtRatio(d.keyStats.shortRatio)} />
+              <DataSection title="Liquidity & Float Dynamics" icon={<OwnershipIcon />}>
+                <DataRow label="Shares Outstanding" value={fmtCount(d.keyStats.sharesOutstanding)} />
+                <DataRow label="Public Float" value={fmtCount(d.keyStats.floatShares)} />
+                <DataRow label="Shares Short" value={fmtCount(d.keyStats.sharesShort)} />
+                <DataRow label="Short Ratio (Days to Cover)" value={fmtRatio(d.keyStats.shortRatio)} />
                 <DataRow label="Short % of Float" value={fmtPct(d.keyStats.shortPercentOfFloat)} colored />
+              </DataSection>
+
+              {d.optionsFlow && (
+                <DataSection title="Derivatives & Options Flow" icon={<StatsIcon />}>
+                  <DataRow label="Nearest Expiration" value={d.optionsFlow.nearestExpiration || '—'} />
+                  <DataRow label="Calls Vol / OI" value={`${fmtCount(d.optionsFlow.callsVolume)} / ${fmtCount(d.optionsFlow.callsOpenInterest)}`} colored />
+                  <DataRow label="Puts Vol / OI" value={`${fmtCount(d.optionsFlow.putsVolume)} / ${fmtCount(d.optionsFlow.putsOpenInterest)}`} />
+                  <DataRow label="Avg Implied Volatility" value={fmtPct(d.optionsFlow.impliedVolatility)} />
+                </DataSection>
+              )}
+
+              <DataSection title="Valuation & Multiples" icon={<ValuationIcon />}>
+                <DataRow label="P/E (Trailing)" value={fmtRatio(d.valuation.trailingPE)} />
+                <DataRow label="P/E (Forward)" value={fmtRatio(d.valuation.forwardPE)} />
+                <DataRow label="PEG Ratio" value={fmtRatio(d.valuation.pegRatio)} />
+                <DataRow label="Price to Book (P/B)" value={fmtRatio(d.valuation.priceToBook)} />
+                <DataRow label="Price to Sales (P/S)" value={fmtRatio(d.valuation.priceToSales)} />
+              </DataSection>
+
+              <DataSection title="Financial Health & Yield" icon={<HealthIcon />}>
+                <DataRow label="Debt / Equity" value={fmtRatio(d.financialHealth.debtToEquity)} />
+                <DataRow label="Free Cash Flow" value={fmtBigNum(d.financialHealth.freeCashflow)} />
+                <DataRow label="Dividend Yield" value={fmtPct(d.dividends.dividendYield)} highlight />
+                <DataRow label="Payout Ratio" value={fmtPct(d.dividends.payoutRatio)} />
+                <DataRow label="Last EPS Surprise" value={d.quarterlyReports.length > 0 && d.quarterlyReports[d.quarterlyReports.length - 1].epsSurprisePercent !== null ? fmtPct(d.quarterlyReports[d.quarterlyReports.length - 1].epsSurprisePercent) : '—'} colored />
+              </DataSection>
+
+              <DataSection title="Summary Statistics" icon={<StatsIcon />}>
+                <DataRow label="EPS (Trailing)" value={`$${d.keyStats.trailingEps?.toFixed(2) || 'N/A'}`} />
+                <DataRow label="EPS (Forward)" value={`$${d.keyStats.forwardEps?.toFixed(2) || 'N/A'}`} />
                 <DataRow label="Yearly Momentum" value={fmtPct(p.fiftyTwoWeekChangePercent)} colored />
               </DataSection>
 

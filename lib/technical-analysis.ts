@@ -8,6 +8,13 @@ export interface PivotLevel {
   touches: number;
 }
 
+export interface OrderBlock {
+  type: 'BULLISH' | 'BEARISH';
+  top: number;
+  bottom: number;
+  date: string;
+}
+
 export interface TechnicalIndicators {
   isValid: boolean;
   confluenceScore: number;
@@ -24,6 +31,25 @@ export interface TechnicalIndicators {
     lower: number;
     percentB: number;
   };
+  predictivePivots: {
+    pivot: number;
+    r1: number;
+    r2: number;
+    r3: number;
+    s1: number;
+    s2: number;
+    s3: number;
+  } | null;
+  fibonacci: {
+    level0: number;
+    level236: number;
+    level382: number;
+    level500: number;
+    level618: number;
+    level786: number;
+    level100: number;
+  } | null;
+  orderBlocks: OrderBlock[];
 }
 
 /**
@@ -38,7 +64,10 @@ export function generateTechnicalConfluence(history: OHLCV[]): TechnicalIndicato
       signal: 'NEUTRAL',
       rsi14: 50,
       macd: { line: 0, signal: 0, histogram: 0 },
-      bollingerBands: { upper: 0, middle: 0, lower: 0, percentB: 0.5 }
+      bollingerBands: { upper: 0, middle: 0, lower: 0, percentB: 0.5 },
+      predictivePivots: null,
+      fibonacci: null,
+      orderBlocks: []
     };
   }
 
@@ -96,6 +125,85 @@ export function generateTechnicalConfluence(history: OHLCV[]): TechnicalIndicato
   else if (score <= 20) signal = 'STRONG SELL';
   else if (score <= 40) signal = 'SELL';
 
+  // Predictive Algorithms (Fibonacci & Pivots)
+  let predictivePivots = null;
+  let fibonacci = null;
+  const lastBar = history[history.length - 1];
+  if (lastBar) {
+    const pHigh = lastBar.high;
+    const pLow = lastBar.low;
+    const pClose = lastBar.close;
+    const pivot = (pHigh + pLow + pClose) / 3;
+    predictivePivots = {
+      pivot,
+      r1: 2 * pivot - pLow,
+      r2: pivot + (pHigh - pLow),
+      r3: pivot + 2 * (pHigh - pLow),
+      s1: 2 * pivot - pHigh,
+      s2: pivot - (pHigh - pLow),
+      s3: pivot - 2 * (pHigh - pLow),
+    };
+
+    let maxH = -Infinity;
+    let minL = Infinity;
+    history.forEach(b => {
+      if (b.high > maxH) maxH = b.high;
+      if (b.low < minL) minL = b.low;
+    });
+    const diff = maxH - minL;
+    fibonacci = {
+      level0: maxH,
+      level236: maxH - 0.236 * diff,
+      level382: maxH - 0.382 * diff,
+      level500: maxH - 0.5 * diff,
+      level618: maxH - 0.618 * diff,
+      level786: maxH - 0.786 * diff,
+      level100: minL,
+    };
+  }
+
+  // Institutional Order Blocks (Fair Value Gaps - unresolved)
+  const orderBlocks: OrderBlock[] = [];
+  const lookback = Math.min(history.length, 90);
+  const recentHistory = history.slice(-lookback);
+  
+  for (let i = 0; i < recentHistory.length - 2; i++) {
+    const c1 = recentHistory[i];
+    const c2 = recentHistory[i + 1];
+    const c3 = recentHistory[i + 2];
+    
+    // Bullish FVG (Demand)
+    if (c3.low > c1.high && c2.close > c2.open) {
+      const top = c3.low;
+      const bottom = c1.high;
+      // Check if mitigated by any future candle
+      let mitigated = false;
+      for (let j = i + 3; j < recentHistory.length; j++) {
+        if (recentHistory[j].low <= top) { mitigated = true; break; }
+      }
+      if (!mitigated) {
+        orderBlocks.push({ type: 'BULLISH', top, bottom, date: new Date(c2.time * 1000).toISOString().split('T')[0] });
+      }
+    }
+    
+    // Bearish FVG (Supply)
+    if (c3.high < c1.low && c2.close < c2.open) {
+      const top = c1.low;
+      const bottom = c3.high;
+      // Check if mitigated by any future candle
+      let mitigated = false;
+      for (let j = i + 3; j < recentHistory.length; j++) {
+        if (recentHistory[j].high >= bottom) { mitigated = true; break; }
+      }
+      if (!mitigated) {
+        orderBlocks.push({ type: 'BEARISH', top, bottom, date: new Date(c2.time * 1000).toISOString().split('T')[0] });
+      }
+    }
+  }
+  
+  // Sort from most recent
+  orderBlocks.reverse();
+
   return {
     isValid: true,
     confluenceScore: Math.max(0, Math.min(100, score)),
@@ -111,7 +219,10 @@ export function generateTechnicalConfluence(history: OHLCV[]): TechnicalIndicato
       middle: lastBB.middle,
       lower: lastBB.lower,
       percentB
-    }
+    },
+    predictivePivots,
+    fibonacci,
+    orderBlocks: orderBlocks.slice(0, 3) // Return max 3 unmitigated blocks
   };
 }
 

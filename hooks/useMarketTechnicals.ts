@@ -19,6 +19,8 @@ export interface Technicals {
   levels: PivotLevel[];
   trendlines: Trendline[];
   kalman: number[];
+  vwap: number[];
+  obv: number[];
 }
 
 export function useMarketTechnicals(data: OHLCV[], mode: OpticMode): Technicals | null {
@@ -69,6 +71,45 @@ export function useMarketTechnicals(data: OHLCV[], mode: OpticMode): Technicals 
     const kalmanObjects = runKalmanBatch(prices, R, Q);
     const kalman = kalmanObjects.map(k => k.prediction);
 
+    // 5. VOLUME & LIQUIDITY (Anchored VWAP & OBV)
+    const vwap: number[] = [];
+    const obv: number[] = [];
+    let cumTypVol = 0;
+    let cumVol = 0;
+    let currentObv = 0;
+    let currentAnchor = '';
+
+    // Determine if the incoming data matrix is Intraday or Daily resolution
+    const isDaily = data.length > 1 && (data[1].time - data[0].time) >= 86400;
+
+    for (let i = 0; i < data.length; i++) {
+      const d = data[i];
+      const typ = (d.high + d.low + d.close) / 3;
+      
+      const dateObj = new Date(d.time * 1000);
+      
+      // Institutional Anchor Rule: 
+      // Day Traders reset VWAP at the daily open bell.
+      // Swing Traders/Macro Funds reset VWAP at the start of the trading year.
+      const anchorKey = isDaily ? dateObj.getFullYear().toString() : dateObj.toISOString().split('T')[0];
+      
+      if (anchorKey !== currentAnchor) {
+        cumTypVol = 0;
+        cumVol = 0;
+        currentAnchor = anchorKey;
+      }
+      
+      cumTypVol += typ * (d.volume || 1); // Fallback to 1 to prevent NaN on low-liquidity gaps
+      cumVol += (d.volume || 1);
+      vwap.push(cumTypVol / cumVol);
+
+      if (i > 0) {
+        if (d.close > data[i - 1].close) currentObv += (d.volume || 0);
+        else if (d.close < data[i - 1].close) currentObv -= (d.volume || 0);
+      }
+      obv.push(currentObv);
+    }
+
     return {
       sma20,
       sma50,
@@ -80,7 +121,9 @@ export function useMarketTechnicals(data: OHLCV[], mode: OpticMode): Technicals 
       macd,
       levels: detectSupportResistance(data),
       trendlines: detectTrendlines(data),
-      kalman
+      kalman,
+      vwap,
+      obv
     };
   }, [data, mode]);
 }

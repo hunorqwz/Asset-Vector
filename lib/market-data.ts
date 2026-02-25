@@ -3,7 +3,7 @@ import { predictNextHorizon, PredictionResult } from "./inference";
 import { KalmanFilter } from "./kalman";
 import { getFromCache, setInCache, CACHE_TTL } from "./cache";
 import { RegimeDetector, MarketRegime } from "./regime";
-import { SentimentAnalyzer, SentimentReport } from "./sentiment";
+import { SentimentAnalyzer, SentimentReport, SentimentFallback } from "./sentiment";
 import { generateTechnicalConfluence, TechnicalIndicators } from "./technical-analysis";
 
 const yahooFinance = new YahooFinance();
@@ -111,7 +111,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     uncertainty: Number(uncert.toFixed(2)), snr: Number(kf.getSNR().toFixed(4)),
     aiPrediction: Number(ai.p50.toFixed(2)), trend,
     regime: RegimeDetector.detect(history.map(h => h.close)).regime,
-    sentiment: SentimentAnalyzer.analyze(news.map(n => n.title)),
+    sentiment: SentimentFallback.analyze(news.map(n => n.title)),
     technicalAnalysis: generateTechnicalConfluence(history),
     news,
     history

@@ -4,17 +4,53 @@ import { StrategicInsight } from '@/app/actions/ai';
 import { GlassBoxTheory } from '@/components/organisms/GlassBoxTheory';
 import { OHLCV } from '@/lib/market-data';
 
+import { NewsArticle } from '@/lib/stock-details';
+
 interface StrategicOracleProps {
-  insight: StrategicInsight | null;
   ticker: string;
   history: OHLCV[];
-  error?: string | null;
+  news: NewsArticle[];
+  globalTrigger?: boolean;
 }
 
-export const StrategicOracle = ({ insight, ticker, history, error }: StrategicOracleProps) => {
+const horizons: Record<string, "shortTerm" | "midTerm" | "longTerm"> = {
+  'SHORT': 'shortTerm',
+  'MID': 'midTerm',
+  'LONG': 'longTerm'
+};
+
+export const StrategicOracle = ({ ticker, history, news, globalTrigger }: StrategicOracleProps) => {
   const [activeTab, setActiveTab] = useState<'SHORT' | 'MID' | 'LONG'>('SHORT');
   const [activeScenario, setActiveScenario] = useState<'conservative' | 'balanced' | 'aggressive'>('balanced');
   const [isTheoryOpen, setIsTheoryOpen] = useState(false);
+  
+  const [insight, setInsight] = useState<StrategicInsight | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleExtraction = async () => {
+    setIsExtracting(true);
+    setError(null);
+    try {
+      const { generateStrategicAnalysis } = await import('@/app/actions/ai');
+      const res = await generateStrategicAnalysis(ticker, history, news);
+      if (res) {
+        setInsight(res);
+      } else {
+        setError('CAPACITY_LIMIT');
+      }
+    } catch {
+      setError('CONNECTION_ERROR');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (globalTrigger && !insight && !isExtracting && !error) {
+      handleExtraction();
+    }
+  }, [globalTrigger, insight, isExtracting, error]);
 
   if (!insight) {
     const isQuota = error === 'CAPACITY_LIMIT';
@@ -29,11 +65,19 @@ export const StrategicOracle = ({ insight, ticker, history, error }: StrategicOr
         <p className="text-[11px] text-zinc-500 max-w-xs mb-6 leading-relaxed">
           {isQuota 
             ? 'Rate limit reached. Our neural engines are recalibrating. Please wait 60s for reset.'
-            : 'Connect an intelligence core to enable strategic forecasting.'}
+            : 'Connect the intelligence core to enable strategic forecasting.'}
         </p>
         <div className="flex gap-6">
           <button onClick={() => setIsTheoryOpen(true)} className="text-[11px] text-zinc-500 hover:text-white transition-colors underline underline-offset-4 uppercase font-bold tracking-widest">Documentation</button>
-          <button onClick={() => window.location.reload()} className="text-[11px] text-zinc-300 hover:text-white transition-colors font-bold uppercase tracking-widest bg-transparent px-4 py-1.5 border border-white/20 hover:bg-white/10">Retry System</button>
+          <button 
+            onClick={handleExtraction}
+            disabled={isExtracting}
+            className="flex items-center justify-center min-w-[140px] text-[10px] text-white hover:text-black hover:bg-white transition-colors font-bold uppercase tracking-widest bg-transparent px-4 py-2 border border-white/20 disabled:opacity-50"
+          >
+            {isExtracting ? (
+               <><div className="w-1.5 h-1.5 bg-current rounded-full animate-ping mr-2" /> Extracting...</>
+            ) : isQuota ? 'Retry System' : 'Run Neural Extraction'}
+          </button>
         </div>
         <GlassBoxTheory indicator="Oracle" isOpen={isTheoryOpen} onClose={() => setIsTheoryOpen(false)} currentData={history} />
       </div>
@@ -105,6 +149,3 @@ export const StrategicOracle = ({ insight, ticker, history, error }: StrategicOr
     </div>
   );
 };
-
-
-const horizons = { SHORT: 'shortTerm' as const, MID: 'midTerm' as const, LONG: 'longTerm' as const };

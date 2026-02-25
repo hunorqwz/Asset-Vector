@@ -29,8 +29,8 @@ export function NewsFeed({ articles }: NewsFeedProps) {
           <div className="flex flex-col h-full">
             <div className="flex justify-between items-center mb-4">
               <span className="text-[11px] text-zinc-300 font-bold uppercase tracking-[0.15em]">{article.publisher}</span>
-              <span className="text-[11px] text-zinc-500 font-mono font-bold">
-                {new Date(article.providerPublishTime * 1000).toLocaleDateString()}
+              <span className="text-zinc-500 bg-white/5 px-2 py-0.5 rounded font-mono border border-white/5">
+                {new Date(article.providerPublishTime * 1000).toLocaleDateString('en-US', { timeZone: 'UTC' })}
               </span>
             </div>
             

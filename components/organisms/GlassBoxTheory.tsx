@@ -8,7 +8,7 @@ interface GlassBoxTheoryProps {
   currentData?: OHLCV[];
 }
 
-const THEORY_CONTENT: Record<string, {
+export const THEORY_CONTENT: Record<string, {
   title: string;
   subtitle: string;
   description: string;
@@ -259,7 +259,7 @@ export function GlassBoxTheory({ indicator, isOpen, onClose, currentData }: Glas
                               <td className={`px-4 py-3 ${logRet >= 0 ? 'text-bull' : 'text-bear'}`}>
                                 {logRet === 0 ? '0.0000' : logRet.toFixed(4)}
                               </td>
-                              <td className="px-4 py-3 text-zinc-600">{(Math.random() * 0.01).toFixed(4)}</td>
+                              <td className="px-4 py-3 text-zinc-600">{(Math.abs(Math.sin(d.close)) * 0.01).toFixed(4)}</td>
                             </>
                           ) : (
                             <>

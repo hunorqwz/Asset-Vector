@@ -29,7 +29,7 @@ export function PeerBenchmarkIntelligence({
   ];
 
   return (
-    <div className="glass-card border border-white/10 overflow-hidden flex flex-col h-full">
+    <div className="glass-card border border-white/10 overflow-hidden flex flex-col">
       <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 bg-indigo-500" />

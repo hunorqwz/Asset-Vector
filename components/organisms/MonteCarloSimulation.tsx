@@ -31,7 +31,7 @@ export const MonteCarloSimulation = React.memo(function MonteCarloSimulation({ s
           <span className="text-[10px] font-bold text-bear uppercase tracking-wider mb-2 z-10">Worst Case (5%)</span>
           <span className="text-xl font-mono font-bold text-white z-10">{fmt(simulation.percentile5th)}</span>
           <span className="text-[10px] text-zinc-500 font-mono mt-1 z-10">
-            {fmtPct(((simulation.percentile5th - currentPrice) / currentPrice) * 100)}
+            {fmtPct((simulation.percentile5th - currentPrice) / currentPrice)}
           </span>
         </div>
 
@@ -56,7 +56,7 @@ export const MonteCarloSimulation = React.memo(function MonteCarloSimulation({ s
           <span className="text-[10px] font-bold text-bull uppercase tracking-wider mb-2 z-10">Best Case (95%)</span>
           <span className="text-xl font-mono font-bold text-white z-10">{fmt(simulation.percentile95th)}</span>
           <span className="text-[10px] text-zinc-500 font-mono mt-1 z-10">
-            +{fmtPct(((simulation.percentile95th - currentPrice) / currentPrice) * 100)}
+            {fmtPct((simulation.percentile95th - currentPrice) / currentPrice)}
           </span>
         </div>
 

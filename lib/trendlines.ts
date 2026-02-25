@@ -1,111 +1,78 @@
 import { OHLCV } from "./market-data";
 
 export interface Trendline {
-  p1: { time: number; price: number };
-  p2: { time: number; price: number };
+  p1: { time: number; price: number; index: number };
+  p2: { time: number; price: number; index: number };
   type: 'SUPPORT' | 'RESISTANCE';
   strength: number;
 }
 
+/**
+ * Calculates a statistically perfect Linear Regression Channel rather than 
+ * relying on error-prone heuristic fractal pivot connecting.
+ * 
+ * Provides an Upper Resistance and Lower Support band covering ~95% of the price action.
+ */
 export function detectTrendlines(data: OHLCV[]): Trendline[] {
-  if (data.length < 50) return [];
+  if (data.length < 20) return [];
 
-  const peaks: { time: number; price: number }[] = [];
-  const troughs: { time: number; price: number }[] = [];
+  const N = data.length;
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumX2 = 0;
 
-  // 1. Identify Pivots (Fractals)
-  for (let i = 5; i < data.length - 5; i++) {
-    const slice = data.slice(i - 5, i + 6);
-    const max = Math.max(...slice.map(d => d.high));
-    const min = Math.min(...slice.map(d => d.low));
-
-    if (data[i].high === max) peaks.push({ time: data[i].time, price: data[i].high });
-    if (data[i].low === min) troughs.push({ time: data[i].time, price: data[i].low });
+  // 1. Calculate the Linear Regression Line (Line of Best Fit)
+  for (let i = 0; i < N; i++) {
+    const x = i;
+    const y = data[i].close;
+    sumX += x;
+    sumY += y;
+    sumXY += x * y;
+    sumX2 += x * x;
   }
 
-  const lines: Trendline[] = [];
+  const denominator = N * sumX2 - sumX * sumX;
+  if (denominator === 0) return []; // Failsafe
 
-  // 2. Identify Resitance Trendlines (Connecting Peaks)
-  if (peaks.length >= 2) {
-    for (let i = 0; i < peaks.length - 1; i++) {
-      for (let j = i + 1; j < peaks.length; j++) {
-        const p1 = peaks[i];
-        const p2 = peaks[j];
-        
-        // Skip if too close in time
-        if (p2.time - p1.time < 5 * 86400) continue;
+  const slope = (N * sumXY - sumX * sumY) / denominator;
+  const intercept = (sumY - slope * sumX) / N;
 
-        const slope = (p2.price - p1.price) / (p2.time - p1.time);
-        
-        // Resistance lines usually have 0 or negative slope
-        if (slope > 0.0001) continue; 
+  // 2. Calculate the Standard Deviation of Residuals
+  let sse = 0;
+  for (let i = 0; i < N; i++) {
+    const predicted = slope * i + intercept;
+    const error = data[i].close - predicted;
+    sse += error * error;
+  }
+  
+  const stdDev = Math.sqrt(sse / N);
+  
+  // 3. Create Support and Resistance Bounds (2 standard deviations)
+  const k = 2; // ~95% statistical coverage
+  
+  const i1 = 0;
+  const i2 = N - 1;
 
-        let touches = 0;
-        let broken = false;
+  const resistP1Price = (slope * i1 + intercept) + (k * stdDev);
+  const resistP2Price = (slope * i2 + intercept) + (k * stdDev);
 
-        // Check how many points follow this line
-        for (let k = 0; k < data.length; k++) {
-          const expectedPrice = p1.price + slope * (data[k].time - p1.time);
-          const diff = Math.abs(data[k].high - expectedPrice) / expectedPrice;
-          
-          if (diff < 0.005) touches++;
-          if (data[k].close > expectedPrice * 1.01) {
-            // Price broke above the resistance
-            if (data[k].time > p2.time) {
-               broken = true;
-               break;
-            }
-          }
-        }
+  const suppP1Price = (slope * i1 + intercept) - (k * stdDev);
+  const suppP2Price = (slope * i2 + intercept) - (k * stdDev);
 
-        if (touches >= 3 && !broken) {
-          lines.push({ p1, p2, type: 'RESISTANCE', strength: touches });
-        }
-      }
+  // Return the mathematically locked bounds
+  return [
+    {
+      p1: { time: data[i1].time, price: resistP1Price, index: i1 },
+      p2: { time: data[i2].time, price: resistP2Price, index: i2 },
+      type: 'RESISTANCE',
+      strength: 100 // Maximum mathematical certainty
+    },
+    {
+      p1: { time: data[i1].time, price: suppP1Price, index: i1 },
+      p2: { time: data[i2].time, price: suppP2Price, index: i2 },
+      type: 'SUPPORT',
+      strength: 100
     }
-  }
-
-  // 3. Identify Support Trendlines (Connecting Troughs)
-  if (troughs.length >= 2) {
-    for (let i = 0; i < troughs.length - 1; i++) {
-      for (let j = i + 1; j < troughs.length; j++) {
-        const p1 = troughs[i];
-        const p2 = troughs[j];
-
-        if (p2.time - p1.time < 5 * 86400) continue;
-
-        const slope = (p2.price - p1.price) / (p2.time - p1.time);
-        
-        // Support lines usually have 0 or positive slope
-        if (slope < -0.0001) continue;
-
-        let touches = 0;
-        let broken = false;
-
-        for (let k = 0; k < data.length; k++) {
-          const expectedPrice = p1.price + slope * (data[k].time - p1.time);
-          const diff = Math.abs(data[k].low - expectedPrice) / expectedPrice;
-          
-          if (diff < 0.005) touches++;
-          if (data[k].close < expectedPrice * 0.99) {
-            // Price broke below the support
-            if (data[k].time > p2.time) {
-                broken = true;
-                break;
-            }
-          }
-        }
-
-        if (touches >= 3 && !broken) {
-          lines.push({ p1, p2, type: 'SUPPORT', strength: touches });
-        }
-      }
-    }
-  }
-
-  // 4. Pruning: Keep only the most relevant lines to avoid chart clutter
-  return lines
-    .sort((a, b) => b.strength - a.strength)
-    .filter((v, i, a) => a.findIndex(t => t.type === v.type) === i) // Keep best one of each type for now
-    .slice(0, 2);
+  ];
 }

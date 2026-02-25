@@ -1,6 +1,7 @@
 import YahooFinance from 'yahoo-finance2';
 import { getFromCache, setInCache, CACHE_TTL } from './cache';
 import { fetchHistoryWithInterval } from './market-data';
+import { calculateRiskEntropy } from './risk';
 
 const yahooFinance = new YahooFinance();
 
@@ -13,11 +14,13 @@ export interface DividendData { dividendRate: number | null; dividendYield: numb
 export interface AnalystData { targetLow: number | null; targetMean: number | null; targetMedian: number | null; targetHigh: number | null; numberOfAnalysts: number; recommendationKey: string | null; recommendationMean: number | null; }
 export interface KeyStatistics { beta: number | null; sharesOutstanding: number | null; floatShares: number | null; sharesShort: number | null; shortRatio: number | null; shortPercentOfFloat: number | null; heldPercentInsiders: number | null; heldPercentInstitutions: number | null; trailingEps: number | null; forwardEps: number | null; earningsQuarterlyGrowth: number | null; mostRecentQuarter: string | null; lastSplitFactor: string | null; lastSplitDate: string | null; }
 export interface EarningsQuarter { date: string; actual: number | null; estimate: number | null; surprise: number | null; surprisePercent: number | null; }
-export interface StockDetails { ticker: string; fetchedAt: number; profile: StockProfile; price: PriceData; valuation: ValuationMetrics; profitability: ProfitabilityMetrics; financialHealth: FinancialHealth; dividends: DividendData; analyst: AnalystData; keyStats: KeyStatistics; earningsHistory: EarningsQuarter[]; quarterlyReports: QuarterlyReport[]; topHolders: Holder[]; news: NewsArticle[]; insiderTransactions: InsiderTransaction[]; etfHoldings: ETFHolding[]; sectorExposure: SectorExposure[]; alphaIntelligence: BenchmarkPerformance | null; analystTrend: AnalystTrendEntry[]; riskMetrics: RiskMetrics | null; upcomingCatalysts: UpcomingCatalysts | null; secFilings: SECListing[]; peerBenchmark: PeerMetrics | null; isCrypto: boolean; isETF: boolean; }
+export interface QuarterlyReport { date: string; fiscalQuarter: string; revenue: number | null; netIncome: number | null; epsActual: number | null; epsEstimate: number | null; epsSurprise: number | null; epsSurprisePercent: number | null; reportedDate: string | null; priceReaction: number | null; priceReactionPct: number | null; }
+export interface OptionsFlow { callsVolume: number; putsVolume: number; callsOpenInterest: number; putsOpenInterest: number; impliedVolatility: number | null; nearestExpiration: string | null; }
+export interface StockDetails { ticker: string; fetchedAt: number; profile: StockProfile; price: PriceData; valuation: ValuationMetrics; profitability: ProfitabilityMetrics; financialHealth: FinancialHealth; dividends: DividendData; analyst: AnalystData; keyStats: KeyStatistics; earningsHistory: EarningsQuarter[]; quarterlyReports: QuarterlyReport[]; topHolders: Holder[]; news: NewsArticle[]; insiderTransactions: InsiderTransaction[]; etfHoldings: ETFHolding[]; sectorExposure: SectorExposure[]; alphaIntelligence: BenchmarkPerformance | null; analystTrend: AnalystTrendEntry[]; riskMetrics: RiskMetrics | null; upcomingCatalysts: UpcomingCatalysts | null; secFilings: SECListing[]; peerBenchmark: PeerMetrics | null; isCrypto: boolean; isETF: boolean; optionsFlow: OptionsFlow | null; }
 export interface PeerMetrics { ticker: string; name: string; price: number; forwardPE: number | null; profitMargin: number | null; revenueGrowth: number | null; }
 export interface SECListing { date: string; type: string; title: string; url: string; }
 export interface UpcomingCatalysts { earningsDate: string | null; isEarningsEstimate: boolean; revenueAverage: number | null; earningsAverage: number | null; exDividendDate: string | null; dividendDate: string | null; }
-export interface RiskMetrics { maxDrawdown1Y: number; realizedVolatility1Y: number; }
+export interface RiskMetrics { sharpeRatio: number; sortinoRatio: number; maxDrawdown1Y: number; realizedVolatility1Y: number; downsideDeviation1Y: number; isValid: boolean; }
 export interface AnalystTrendEntry { period: string; strongBuy: number; buy: number; hold: number; sell: number; strongSell: number; }
 export interface SectorExposure { sector: string; weight: number; }
 export interface BenchmarkPerformance { assetReturn1Y: number; benchmarkReturn1Y: number; alpha1Y: number; benchmarkTicker: string; }
@@ -46,12 +49,13 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
   const isCrypto = sym.includes('-USD') || sym.includes('-BTC');
   const benchmark = isCrypto ? 'BTC-USD' : 'SPY';
 
-  const [resRaw, history, search, benchHistory, peers] = await Promise.all([
+  const [resRaw, history, search, benchHistory, peers, optsRaw] = await Promise.all([
     yahooFinance.quoteSummary(sym, { modules: ['price', 'summaryDetail', 'financialData', 'defaultKeyStatistics', 'earningsHistory', 'earnings', 'institutionOwnership', 'insiderTransactions', 'topHoldings', 'recommendationTrend', 'calendarEvents', 'secFilings', 'assetProfile'] }, { validateResult: false }),
     fetchHistoryWithInterval(sym, '1d', 730 * 86400).catch(() => []),
     yahooFinance.search(sym, { newsCount: 5 }, { validateResult: false }),
     fetchHistoryWithInterval(benchmark, '1d', 365 * 86400).catch(() => []),
-    yahooFinance.recommendationsBySymbol(sym).then(r => r?.recommendedSymbols?.[0]?.symbol).then(s => s ? yahooFinance.quoteSummary(s, { modules: ['price', 'defaultKeyStatistics', 'financialData'] }, { validateResult: false }).then(q => ({ symbol: s, summary: q as any })) : null).catch(() => null)
+    yahooFinance.recommendationsBySymbol(sym).then(r => r?.recommendedSymbols?.[0]?.symbol).then(s => s ? yahooFinance.quoteSummary(s, { modules: ['price', 'defaultKeyStatistics', 'financialData'] }, { validateResult: false }).then(q => ({ symbol: s, summary: q as any })) : null).catch(() => null),
+    yahooFinance.options(sym).catch(() => null)
   ]);
 
   if (!resRaw) throw new Error("FETCH_FAILED");
@@ -64,8 +68,31 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
   const h52 = safeNum(res.summaryDetail?.fiftyTwoWeekHigh) ?? cur;
   const l52 = safeNum(res.summaryDetail?.fiftyTwoWeekLow) ?? cur;
 
+  let optionsFlow: OptionsFlow | null = null;
+  if (!isCrypto && optsRaw && optsRaw.options && optsRaw.options.length > 0) {
+    const nearest = optsRaw.options[0];
+    let callsVol = 0, callsOi = 0, putsVol = 0, putsOi = 0;
+    let avgIv = 0, ivCount = 0;
+    
+    (nearest.calls || []).forEach((c: any) => {
+      callsVol += c.volume || 0; callsOi += c.openInterest || 0;
+      if (c.impliedVolatility) { avgIv += c.impliedVolatility; ivCount++; }
+    });
+    (nearest.puts || []).forEach((p: any) => {
+      putsVol += p.volume || 0; putsOi += p.openInterest || 0;
+      if (p.impliedVolatility) { avgIv += p.impliedVolatility; ivCount++; }
+    });
+    
+    optionsFlow = {
+      callsVolume: callsVol, putsVolume: putsVol, 
+      callsOpenInterest: callsOi, putsOpenInterest: putsOi,
+      impliedVolatility: ivCount > 0 ? avgIv / ivCount : null,
+      nearestExpiration: safeDate(nearest.expirationDate)
+    };
+  }
+
   const details: StockDetails = {
-    ticker: sym, fetchedAt: Date.now(), isCrypto, isETF,
+    ticker: sym, fetchedAt: Date.now(), isCrypto, isETF, optionsFlow,
     profile: {
       name: safeStr(res.price?.longName || res.price?.shortName, sym),
       sector: safeStr(res.assetProfile?.sector, isCrypto ? 'Crypto' : 'Unknown'),
@@ -147,7 +174,18 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
     sectorExposure: (res.topHoldings?.sectorWeightings || []).map((s: any) => ({ sector: Object.keys(s)[0], weight: safeNum(Object.values(s)[0]) })),
     alphaIntelligence: calculateAlpha(history, benchHistory, benchmark),
     analystTrend: (res.recommendationTrend?.trend || []),
-    riskMetrics: calculateRisk(history),
+    riskMetrics: ((): RiskMetrics | null => {
+      const r = calculateRiskEntropy(history);
+      if (!r.isValid) return null;
+      return {
+        sharpeRatio: r.sharpeRatio,
+        sortinoRatio: r.sortinoRatio,
+        maxDrawdown1Y: r.maxDrawdown,
+        realizedVolatility1Y: r.realizedVolatility,
+        downsideDeviation1Y: r.downsideDeviation,
+        isValid: true
+      };
+    })(),
     upcomingCatalysts: {
       earningsDate: safeDate(res.calendarEvents?.earnings?.earningsDate?.[0]),
       isEarningsEstimate: true, revenueAverage: safeNum(res.calendarEvents?.earnings?.revenueAverage),
@@ -202,17 +240,4 @@ function calculateAlpha(history: any[], bench: any[], ticker: string): Benchmark
   return { assetReturn1Y: aRet, benchmarkReturn1Y: bRet, alpha1Y: aRet - bRet, benchmarkTicker: ticker };
 }
 
-function calculateRisk(history: any[]): RiskMetrics | null {
-  if (history.length < 50) return null;
-  const recent = history.slice(-252);
-  let maxPx = 0, maxDD = 0;
-  const rets: number[] = [];
-  recent.forEach((h, i) => {
-    if (i > 0) rets.push((h.close - recent[i - 1].close) / recent[i - 1].close);
-    if (h.close > maxPx) maxPx = h.close;
-    maxDD = Math.min(maxDD, (h.close - maxPx) / maxPx);
-  });
-  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
-  const vol = Math.sqrt(rets.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (rets.length - 1)) * Math.sqrt(252);
-  return { maxDrawdown1Y: maxDD * 100, realizedVolatility1Y: vol * 100 };
-}
+
