@@ -1,7 +1,6 @@
 "use client";
 import React from 'react';
 import Link from 'next/link';
-import { Badge } from "@/components/atoms/Badge";
 import { LiveHeaderPrice } from "@/components/molecules/LiveHeaderPrice";
 import { useAlpacaTape } from "@/hooks/useAlpacaTape";
 
@@ -9,8 +8,7 @@ interface LiveHeaderProps {
   ticker: string;
   name: string;
   exchange: string;
-  sector: string;
-  industry: string;
+
   trend: string;
   initialPrice: number;
   initialDayChange: number;
@@ -22,8 +20,7 @@ export function LiveHeader({
   ticker,
   name,
   exchange,
-  sector,
-  industry,
+
   trend,
   initialPrice,
   initialDayChange,
@@ -42,15 +39,13 @@ export function LiveHeader({
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m15 18-6-6 6-6"/></svg>
             </div>
             <div className="flex flex-col">
-              <span className="font-bold tracking-tightest text-sm text-white group-hover:text-matrix transition-colors uppercase leading-tight">{name}</span>
+              <span className="font-bold tracking-tightest text-sm text-white group-hover:text-zinc-300 transition-colors uppercase leading-tight">{name}</span>
               <span className="text-[11px] font-bold text-zinc-500 tracking-[0.1em] uppercase">{ticker} · {exchange}</span>
             </div>
           </Link>
 
-          {/* Badges */}
+          {/* Trend Badge */}
           <div className="hidden sm:flex items-center gap-4 border-l border-white/10 pl-10">
-            <Badge label={sector} />
-            <Badge label={industry} />
             <div className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase border ${
               trend === 'BULLISH' ? 'bg-bull/15 border-bull/30 text-bull' :
               trend === 'BEARISH' ? 'bg-bear/15 border-bear/30 text-bear' :

@@ -54,8 +54,6 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
         ticker={ticker}
         name={d.profile.name}
         exchange={d.profile.exchange}
-        sector={d.profile.sector}
-        industry={d.profile.industry}
         trend={signal.trend}
         initialPrice={p.current}
         initialDayChange={p.dayChange}
