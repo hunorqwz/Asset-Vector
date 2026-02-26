@@ -69,13 +69,13 @@ export function detectNeuralAnomalies(
     });
   }
 
-  // 3. Volatilty / Bollinger Divergence
+  // 3. Volatility / Bollinger Divergence
   if (technicals.bollingerBands.percentB > 1.0 && !isUpDay) {
     anomalies.push({
       id: 'bb_exhaustion',
       type: 'DIVERGENCE',
       severity: 'CRITICAL',
-      title: 'Volatilty Exhaustion',
+      title: 'Volatility Exhaustion',
       description: 'Price is outside the Upper Bollinger Band but closed lower on the day. Institutional rejection detected.',
       suggestion: 'Exit momentum positions immediately. Structural reversal in progress.'
     });

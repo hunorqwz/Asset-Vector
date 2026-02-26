@@ -10,6 +10,10 @@ interface StrategicOracleProps {
   ticker: string;
   history: OHLCV[];
   news: NewsArticle[];
+  insight: StrategicInsight | null;
+  isExtracting: boolean;
+  error: string | null;
+  onExtract: () => void;
   globalTrigger?: boolean;
 }
 
@@ -19,38 +23,12 @@ const horizons: Record<string, "shortTerm" | "midTerm" | "longTerm"> = {
   'LONG': 'longTerm'
 };
 
-export const StrategicOracle = ({ ticker, history, news, globalTrigger }: StrategicOracleProps) => {
+export const StrategicOracle = ({ 
+  ticker, history, news, insight, isExtracting, error, onExtract, globalTrigger 
+}: StrategicOracleProps) => {
   const [activeTab, setActiveTab] = useState<'SHORT' | 'MID' | 'LONG'>('SHORT');
   const [activeScenario, setActiveScenario] = useState<'conservative' | 'balanced' | 'aggressive'>('balanced');
   const [isTheoryOpen, setIsTheoryOpen] = useState(false);
-  
-  const [insight, setInsight] = useState<StrategicInsight | null>(null);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleExtraction = async () => {
-    setIsExtracting(true);
-    setError(null);
-    try {
-      const { generateStrategicAnalysis } = await import('@/app/actions/ai');
-      const res = await generateStrategicAnalysis(ticker, history, news);
-      if (res) {
-        setInsight(res);
-      } else {
-        setError('CAPACITY_LIMIT');
-      }
-    } catch {
-      setError('CONNECTION_ERROR');
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
-  React.useEffect(() => {
-    if (globalTrigger && !insight && !isExtracting && !error) {
-      handleExtraction();
-    }
-  }, [globalTrigger, insight, isExtracting, error]);
 
   if (!insight) {
     const isQuota = error === 'CAPACITY_LIMIT';
@@ -70,7 +48,7 @@ export const StrategicOracle = ({ ticker, history, news, globalTrigger }: Strate
         <div className="flex gap-10">
           <button onClick={() => setIsTheoryOpen(true)} className="text-[10px] text-zinc-500 hover:text-white transition-all uppercase font-bold tracking-[0.2em] border-b border-transparent hover:border-white/20 pb-1">Theory Mode</button>
           <button 
-            onClick={handleExtraction}
+            onClick={onExtract}
             disabled={isExtracting}
             className="flex items-center justify-center min-w-[200px] text-[10px] text-zinc-900 bg-white hover:bg-zinc-200 disabled:bg-zinc-800 disabled:text-zinc-600 transition-all font-bold uppercase tracking-[0.2em] px-8 py-3 rounded-lg shadow-xl"
           >

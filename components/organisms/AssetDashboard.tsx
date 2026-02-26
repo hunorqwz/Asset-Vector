@@ -59,6 +59,33 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
       simulations: 5000   // Full institutional resolution
     }));
   }, [p.current, ticker, signal.history]);
+
+  const [insight, setInsight] = useState<StrategicInsight | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleExtraction = async () => {
+    setIsExtracting(true);
+    setError(null);
+    try {
+      const res = await generateStrategicAnalysis(ticker, signal.history, d.news);
+      if (res) {
+        setInsight(res);
+      } else {
+        setError('CAPACITY_LIMIT');
+      }
+    } catch {
+      setError('CONNECTION_ERROR');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isNeuralEngaged && !insight && !isExtracting && !error) {
+      handleExtraction();
+    }
+  }, [isNeuralEngaged, insight, isExtracting, error]);
   return (
     <div className="space-y-12 animate-in fade-in duration-700">
       {/* CHART - INTEGRATED INTO THE GRID SYSTEM */}
@@ -95,10 +122,10 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 
-            className={`flex-1 py-3 px-6 text-[11px] font-bold tracking-[0.2em] transition-all uppercase border-r border-white/10 last:border-r-0 whitespace-nowrap ${
+            className={`flex-1 py-3.5 px-6 text-[10px] font-bold tracking-[0.25em] transition-all uppercase border-r border-white/5 last:border-r-0 whitespace-nowrap ${
               activeTab === tab 
-                ? 'bg-matrix text-white' 
-                : 'text-zinc-500 hover:bg-[#111111] hover:text-zinc-300'
+                ? 'bg-white text-black' 
+                : 'text-zinc-500 hover:bg-white/5 hover:text-white'
             }`}
           >
             {tab}
@@ -137,8 +164,17 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                   <span className="w-1 h-3.5 bg-white shadow-none" />
                   <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">Neural Intelligence Core</h2>
                 </div>
-                <StrategicOracle ticker={ticker} history={signal.history} news={d.news} globalTrigger={isNeuralEngaged} />
-                <NeuralAnomalyReport history={signal.history} technicals={signal.technicalAnalysis} insight={null} />
+                <StrategicOracle 
+                  ticker={ticker} 
+                  history={signal.history} 
+                  news={d.news} 
+                  insight={insight}
+                  isExtracting={isExtracting}
+                  error={error}
+                  onExtract={handleExtraction}
+                  globalTrigger={isNeuralEngaged} 
+                />
+                <NeuralAnomalyReport history={signal.history} technicals={signal.technicalAnalysis} insight={insight} />
               </section>
 
               <TechnicalConfluencePanel tech={signal.technicalAnalysis} />

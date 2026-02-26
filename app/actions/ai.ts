@@ -32,7 +32,7 @@ export async function generateStrategicAnalysis(ticker: string, history: OHLCV[]
     let retries = 0;
     while (retries <= 2) {
       try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction: "Institutional Quant Analyst. Output strictly valid JSON." });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", systemInstruction: "Institutional Quant Analyst. Output strictly valid JSON." });
         const recent = history.slice(-30).map(h => ({ d: new Date(h.time * 1000).toISOString().split('T')[0], c: h.close, v: h.volume }));
         const schemaStr = `{
   "patternRecognition": { "form": "string", "confidence": "number 0-1", "implication": "string" },
