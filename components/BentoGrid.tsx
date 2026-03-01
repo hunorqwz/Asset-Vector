@@ -89,15 +89,15 @@ export const WatchlistGrid = ({ children }: { children: React.ReactNode }) => {
     const isEmpty = React.Children.count(children) === 0;
 
     return (
-        <div className="w-full flex flex-col glass-card overflow-hidden">
-             <div className="flex items-center px-6 py-3 border-b border-white/10 text-[10px] uppercase font-bold tracking-widest text-zinc-500 bg-[#070707]">
-                <div className="w-[140px] shrink-0">Asset Vector</div>
-                <div className="w-[160px] shrink-0">Last Price (USD)</div>
-                <div className="flex-1 min-w-[120px] px-8 border-l border-white/5">Trend (1Y)</div>
-                <div className="w-[160px] shrink-0 hidden md:block border-l border-white/5 pl-4">Momentum</div>
-                <div className="w-[140px] shrink-0 hidden lg:block border-l border-white/5 pl-4">Narrative</div>
-                <div className="w-[160px] shrink-0 border-l border-white/5 pl-4">Machine Synthesis</div>
-                <div className="w-12 shrink-0"></div>
+        <div className="w-full glass-card overflow-hidden">
+             <div className="flex items-center px-4 py-3 border-b border-white/10 text-[10px] uppercase font-bold tracking-widest text-zinc-500 bg-[#070707]">
+                <div className="w-[120px] lg:w-[140px] shrink-0">Asset Vector</div>
+                <div className="w-[140px] lg:w-[160px] shrink-0">Last Price (USD)</div>
+                <div className="flex-1 min-w-[80px] px-2 lg:px-6 border-l border-white/5">Trend (1Y)</div>
+                <div className="w-[140px] shrink-0 hidden md:block border-l border-white/5 pl-4">Momentum</div>
+                <div className="w-[120px] shrink-0 hidden lg:block border-l border-white/5 pl-4">Narrative</div>
+                <div className="w-[140px] shrink-0 hidden xl:flex border-l border-white/5 pl-4">Machine Synthesis</div>
+                <div className="w-10 shrink-0"></div>
              </div>
              {isEmpty ? (
                  <div className="py-32 flex flex-col items-center justify-center text-center px-6">
@@ -161,13 +161,13 @@ export const WatchlistItem = ({
   return (
       <Link 
         href={`/asset/${signal.ticker}`} 
-        className="group relative flex items-center px-6 py-1 h-16 hover:bg-white/[0.02] transition-colors"
+        className="group relative flex items-center px-4 py-1 h-16 hover:bg-white/[0.02] transition-colors"
       >
           {/* ACTIVE INDICATOR */}
           <div className={`absolute left-0 top-0 bottom-0 w-[2px] opacity-0 transition-opacity group-hover:opacity-100 ${isBull ? 'bg-bull' : 'bg-bear'}`} aria-hidden="true"></div>
           
           {/* COL 1: IDENTITY */}
-          <div className="w-[140px] flex flex-col shrink-0">
+          <div className="w-[120px] lg:w-[140px] flex flex-col shrink-0">
                <span className="text-[15px] font-bold text-white tracking-tight leading-none group-hover:text-zinc-300 transition-colors">
                    {signal.ticker}
                </span>
@@ -177,7 +177,7 @@ export const WatchlistItem = ({
           </div>
 
           {/* COL 2: PRICE */}
-          <div className="w-[160px] flex flex-col justify-center shrink-0">
+          <div className="w-[140px] lg:w-[160px] flex flex-col justify-center shrink-0">
                <div className={`font-mono text-[14px] font-bold text-white tabular-nums ${pulseClass}`}>
                    {fmt(signal.price)}
                </div>
@@ -187,36 +187,36 @@ export const WatchlistItem = ({
           </div>
 
           {/* COL 3: SPARKLINE */}
-          <div className="flex-1 px-8 min-w-[120px] h-9 border-l border-white/5 opacity-70 group-hover:opacity-100 transition-opacity flex items-center" role="img">
+          <div className="flex-1 px-2 lg:px-6 min-w-[80px] h-9 border-l border-white/5 opacity-70 group-hover:opacity-100 transition-opacity flex items-center overflow-hidden" role="img">
                <Sparkline data={signal.history.map(h => h.close)} color={color} height={36} />
           </div>
 
           {/* COL 4: TECH */}
-          <div className="w-[160px] shrink-0 hidden md:flex items-center border-l border-white/5 pl-4">
-              <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-sm border ${isTechBullish ? 'bg-bull/10 border-bull/20 text-bull' : 'bg-bear/10 border-bear/20 text-bear'}`}>
-                  {isTechBullish ? 'BULLISH' : 'BEARISH'} MOMENTUM
+          <div className="w-[140px] shrink-0 hidden md:flex items-center border-l border-white/5 pl-4">
+              <span className={`text-[9px] lg:text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-sm border ${isTechBullish ? 'bg-bull/10 border-bull/20 text-bull' : 'bg-bear/10 border-bear/20 text-bear'}`}>
+                  {isTechBullish ? 'BULLISH' : 'BEARISH'}
               </span>
           </div>
 
           {/* COL 5: NARRATIVE */}
-          <div className="w-[140px] shrink-0 hidden lg:flex items-center border-l border-white/5 pl-4">
-               <span className={`text-[10px] font-bold font-mono px-2 py-1 border ${sentScore > 0 ? 'border-bull/30 text-bull bg-bull/5' : sentScore < 0 ? 'border-bear/30 text-bear bg-bear/5' : 'border-zinc-500/30 text-zinc-400 bg-white/5'}`}>
+          <div className="w-[120px] shrink-0 hidden lg:flex items-center border-l border-white/5 pl-4">
+               <span className={`text-[9px] lg:text-[10px] font-bold font-mono px-2 py-1 border ${sentScore > 0 ? 'border-bull/30 text-bull bg-bull/5' : sentScore < 0 ? 'border-bear/30 text-bear bg-bear/5' : 'border-zinc-500/30 text-zinc-400 bg-white/5'}`}>
                    {sentScore > 0 ? 'POSITIVE' : sentScore < 0 ? 'NEGATIVE' : 'NEUTRAL'}
                </span>
           </div>
 
           {/* COL 6: SYNTHESIS */}
-          <div className="w-[160px] shrink-0 flex items-center border-l border-white/5 pl-4">
+          <div className="w-[140px] shrink-0 hidden xl:flex items-center border-l border-white/5 pl-4">
               <div className="flex items-center gap-2">
                  <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_hsla(var(--bull)/0.4)] ${isTechBullish && sentScore > 0 ? 'bg-bull' : !isTechBullish && sentScore < 0 ? 'bg-bear' : 'bg-zinc-500'}`} />
-                 <span className={`text-[11px] font-bold uppercase tracking-widest ${isTechBullish && sentScore > 0 ? 'text-bull' : !isTechBullish && sentScore < 0 ? 'text-bear' : 'text-zinc-400'}`}>
-                    {isTechBullish && sentScore > 0 ? 'HIGH CONVICTION' : !isTechBullish && sentScore < 0 ? 'MAX CAUTION' : 'NOISE DETECTED'}
+                 <span className={`text-[10px] font-bold uppercase tracking-widest ${isTechBullish && sentScore > 0 ? 'text-bull' : !isTechBullish && sentScore < 0 ? 'text-bear' : 'text-zinc-400'}`}>
+                    {isTechBullish && sentScore > 0 ? 'HIGH CONVICTION' : !isTechBullish && sentScore < 0 ? 'CAUTION' : 'NOISE'}
                  </span>
               </div>
           </div>
 
           {/* COL 7: REMOVE */}
-          <div className="w-12 shrink-0 flex items-center justify-end">
+          <div className="w-10 shrink-0 flex items-center justify-end">
               <button 
                  onClick={(e: React.MouseEvent) => {
                      e.preventDefault();

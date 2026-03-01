@@ -24,40 +24,43 @@ export const MonteCarloSimulation = React.memo(function MonteCarloSimulation({ s
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+      <div className="flex flex-col gap-4 relative z-10">
         
-        {/* 1. Bear Case (5th Percentile) */}
-        <div className="flex flex-col p-4 bg-[#0a0a0a] border border-bear/20 relative overflow-hidden group">
-          <span className="text-[10px] font-bold text-bear uppercase tracking-wider mb-2 z-10">Worst Case (5%)</span>
-          <span className="text-xl font-mono font-bold text-white z-10">{fmt(simulation.percentile5th)}</span>
-          <span className="text-[10px] text-zinc-500 font-mono mt-1 z-10">
-            {fmtPct((simulation.percentile5th - currentPrice) / currentPrice)}
-          </span>
-        </div>
-
-        {/* 2. Expected (Mean) */}
-        <div className={`flex flex-col p-5 bg-[#111111] border ${isBullish ? 'border-bull/30' : 'border-bear/30'} relative overflow-hidden shadow-none z-20`}>
-          <div className="flex items-center justify-between mb-2 z-10">
+        {/* 1. Expected (Mean) - HERO */}
+        <div className={`flex flex-col p-6 bg-[#111111] border ${isBullish ? 'border-bull/30' : 'border-bear/30'} relative overflow-hidden shadow-none z-20`}>
+          <div className="flex items-center justify-between mb-4 z-10">
             <span className="text-[11px] font-bold text-white uppercase tracking-wider">Expected Value</span>
-            <div className={`text-[9px] font-mono px-2 py-0.5 border ${isBullish ? 'bg-bull/10 border-bull/30 text-bull' : 'bg-bear/10 border-bear/30 text-bear'}`}>
+            <div className={`text-[10px] font-mono font-bold px-2 py-1 border whitespace-nowrap ${isBullish ? 'bg-bull/10 border-bull/30 text-bull' : 'bg-bear/10 border-bear/30 text-bear'}`}>
               {isBullish ? '+' : ''}{expectedReturn.toFixed(1)}% Return
             </div>
           </div>
-          <span className={`text-2xl font-mono font-bold tracking-tight mb-1 z-10 ${isBullish ? 'text-bull' : 'text-zinc-300'}`}>
+          <span className={`text-4xl font-mono font-bold tracking-tight mb-2 z-10 ${isBullish ? 'text-bull' : 'text-zinc-300'}`}>
             {fmt(simulation.expectedPrice)}
           </span>
-          <span className="text-[10px] text-zinc-400 leading-relaxed z-10">
+          <span className="text-[11px] text-zinc-400 leading-relaxed z-10">
             Mean outcome of 5,000 algorithmic simulations based on historical volatility.
           </span>
         </div>
 
-        {/* 3. Bull Case (95th Percentile) */}
-        <div className="flex flex-col p-4 bg-[#0a0a0a] border border-bull/20 relative overflow-hidden group">
-          <span className="text-[10px] font-bold text-bull uppercase tracking-wider mb-2 z-10">Best Case (95%)</span>
-          <span className="text-xl font-mono font-bold text-white z-10">{fmt(simulation.percentile95th)}</span>
-          <span className="text-[10px] text-zinc-500 font-mono mt-1 z-10">
-            {fmtPct((simulation.percentile95th - currentPrice) / currentPrice)}
-          </span>
+        {/* 2. Tail Risks (Grid Layout below HERO) */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Bear Case (5th Percentile) */}
+          <div className="flex flex-col p-4 bg-[#0a0a0a] border border-bear/20 relative overflow-hidden group">
+            <span className="text-[10px] font-bold text-bear uppercase tracking-wider mb-2 z-10">Worst Case (5%)</span>
+            <span className="text-xl font-mono font-bold text-white z-10">{fmt(simulation.percentile5th)}</span>
+            <span className="text-[11px] text-zinc-500 font-mono mt-1 z-10">
+              {fmtPct((simulation.percentile5th - currentPrice) / currentPrice)}
+            </span>
+          </div>
+
+          {/* Bull Case (95th Percentile) */}
+          <div className="flex flex-col p-4 bg-[#0a0a0a] border border-bull/20 relative overflow-hidden group">
+            <span className="text-[10px] font-bold text-bull uppercase tracking-wider mb-2 z-10">Best Case (95%)</span>
+            <span className="text-xl font-mono font-bold text-white z-10">{fmt(simulation.percentile95th)}</span>
+            <span className="text-[11px] text-zinc-500 font-mono mt-1 z-10">
+              {fmtPct((simulation.percentile95th - currentPrice) / currentPrice)}
+            </span>
+          </div>
         </div>
 
       </div>

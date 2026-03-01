@@ -50,15 +50,15 @@ export default async function Home() {
       </header>
 
       <main className="overflow-y-auto scrollbar-hide px-8 py-10">
-        <div className="max-w-[1400px] mx-auto">
+        <div className="max-w-[1600px] mx-auto">
           <div className="mb-12 flex items-end justify-between border-b border-white/5 pb-10">
             <div className="relative">
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-[2px] w-8 bg-matrix" />
-                <span className="text-[11px] font-bold text-matrix tracking-[0.2em] uppercase">Market Overview</span>
+                <span className="text-[11px] font-bold text-matrix tracking-[0.2em] uppercase">Command Center</span>
               </div>
               <h1 className="text-5xl sm:text-6xl font-bold tracking-tightest leading-[1]">
-                Watchlist
+                System Overview
               </h1>
             </div>
             <div className="flex flex-col items-end gap-3">
@@ -69,19 +69,85 @@ export default async function Home() {
             </div>
           </div>
 
-          <WatchlistGrid>
-            {signals.map((s, i) => {
-              const change = s.history.length >= 2 ? ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100 : 0;
-              return (
-                <WatchlistItem 
-                  key={i} 
-                  signal={s}
-                  change={change} 
-                  onRemove={async () => { "use server"; await removeAsset(s.ticker); }}
-                />
-              );
-            })}
-          </WatchlistGrid>
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            {/* LEFT COLUMN: MACRO ENVIRONMENT */}
+            <div className="xl:col-span-2 flex flex-col gap-6">
+              <div className="glass-card p-6 border border-white/10 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
+                  Macro Environment
+                </h2>
+                <div className="flex flex-col gap-5">
+                  <MacroItem name="VIX" desc="Volatility Index" value="14.20" change="-2.10%" up={false} />
+                  <MacroItem name="DXY" desc="US Dollar Index" value="103.54" change="+0.42%" up={true} />
+                  <MacroItem name="US10Y" desc="10-Year Treasury" value="4.25%" change="+0.02%" up={true} />
+                  <MacroItem name="VVIX" desc="VIX Volatility" value="84.15" change="-1.20%" up={false} />
+                </div>
+              </div>
+              
+              <div className="glass-card p-6 border border-white/10 relative overflow-hidden">
+                <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-bull" />
+                  Breadth Engine
+                </h2>
+                <div className="flex items-end justify-between mb-2">
+                   <span className="text-2xl font-bold font-mono text-white">68%</span>
+                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Advancing</span>
+                </div>
+                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden flex">
+                   <div className="h-full bg-bull" style={{width: '68%'}} />
+                   <div className="h-full bg-bear" style={{width: '32%'}} />
+                </div>
+                <div className="flex justify-between mt-3 text-[10px] font-bold tracking-widest uppercase">
+                    <span className="text-bull">2,410</span>
+                    <span className="text-bear">1,105</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CENTER COLUMN: HIGH DENSITY WATCHLIST */}
+            <div className="xl:col-span-8">
+              <WatchlistGrid>
+                {signals.map((s, i) => {
+                  const change = s.history.length >= 2 ? ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100 : 0;
+                  return (
+                    <WatchlistItem 
+                      key={i} 
+                      signal={s}
+                      change={change} 
+                      onRemove={async () => { "use server"; await removeAsset(s.ticker); }}
+                    />
+                  );
+                })}
+              </WatchlistGrid>
+            </div>
+
+            {/* RIGHT COLUMN: VELOCITY / NEWS */}
+            <div className="xl:col-span-2 flex flex-col gap-6">
+              <div className="glass-card p-6 border border-white/10 h-full relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-[1px] h-full bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+                <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                  Narrative Velocity
+                </h2>
+                <div className="flex flex-col gap-5">
+                  {signals.flatMap(s => s.news.map(n => ({ ...n, ticker: s.ticker }))).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((news, i) => (
+                     <a key={i} href={news.url} target="_blank" rel="noopener noreferrer" className="group block focus:outline-none">
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-[9px] font-bold font-mono px-1.5 border border-white/20 text-zinc-400 group-hover:border-matrix group-hover:text-matrix transition-colors uppercase tracking-widest">{news.ticker}</span>
+                            <span className="text-[9px] text-zinc-600 font-mono">{new Date(news.date).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-[12px] font-medium text-white/80 leading-tight group-hover:text-white transition-colors">{news.title}</p>
+                     </a>
+                  ))}
+                  {signals.length === 0 && (
+                      <p className="text-[11px] text-zinc-500 leading-relaxed">No active signals routing to the narrative engine.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -127,6 +193,22 @@ function Stat({ label, value, color }: { label: string, value: string, color: st
     <div className="flex items-center gap-3">
       <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-wider">{label}</span>
       <span className={`${color} font-mono font-bold text-[12px]`}>{value}</span>
+    </div>
+  );
+}
+
+function MacroItem({ name, desc, value, change, up }: { name: string, desc: string, value: string, change: string, up: boolean }) {
+  const color = up ? 'text-bull' : 'text-bear';
+  return (
+    <div className="flex items-center justify-between group">
+       <div className="flex flex-col">
+          <span className="text-[12px] font-bold text-white tracking-widest uppercase">{name}</span>
+          <span className="text-[10px] text-zinc-500 font-medium tracking-wide">{desc}</span>
+       </div>
+       <div className="flex flex-col items-end">
+          <span className="text-[13px] font-mono font-bold text-white tabular-nums">{value}</span>
+          <span className={`text-[10px] font-mono font-bold tabular-nums ${color}`}>{change}</span>
+       </div>
     </div>
   );
 }
