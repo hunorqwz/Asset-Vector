@@ -3,8 +3,8 @@ import { LoginForm } from "@/components/organisms/LoginForm";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Awaiting Verification | Terminal Access",
-  description: "Secure protocol handshake required for terminal access.",
+  title: "Sign In | Asset Vector",
+  description: "Sign in to your Asset Vector account to access your personal dashboard.",
 };
 
 export default function LoginPage() {
@@ -24,11 +24,11 @@ export default function LoginPage() {
           <div className="flex flex-col items-center gap-2">
             <div className="flex items-center gap-3 mb-2">
               <div className="h-[1px] w-6 bg-matrix" />
-              <span className="text-[10px] font-bold text-matrix tracking-[0.4em] uppercase">Security Protocol</span>
+              <span className="text-[10px] font-bold text-matrix tracking-[0.4em] uppercase">Asset Vector</span>
               <div className="h-[1px] w-6 bg-matrix" />
             </div>
             <h1 className="text-4xl font-bold tracking-tightest text-white uppercase text-center leading-[1.1]">
-              Verification<br/>Required
+              Sign In
             </h1>
           </div>
         </div>
@@ -50,18 +50,18 @@ export default function LoginPage() {
           
           <div className="mt-8 pt-8 border-t border-white/5 flex flex-col gap-4">
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest font-bold font-mono">
-              <span className="text-zinc-600">Identity Status:</span>
-              <span className="text-bear">Awaiting Auth</span>
+              <span className="text-zinc-600">Status:</span>
+              <span className="text-bear">Not Signed In</span>
             </div>
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest font-bold font-mono">
-              <span className="text-zinc-600">Node Cluster:</span>
-              <span className="text-zinc-400">Node-Alpha-4</span>
+              <span className="text-zinc-600">Region:</span>
+              <span className="text-zinc-400">Global</span>
             </div>
           </div>
         </div>
 
         <p className="mt-8 text-center text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em] leading-relaxed">
-          Authorized personnel only. All access is monitored<br/>by the Alpha-Vector intelligence engine.
+          Your data is encrypted and never shared.
         </p>
       </div>
     </div>

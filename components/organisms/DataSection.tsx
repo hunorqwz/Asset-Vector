@@ -30,7 +30,7 @@ export function DataSection({ title, icon, children }: { title: string; icon?: R
         <div className="bg-[#111111] border-b border-white/10 p-5 animate-in slide-in-from-top-1 duration-300">
           <div className="flex items-start gap-4 border-l border-zinc-500 pl-4">
             <div className="space-y-1.5">
-              <h4 className="text-[11px] font-bold text-zinc-200 uppercase tracking-[0.2em]">Protocol Index: {title}</h4>
+              <h4 className="text-[11px] font-bold text-zinc-200 uppercase tracking-[0.2em]">Data: {title}</h4>
               <p className="text-[11px] text-zinc-400 leading-relaxed max-w-xl font-medium">
                 Our analytical engine applies multi-stage validation to {title.toLowerCase()}. 
                 This framework utilizes comparative forensic indexing and volatility-weighted consensus 

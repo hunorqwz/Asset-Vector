@@ -12,8 +12,8 @@ export function LogoutButton() {
         <span className="text-[10px] font-bold text-zinc-500 group-hover:text-bear">N</span>
       </div>
       <div className="flex flex-col items-start">
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1 group-hover:text-zinc-300">Identity</span>
-        <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-tight group-hover:text-bear transition-colors">Disconnect</span>
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1 group-hover:text-zinc-300">Account</span>
+        <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-tight group-hover:text-bear transition-colors">Sign Out</span>
       </div>
     </button>
   );

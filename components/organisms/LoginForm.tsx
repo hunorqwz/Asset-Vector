@@ -27,13 +27,13 @@ export function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid identity credentials.");
+        setError("Invalid email or password.");
       } else {
         router.refresh();
         router.push(callbackUrl);
       }
     } catch (err) {
-      setError("Handshake error. Cluster is unreachable.");
+      setError("Connection error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -43,7 +43,7 @@ export function LoginForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">
-          Identity Email
+          Email
         </label>
         <div className="relative group/input">
           <input
@@ -52,14 +52,14 @@ export function LoginForm() {
             onChange={(e) => setEmail(e.target.value)}
             required
             className="w-full bg-[#0a0a0a] border border-white/5 px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:bg-matrix/5 transition-all transition-duration-300 placeholder-zinc-800"
-            placeholder="identity@vector.io"
+            placeholder="you@example.com"
           />
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">
-          Access Password
+          Password
         </label>
         <input
           type="password"
@@ -87,14 +87,14 @@ export function LoginForm() {
       >
         <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
         <span className="relative">
-          {loading ? "Authenticating..." : "Establish Session"}
+          {loading ? "Signing in..." : "Sign In"}
         </span>
       </button>
 
       <div className="flex items-center justify-center gap-4 mt-2 opacity-50">
         <div className="h-[1px] flex-1 bg-white/5" />
         <span className="text-[9px] font-bold text-zinc-800 uppercase tracking-widest whitespace-nowrap">
-           Protocol Version 2.4.0
+           v2.4.0
         </span>
         <div className="h-[1px] flex-1 bg-white/5" />
       </div>

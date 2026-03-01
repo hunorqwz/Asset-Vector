@@ -88,17 +88,17 @@ export function AssetCommand() {
           <Command.List className="max-h-[350px] overflow-y-auto p-1.5 scrollbar-hide">
             <Command.Empty className="py-20 text-center">
               <div className="text-[13px] font-bold text-zinc-400 mb-2 uppercase tracking-widest">
-                {query.startsWith('/') ? 'Protocol Command Unknown' : 'No Assets Found'}
+                {query.startsWith('/') ? 'Command Unknown' : 'No Assets Found'}
               </div>
               <div className="text-[11px] text-zinc-600 font-medium max-w-[240px] mx-auto leading-relaxed">
-                {query.startsWith('/') ? 'Use /remove [TICKER] to purge assets from secure watchlist.' : 'Input a valid ticker symbol (e.g. NVDA, BTC) to initialize tracking.'}
+                {query.startsWith('/') ? 'Use /remove [TICKER] to remove an asset from your watchlist.' : 'Enter a valid ticker symbol (e.g. NVDA, BTC) to start tracking.'}
               </div>
             </Command.Empty>
             {query.startsWith("/") && (
               <div className="p-2">
                 <span className="text-[11px] font-bold text-white px-4 py-2 mt-2 block tracking-[0.2em] uppercase">System Commands</span>
                 <Command.Item onSelect={() => setQuery("/remove ")} className="flex cursor-pointer select-none items-center px-5 py-4 outline-none data-[selected=true]:bg-white/10 transition-all text-[12px] font-mono font-bold text-zinc-300 border border-transparent data-[selected=true]:border-white/20">
-                  <span className="text-white mr-4 bg-white/10 px-2 py-0.5 border border-white/20">/remove</span> <span className="text-zinc-500">[TICKER]</span> <span className="ml-auto text-zinc-600 text-[10px] font-sans font-bold uppercase tracking-widest">Purge Protocol</span>
+                  <span className="text-white mr-4 bg-white/10 px-2 py-0.5 border border-white/20">/remove</span> <span className="text-zinc-500">[TICKER]</span> <span className="ml-auto text-zinc-600 text-[10px] font-sans font-bold uppercase tracking-widest">Remove Asset</span>
                 </Command.Item>
               </div>
             )}
@@ -139,7 +139,7 @@ export function AssetCommand() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-zinc-500 group-hover:text-white transition-colors" aria-hidden="true">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
           </svg>
-          <span className="text-[12px] font-bold text-zinc-500 group-hover:text-white transition-colors uppercase tracking-[0.15em]">Surgical Search...</span>
+          <span className="text-[12px] font-bold text-zinc-500 group-hover:text-white transition-colors uppercase tracking-[0.15em]">Search assets or tickers...</span>
         </div>
         <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 transition-all font-bold" aria-hidden="true">
           <div className="px-2 py-0.5 border border-white/20 text-[11px] font-mono text-zinc-400 group-hover:text-white group-hover:border-white/40 transition-all">⌘</div>

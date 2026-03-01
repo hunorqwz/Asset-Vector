@@ -147,16 +147,16 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                     <div>
                       <h3 className="text-[13px] font-bold text-white uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-bull animate-pulse" />
-                        Neural Engine Offline
+                        AI Analysis Inactive
                       </h3>
-                      <p className="text-[12px] text-zinc-400 max-w-lg leading-relaxed">Engage the institutional Gemini 2.0 framework to extract live narrative velocity and 90-day probabilistic scenarios.</p>
+                      <p className="text-[12px] text-zinc-400 max-w-lg leading-relaxed">Enable AI analysis to extract live sentiment summaries and 90-day price scenarios powered by Gemini 2.0.</p>
                     </div>
                     <button 
                       onClick={() => setIsNeuralEngaged(true)} 
                       className="whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-colors"
                     >
                       <div className="w-2 h-2 bg-black rounded-full" />
-                      Engage Neural Engine
+                      Enable AI Analysis
                     </button>
                  </div>
               )}
@@ -166,7 +166,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
               <section className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="w-1 h-3.5 bg-white shadow-none" />
-                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">Neural Intelligence Core</h2>
+                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">AI Analysis</h2>
                 </div>
                 <StrategicOracle 
                   ticker={ticker} 
@@ -192,7 +192,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
               </div>
 
               <section className="space-y-6">
-                <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.2em]">Surgical Asset Profile</h3>
+                <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.2em]">Company Overview</h3>
                 <p className="text-[14px] text-zinc-400 leading-relaxed font-normal border-l-2 border-white/5 pl-6">{d.profile.description}</p>
               </section>
             </div>

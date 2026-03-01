@@ -28,11 +28,10 @@ export function FundamentalIntelligence({
       <header className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <div className="w-1 h-4 bg-matrix" />
-          <h2 className="text-[14px] font-bold uppercase tracking-[0.3em] text-white">Surgical Fundamental Analysis</h2>
+          <h2 className="text-[14px] font-bold uppercase tracking-[0.3em] text-white">Fundamental Analysis</h2>
         </div>
         <p className="text-[12px] text-zinc-500 font-medium max-w-2xl leading-relaxed uppercase tracking-wider">
-          Multi-stage structural decomposition of asset value. 
-          Cross-referenced against sector benchmarks and historical variance.
+          Key financial metrics cross-referenced against sector benchmarks.
         </p>
       </header>
 
@@ -159,7 +158,7 @@ function IntelligenceCard({ title, metrics, insightKey, peerValue }: Intelligenc
               </div>
               
               <div className="space-y-2">
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Surgical Strategy</span>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Key Insight</span>
                 <p className="text-[12px] text-zinc-400 leading-relaxed italic border-l border-matrix/50 pl-4">{insight.surgicalTake}</p>
               </div>
 

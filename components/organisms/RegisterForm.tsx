@@ -28,10 +28,10 @@ export function RegisterForm() {
       if (result.success) {
         setSuccess(true);
       } else {
-        setError(result.error || "Establishment error.");
+        setError(result.error || "Registration failed. Please try again.");
       }
     } catch (err) {
-      setError("Handshake error. Cluster is unreachable.");
+      setError("Connection error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -46,9 +46,9 @@ export function RegisterForm() {
             </svg>
         </div>
         <div className="text-center space-y-3">
-          <h2 className="text-xl font-bold text-white uppercase tracking-tightest">Identity Established</h2>
+          <h2 className="text-xl font-bold text-white uppercase tracking-tightest">Account Created</h2>
           <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">
-            Your secure session credentials have been written to the cluster.
+            Your account is ready. Sign in to access your dashboard.
           </p>
         </div>
         <Link 
@@ -65,7 +65,7 @@ export function RegisterForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">
-          Authorized Name
+          Full Name
         </label>
         <input
           type="text"
@@ -73,13 +73,13 @@ export function RegisterForm() {
           onChange={(e) => setName(e.target.value)}
           required
           className="w-full bg-[#0a0a0a] border border-white/5 px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:bg-matrix/5 transition-all placeholder-zinc-800"
-          placeholder="J. SNOW"
+          placeholder="Jane Smith"
         />
       </div>
 
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">
-          Identity Email
+          Email
         </label>
         <input
           type="email"
@@ -87,13 +87,13 @@ export function RegisterForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           className="w-full bg-[#0a0a0a] border border-white/5 px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:bg-matrix/5 transition-all placeholder-identity@vector.io"
-          placeholder="identity@vector.io"
+          placeholder="you@example.com"
         />
       </div>
 
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">
-          Set Access Password
+          Password
         </label>
         <input
           type="password"
@@ -121,7 +121,7 @@ export function RegisterForm() {
       >
         <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
         <span className="relative">
-          {loading ? "INITIALIZING..." : "Establish Identity"}
+          {loading ? "Creating Account..." : "Create Account"}
         </span>
       </button>
     </form>

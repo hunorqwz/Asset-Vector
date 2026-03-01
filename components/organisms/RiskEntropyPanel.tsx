@@ -33,7 +33,7 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-4 bg-white" />
           <div>
-            <h2 className="text-[14px] font-bold tracking-[0.2em] text-white uppercase">Risk Entropy Protocol</h2>
+            <h2 className="text-[14px] font-bold tracking-[0.2em] text-white uppercase">Risk Analysis</h2>
             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Reward-to-Volatility Analysis • Annualized 252-Day Matrix</p>
           </div>
         </div>

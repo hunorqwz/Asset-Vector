@@ -3,8 +3,8 @@ import { RegisterForm } from "@/components/organisms/RegisterForm";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Identity Initialization | Alpha Vector",
-  description: "Secure identity registration into the Alpha-Vector cluster.",
+  title: "Create Account | Asset Vector",
+  description: "Create your Asset Vector account to start tracking assets.",
 };
 
 export default function RegisterPage() {
@@ -24,11 +24,11 @@ export default function RegisterPage() {
           <div className="flex flex-col items-center gap-2">
             <div className="flex items-center gap-3 mb-2">
               <div className="h-[1px] w-6 bg-matrix" />
-              <span className="text-[10px] font-bold text-matrix tracking-[0.4em] uppercase">Protocol Registration</span>
+              <span className="text-[10px] font-bold text-matrix tracking-[0.4em] uppercase">New Account</span>
               <div className="h-[1px] w-6 bg-matrix" />
             </div>
             <h1 className="text-4xl font-bold tracking-tightest text-white uppercase leading-[1.1]">
-               Identity<br/>Initialization
+               Create Account
             </h1>
           </div>
         </div>
@@ -50,18 +50,18 @@ export default function RegisterPage() {
           
           <div className="mt-8 pt-8 border-t border-white/5 flex flex-col gap-4">
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest font-bold font-mono">
-              <span className="text-zinc-600">Access Tier:</span>
-              <span className="text-matrix">Standard Node</span>
+              <span className="text-zinc-600">Account Tier:</span>
+              <span className="text-matrix">Free</span>
             </div>
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest font-bold font-mono">
-              <span className="text-zinc-600">Sync Status:</span>
-              <span className="text-zinc-400">Ready for Handshake</span>
+              <span className="text-zinc-600">Status:</span>
+              <span className="text-zinc-400">Ready to Register</span>
             </div>
           </div>
         </div>
 
         <p className="mt-8 text-center text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em] leading-relaxed">
-           Welcome to the Alpha-Vector cluster. Once registered, your profile<br/>will be synced with surgical precision across all terminals.
+           Your data is encrypted and never shared.
         </p>
       </div>
     </div>
