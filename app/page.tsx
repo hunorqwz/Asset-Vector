@@ -3,6 +3,7 @@ import { WatchlistGrid, WatchlistItem } from "@/components/BentoGrid";
 import { getMarketSignals, removeAsset } from "@/app/actions";
 import { AssetCommand } from "@/components/AssetCommand";
 import { LiveTime } from "@/components/LiveTime";
+import { LiveLatency, IntegrityBars, StealthTooltip } from "@/components/LiveTelemetry";
 
 export const metadata: Metadata = {
   title: "Surgical Market Intelligence | Dashboard",
@@ -39,11 +40,15 @@ export default async function Home() {
           </div>
           <div className="flex items-center gap-8" aria-label="System status">
             <div className="flex flex-col items-end">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-bull animate-pulse shadow-bull" aria-hidden="true" />
-                <span className="text-[12px] font-bold text-bull uppercase tracking-[0.15em]">Live Vector</span>
-              </div>
-              <span className="text-[11px] font-mono font-bold text-zinc-500 mt-1 uppercase tracking-widest">Latency: 0.02ms</span>
+              <StealthTooltip content="Data pipeline is streaming." position="bottom">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" aria-hidden="true" />
+                  <span className="text-[12px] font-bold text-matrix uppercase tracking-[0.15em]">Live Vector</span>
+                </div>
+              </StealthTooltip>
+              <StealthTooltip content="WebSocket market feed delay" position="bottom">
+                <span className="text-[11px] font-mono font-bold text-zinc-500 mt-1 uppercase tracking-widest">Latency: <LiveLatency /></span>
+              </StealthTooltip>
             </div>
           </div>
         </div>
@@ -53,9 +58,13 @@ export default async function Home() {
         <div className="max-w-[1600px] mx-auto">
           <div className="mb-12 flex items-end justify-between border-b border-white/5 pb-10">
             <div className="relative">
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-4 group cursor-crosshair">
                 <div className="h-[2px] w-8 bg-matrix" />
-                <span className="text-[11px] font-bold text-matrix tracking-[0.2em] uppercase">Command Center</span>
+                <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.2em] uppercase text-zinc-500">
+                  <span className="text-matrix">Command Center</span>
+                  <span>/</span>
+                  <span className="text-zinc-500 group-hover:text-zinc-300 transition-colors">Overview</span>
+                </div>
               </div>
               <h1 className="text-5xl sm:text-6xl font-bold tracking-tightest leading-[1]">
                 System Overview
@@ -154,23 +163,33 @@ export default async function Home() {
       <footer className="glass-panel z-[100] px-8 py-4 border-t border-white/5 bg-black/60 backdrop-blur-md">
         <div className="w-full flex items-center justify-between">
           <div className="flex gap-12">
-            <Stat label="Protocol" value="Vector 1.0" color="text-zinc-500" />
-            <Stat label="Identity" value="Auth: Verified" color="text-bull" />
+            <StealthTooltip content="Platform version 1.0">
+              <div className="flex items-center">
+                <Stat label="Protocol" value="Vector 1.0" color="text-zinc-500" />
+              </div>
+            </StealthTooltip>
+            <StealthTooltip content="Encrypted 256-bit session verified">
+              <div className="flex items-center">
+                <Stat label="Identity" value="Auth: Verified" color="text-matrix" />
+              </div>
+            </StealthTooltip>
           </div>
           <div className="flex items-center gap-4">
             <div className="h-[1px] w-12 bg-white/5" />
-            <div className="flex items-center gap-3 px-5 py-1.5 bg-matrix/5 border border-matrix/20 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" />
-              <span className="text-[11px] text-matrix font-bold tracking-widest uppercase">Connected</span>
-            </div>
+            <StealthTooltip content="Exchange WebSockets secure & streaming">
+              <div className="flex items-center gap-3 px-5 py-1.5 bg-matrix/5 border border-matrix/20 rounded-full">
+                <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" />
+                <span className="text-[11px] text-matrix font-bold tracking-widest uppercase">Connected</span>
+              </div>
+            </StealthTooltip>
             <div className="h-[1px] w-12 bg-white/5" />
           </div>
           <div className="flex items-center gap-10">
             <div className="flex items-center gap-4">
-              <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest">Protocol Integrity</span>
-              <div className="flex gap-2" aria-label="Integrity bars: 4 of 4">
-                {[...Array(4)].map((_, i) => <div key={i} className="w-2 h-5 bg-bull/60 rounded-full shadow-[0_0_10px_hsla(var(--bull)/0.4)]" />)}
-              </div>
+              <StealthTooltip content="Live connection to Neural Prediction Engine">
+                <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest">Protocol Integrity</span>
+              </StealthTooltip>
+              <IntegrityBars />
             </div>
           </div>
         </div>
