@@ -105,3 +105,16 @@ export const signals = pgTable("signals", {
   shapFactors: jsonb("shap_factors"),
   regime: varchar("regime", { length: 50 }),
 });
+
+export const userPositions = pgTable("user_positions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  name: text("name").notNull(),
+  shares: numeric("shares", { precision: 18, scale: 8 }).notNull(),
+  avgCost: numeric("avg_cost", { precision: 18, scale: 8 }).notNull(),
+  notes: text("notes"),
+  openedAt: timestamp("opened_at").defaultNow(),
+});

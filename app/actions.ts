@@ -1,5 +1,5 @@
 "use server";
-import { fetchMarketData, MarketSignal, fetchHistoryWithInterval, RANGE_INTERVAL_MAP, OHLCV } from "@/lib/market-data";
+import { fetchMarketData, fetchLiveQuote, MarketSignal, fetchHistoryWithInterval, RANGE_INTERVAL_MAP, OHLCV } from "@/lib/market-data";
 import { db } from "@/db";
 import { assets, userWatchlists } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -10,6 +10,21 @@ import { predictNextHorizon } from "@/lib/inference";
 import { fetchStockDetails } from "@/lib/stock-details";
 
 const yahooFinance = new YahooFinance();
+
+export async function getPortfolioPrices(tickers: string[]): Promise<Record<string, number>> {
+  if (tickers.length === 0) return {};
+  const results = await Promise.all(
+    tickers.map(async (ticker) => {
+      try {
+        const price = await fetchLiveQuote(ticker);
+        return [ticker, price] as [string, number];
+      } catch {
+        return null;
+      }
+    })
+  );
+  return Object.fromEntries(results.filter((r): r is [string, number] => r !== null));
+}
 
 export async function getMarketSignals(): Promise<MarketSignal[]> {
   const session = await auth();

@@ -65,6 +65,27 @@ export async function fetchHistoryWithInterval(
   return data;
 }
 
+/**
+ * Fetches only the real-time current price for a ticker.
+ * Uses Yahoo Finance's quote endpoint — a single lightweight API call.
+ * Do NOT use fetchMarketData for this — that is the full analytical pipeline.
+ */
+export async function fetchLiveQuote(ticker: string): Promise<number> {
+  const cacheKey = `quote:${ticker}`;
+  const cached = getFromCache<number>(cacheKey);
+  if (cached !== null) return cached;
+
+  const quote = await yahooFinance.quote(ticker, {}, { validateResult: false }) as any;
+  const price = quote.regularMarketPrice as number;
+
+  if (typeof price !== 'number' || isNaN(price)) {
+    throw new Error(`No valid price returned for ${ticker}`);
+  }
+
+  setInCache(cacheKey, price, CACHE_TTL.MARKET_DATA);
+  return price;
+}
+
 async function fetchHistory(ticker: string, len: number): Promise<OHLCV[]> {
   const result = await yahooFinance.chart(ticker, { period1: 0, interval: '1d' }, { validateResult: false }) as any;
   if (!result?.quotes?.length) throw new Error('HISTORY_FETCH_FAILED');
@@ -100,7 +121,9 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     fetchHeadlines(ticker)
   ]);
 
-  const slope = (smooth - history[history.length - 5].close) / 5;
+  // Guard against short history (needs at least 6 bars for 5-bar lookback)
+  const lookback = Math.min(5, history.length - 1);
+  const slope = lookback > 0 ? (smooth - history[history.length - 1 - lookback].close) / lookback : 0;
   let trend: "BULLISH" | "BEARISH" | "NEUTRAL" = Math.abs(slope) < (isCrypto ? 50 : 0.5) ? "NEUTRAL" : (slope > 0 ? "BULLISH" : "BEARISH");
   
   const aiRet = (ai.p50 - currentPrice) / currentPrice;

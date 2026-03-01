@@ -2,10 +2,12 @@ import { Metadata } from "next";
 import { WatchlistGrid, WatchlistItem } from "@/components/BentoGrid";
 import { getMarketSignals, removeAsset } from "@/app/actions";
 import { AssetCommand } from "@/components/AssetCommand";
+import { EmptyWatchlist } from "@/components/EmptyWatchlist";
 import { LiveTime } from "@/components/LiveTime";
 import { LiveLatency, IntegrityBars, StealthTooltip } from "@/components/LiveTelemetry";
 import { auth } from "@/auth";
 import { LogoutButton } from "@/components/LogoutButton";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Dashboard | Asset Vector",
@@ -36,9 +38,15 @@ export default async function Home() {
               <IndexItem symb="SPY" val="+0.07%" up />
               <IndexItem symb="QQQ" val="-0.12%" />
               <IndexItem symb="BTC" val="+1.42%" up />
+              <div className="border-l border-white/10 pl-8">
+                <Link href="/portfolio" className="text-[11px] font-bold text-zinc-500 hover:text-matrix uppercase tracking-[0.2em] transition-colors">
+                  Portfolio
+                </Link>
+              </div>
             </div>
           </div>
-          <div className="flex-1 max-w-sm px-12">
+          {/* SEARCH — fills the available centre space */}
+          <div className="flex-1 px-8 max-w-2xl">
             <AssetCommand />
           </div>
           <div className="flex items-center gap-8" aria-label="System status">
@@ -135,17 +143,7 @@ export default async function Home() {
                   })}
                 </WatchlistGrid>
               ) : (
-                <div className="flex flex-col items-center justify-center p-12 glass-card border border-white/10 relative overflow-hidden h-full min-h-[400px]">
-                   <div className="w-16 h-16 rounded-full border border-matrix/40 bg-matrix/10 flex items-center justify-center mb-6">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-matrix opacity-80">
-                         <path d="M12 5v14m-7-7h14"/>
-                      </svg>
-                   </div>
-                   <h3 className="text-lg font-bold text-white uppercase tracking-tightest mb-2">Terminal Empty</h3>
-                   <p className="text-[11px] font-bold text-zinc-500 tracking-widest uppercase text-center max-w-sm leading-relaxed mb-6">
-                      Awaiting initial asset input. <br/>Search and deploy new trackers from the command line above.
-                   </p>
-                </div>
+                <EmptyWatchlist />
               )}
             </div>
 

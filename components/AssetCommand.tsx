@@ -1,127 +1,174 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Command } from "cmdk";
 import { searchAssets, addAsset, removeAsset } from "@/app/actions";
 
 interface SearchResult { ticker: string; name: string; exch: string; type: string; }
 
-export function AssetCommand() {
+interface AssetCommandProps {
+  /** When true, the palette opens immediately on mount (e.g. triggered by empty state) */
+  autoOpen?: boolean;
+}
+
+export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Ensure portal only renders on client
-  useEffect(() => { setMounted(true); }, []);
-
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
+    setMounted(true);
+    if (autoOpen) setOpen(true);
+  }, [autoOpen]);
+
+  // Global keyboard shortcuts: ⌘K to toggle, Escape to close
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setOpen(o => !o);
+        setOpen((o) => !o);
+      }
+      if (e.key === "Escape" && open) {
+        e.preventDefault();
+        setOpen(false);
       }
     };
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
+  // Debounced search
   useEffect(() => {
     if (query.length < 2 || query.startsWith("/")) {
       setResults([]);
       return;
     }
-    const f = async () => {
+    const t = setTimeout(async () => {
       setLoading(true);
       setResults(await searchAssets(query));
       setLoading(false);
-    };
-    const t = setTimeout(f, 300);
+    }, 300);
     return () => clearTimeout(t);
   }, [query]);
 
-  const onSelect = async (ticker: string, name: string) => {
-    await addAsset(ticker, name);
+  const close = useCallback(() => {
     setOpen(false);
     setQuery("");
+    setResults([]);
+  }, []);
+
+  const onSelect = async (ticker: string, name: string) => {
+    await addAsset(ticker, name);
+    close();
   };
 
   const onCommand = async (q: string) => {
     const [cmd, arg] = q.split(" ");
     if (cmd === "/remove" && arg) await removeAsset(arg.toUpperCase());
-    setOpen(false);
-    setQuery("");
+    close();
   };
 
-  // The modal overlay — rendered via portal to escape header's overflow:hidden
   const commandPalette = open ? (
-    <div 
-      className="fixed inset-0 z-[9999] bg-black/80 flex items-start justify-center pt-[15vh] p-4" 
-      onClick={() => setOpen(false)}
+    <div
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-start justify-center pt-[14vh] p-4 animate-in fade-in duration-150"
+      onClick={close}
     >
-      <div 
-        className="w-full max-w-lg bg-[#0a0a0a] border border-white/20 shadow-none overflow-hidden"
-        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      <div
+        className="w-full max-w-xl bg-[#0a0a0a] border border-white/20 shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-200"
+        onClick={(e) => e.stopPropagation()}
       >
-        <Command className="w-full" label="Asset search command palette" shouldFilter={false}>
-          <div className="flex items-center border-b border-white/5 px-4 h-12">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-500 mr-3 shrink-0" aria-hidden="true">
+        <Command className="w-full" label="Asset search" shouldFilter={false}>
+          {/* Search input row */}
+          <div className="flex items-center border-b border-white/8 px-4 h-14 gap-3">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-500 shrink-0" aria-hidden="true">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
             </svg>
-            <Command.Input 
-              value={query} 
-              onValueChange={setQuery} 
-              onKeyDown={(e: React.KeyboardEvent) => e.key === "Enter" && query.startsWith("/") && onCommand(query)} 
-              placeholder="Search tickers or type '/' for CLI..." 
-              className="flex-1 bg-transparent text-sm text-white focus:outline-none font-medium h-full placeholder:text-zinc-600" 
+            <Command.Input
+              value={query}
+              onValueChange={setQuery}
+              onKeyDown={(e) => e.key === "Enter" && query.startsWith("/") && onCommand(query)}
+              placeholder="Search tickers or type '/' for commands..."
+              className="flex-1 bg-transparent text-[14px] text-white focus:outline-none font-medium h-full placeholder:text-zinc-600"
               autoFocus
             />
-            {loading && <div className="w-3 h-3 border-2 border-white/10 border-t-white rounded-full animate-spin ml-2" aria-label="Loading" />}
-            <button 
-              onClick={() => setOpen(false)}
-              className="ml-4 px-2 py-1 text-[11px] font-bold font-mono text-zinc-500 bg-transparent border border-white/20 hover:text-white hover:bg-white/10 transition-all shadow-none"
+            {loading && (
+              <div className="w-3.5 h-3.5 border-2 border-white/10 border-t-zinc-400 rounded-full animate-spin shrink-0" />
+            )}
+            <button
+              onClick={close}
+              className="ml-1 px-2.5 py-1 text-[11px] font-bold font-mono text-zinc-500 border border-white/15 hover:text-white hover:border-white/30 transition-all"
             >
               ESC
             </button>
           </div>
-          <Command.List className="max-h-[350px] overflow-y-auto p-1.5 scrollbar-hide">
+
+          <Command.List className="max-h-[360px] overflow-y-auto p-2 scrollbar-hide">
             <Command.Empty className="py-20 text-center">
-              <div className="text-[13px] font-bold text-zinc-400 mb-2 uppercase tracking-widest">
-                {query.startsWith('/') ? 'Command Unknown' : 'No Assets Found'}
+              <div className="text-[12px] font-bold text-zinc-400 mb-2 uppercase tracking-widest">
+                {query.startsWith("/") ? "Command Not Found" : "No Assets Found"}
               </div>
-              <div className="text-[11px] text-zinc-600 font-medium max-w-[240px] mx-auto leading-relaxed">
-                {query.startsWith('/') ? 'Use /remove [TICKER] to remove an asset from your watchlist.' : 'Enter a valid ticker symbol (e.g. NVDA, BTC) to start tracking.'}
+              <div className="text-[11px] text-zinc-600 font-medium max-w-[260px] mx-auto leading-relaxed">
+                {query.startsWith("/")
+                  ? "Type /remove [TICKER] to remove an asset from your watchlist."
+                  : "Try a valid ticker symbol like NVDA, AAPL, or BTC-USD."}
               </div>
             </Command.Empty>
+
+            {/* CLI commands */}
             {query.startsWith("/") && (
-              <div className="p-2">
-                <span className="text-[11px] font-bold text-white px-4 py-2 mt-2 block tracking-[0.2em] uppercase">System Commands</span>
-                <Command.Item onSelect={() => setQuery("/remove ")} className="flex cursor-pointer select-none items-center px-5 py-4 outline-none data-[selected=true]:bg-white/10 transition-all text-[12px] font-mono font-bold text-zinc-300 border border-transparent data-[selected=true]:border-white/20">
-                  <span className="text-white mr-4 bg-white/10 px-2 py-0.5 border border-white/20">/remove</span> <span className="text-zinc-500">[TICKER]</span> <span className="ml-auto text-zinc-600 text-[10px] font-sans font-bold uppercase tracking-widest">Remove Asset</span>
+              <div className="p-1">
+                <div className="px-4 py-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Commands</div>
+                <Command.Item
+                  onSelect={() => setQuery("/remove ")}
+                  className="flex cursor-pointer select-none items-center px-4 py-3.5 outline-none data-[selected=true]:bg-white/8 transition-all text-[12px] font-mono font-bold text-zinc-300 border border-transparent data-[selected=true]:border-white/15 rounded-sm"
+                >
+                  <span className="text-white mr-3 bg-white/10 px-2 py-0.5 border border-white/20 text-[11px]">/remove</span>
+                  <span className="text-zinc-500">[TICKER]</span>
+                  <span className="ml-auto text-zinc-600 text-[10px] font-sans font-bold uppercase tracking-widest">Remove from watchlist</span>
                 </Command.Item>
               </div>
             )}
-            {results.map(item => (
-              <Command.Item key={item.ticker} value={item.ticker} onSelect={() => onSelect(item.ticker, item.name)} className="flex cursor-pointer select-none items-center px-5 py-4 outline-none data-[selected=true]:bg-white/10 group transition-all border border-transparent data-[selected=true]:border-white/20 mb-1">
-                <div className="flex flex-col flex-1">
-                  <span className="font-bold text-[14px] tracking-tight text-zinc-100 group-data-[selected=true]:text-white transition-colors">{item.ticker}</span>
-                  <span className="text-[11px] font-bold text-zinc-500 truncate tracking-wide uppercase mt-0.5">{item.name}</span>
-                </div>
-                <div className="flex items-center gap-6">
-                  <span className="text-[11px] font-bold font-mono text-zinc-600 bg-transparent px-3 py-1 border border-white/20 group-data-[selected=true]:border-white/40 group-data-[selected=true]:text-white transition-all">{item.exch}</span>
-                  <div className="w-8 h-8 flex items-center justify-center bg-transparent transition-all border border-transparent group-data-[selected=true]:border-white/20 group-data-[selected=true]:bg-white/10">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" className="text-transparent group-data-[selected=true]:text-white">
-                      <path d="M5 12l5 5L20 7" />
-                    </svg>
-                  </div>
-                </div>
-              </Command.Item>
-            ))}
+
+            {/* Search results */}
+            {results.length > 0 && (
+              <div className="p-1">
+                <div className="px-4 py-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Results</div>
+                {results.map((item) => (
+                  <Command.Item
+                    key={item.ticker}
+                    value={item.ticker}
+                    onSelect={() => onSelect(item.ticker, item.name)}
+                    className="flex cursor-pointer select-none items-center px-4 py-3.5 outline-none data-[selected=true]:bg-white/8 group transition-all border border-transparent data-[selected=true]:border-white/15 mb-0.5 rounded-sm"
+                  >
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="font-bold text-[14px] tracking-tight text-zinc-100 group-data-[selected=true]:text-white transition-colors">{item.ticker}</span>
+                      <span className="text-[11px] font-bold text-zinc-500 truncate tracking-wide uppercase mt-0.5">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 ml-4 shrink-0">
+                      <span className="text-[10px] font-bold font-mono text-zinc-600 border border-white/15 px-2 py-0.5 group-data-[selected=true]:border-white/30 group-data-[selected=true]:text-zinc-300 transition-all">{item.exch}</span>
+                      <span className="text-[10px] font-bold font-mono text-zinc-600 border border-white/15 px-2 py-0.5 group-data-[selected=true]:border-white/30 group-data-[selected=true]:text-zinc-300 transition-all">{item.type}</span>
+                      <div className="w-7 h-7 flex items-center justify-center border border-transparent group-data-[selected=true]:border-matrix/40 group-data-[selected=true]:bg-matrix/10 transition-all">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-transparent group-data-[selected=true]:text-matrix transition-colors">
+                          <path d="M5 12l5 5L20 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </Command.Item>
+                ))}
+              </div>
+            )}
           </Command.List>
-          <div className="flex items-center justify-between px-4 h-8 bg-white/3 border-t border-white/5 text-[9px] font-mono text-zinc-600">
-            <span>Vector v1.0</span>
-            <div className="flex gap-3"><span>↵ Select</span><span>ESC Close</span></div>
+
+          {/* Footer hints */}
+          <div className="flex items-center justify-between px-5 h-9 bg-white/[0.02] border-t border-white/5 text-[10px] font-mono text-zinc-600">
+            <span>Asset Vector v1.0</span>
+            <div className="flex gap-4">
+              <span>↑↓ Navigate</span>
+              <span>↵ Add to watchlist</span>
+              <span>ESC Close</span>
+            </div>
           </div>
         </Command>
       </div>
@@ -130,24 +177,27 @@ export function AssetCommand() {
 
   return (
     <>
-      <button 
-        onClick={() => setOpen(true)} 
-        aria-label="Open command palette"
-        className="w-full flex items-center justify-between h-10 px-5 glass-card hover:border-white/30 group active:scale-[0.98] transition-all bg-[#0a0a0a]"
+      {/* Trigger button — fills its container width */}
+      <button
+        id="asset-search-trigger"
+        onClick={() => setOpen(true)}
+        aria-label="Open asset search (⌘K)"
+        className="w-full flex items-center justify-between h-10 px-4 bg-[#0a0a0a] border border-white/8 hover:border-white/25 group active:scale-[0.99] transition-all"
       >
-        <div className="flex items-center gap-4">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-zinc-500 group-hover:text-white transition-colors" aria-hidden="true">
+        <div className="flex items-center gap-3">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-600 group-hover:text-zinc-300 transition-colors shrink-0" aria-hidden="true">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
           </svg>
-          <span className="text-[12px] font-bold text-zinc-500 group-hover:text-white transition-colors uppercase tracking-[0.15em]">Search assets or tickers...</span>
+          <span className="text-[12px] font-bold text-zinc-500 group-hover:text-zinc-300 transition-colors uppercase tracking-[0.12em] whitespace-nowrap">
+            Search assets or tickers...
+          </span>
         </div>
-        <div className="flex items-center gap-2 opacity-30 group-hover:opacity-100 transition-all font-bold" aria-hidden="true">
-          <div className="px-2 py-0.5 border border-white/20 text-[11px] font-mono text-zinc-400 group-hover:text-white group-hover:border-white/40 transition-all">⌘</div>
-          <div className="px-2 py-0.5 border border-white/20 text-[11px] font-mono text-zinc-400 group-hover:text-white group-hover:border-white/40 transition-all">K</div>
+        <div className="flex items-center gap-1 opacity-40 group-hover:opacity-80 transition-all" aria-hidden="true">
+          <div className="px-1.5 py-0.5 border border-white/20 text-[10px] font-mono text-zinc-400">⌘</div>
+          <div className="px-1.5 py-0.5 border border-white/20 text-[10px] font-mono text-zinc-400">K</div>
         </div>
       </button>
 
-      {/* Render the command palette via Portal to escape header's overflow:hidden */}
       {mounted && commandPalette && createPortal(commandPalette, document.body)}
     </>
   );
