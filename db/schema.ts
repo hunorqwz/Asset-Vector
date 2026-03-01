@@ -1,11 +1,60 @@
-import { pgTable, text, timestamp, boolean, uuid, varchar, jsonb, numeric, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, uuid, varchar, jsonb, numeric, index, integer, primaryKey } from "drizzle-orm/pg-core";
+import type { AdapterAccountType } from "next-auth/adapters";
 
 export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  email: text("email").unique().notNull(),
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  name: text("name"),
+  email: text("email").notNull().unique(),
+  emailVerified: timestamp("emailVerified", { mode: "date" }),
+  image: text("image"),
+  password: text("password"), // Added for credentials-based login
   tier: varchar("tier", { length: 20 }).default("free"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const accounts = pgTable(
+  "accounts",
+  {
+    userId: uuid("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").$type<AdapterAccountType>().notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("providerAccountId").notNull(),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
+  },
+  (account) => ({
+    compoundKey: primaryKey({
+      columns: [account.provider, account.providerAccountId],
+    }),
+  })
+);
+
+export const sessions = pgTable("sessions", {
+  sessionToken: text("sessionToken").notNull().primaryKey(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires", { mode: "date" }).notNull(),
+});
+
+export const verificationTokens = pgTable(
+  "verificationToken",
+  {
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: timestamp("expires", { mode: "date" }).notNull(),
+  },
+  (vt) => ({
+    compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
+  })
+);
 
 export const assets = pgTable("assets", {
   ticker: varchar("ticker", { length: 10 }).primaryKey(),
@@ -13,6 +62,22 @@ export const assets = pgTable("assets", {
   sector: varchar("sector", { length: 50 }),
   isActive: boolean("is_active").default(true),
 });
+
+export const userWatchlists = pgTable(
+  "user_watchlists",
+  {
+    userId: uuid("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    ticker: varchar("ticker", { length: 10 })
+      .notNull()
+      .references(() => assets.ticker, { onDelete: "cascade" }),
+    addedAt: timestamp("added_at").defaultNow(),
+  },
+  (table) => ({
+    compoundKey: primaryKey({ columns: [table.userId, table.ticker] }),
+  })
+);
 
 export const marketData = pgTable("market_data", {
   ticker: varchar("ticker", { length: 10 }).references(() => assets.ticker),

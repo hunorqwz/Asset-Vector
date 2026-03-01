@@ -4,6 +4,8 @@ import { getMarketSignals, removeAsset } from "@/app/actions";
 import { AssetCommand } from "@/components/AssetCommand";
 import { LiveTime } from "@/components/LiveTime";
 import { LiveLatency, IntegrityBars, StealthTooltip } from "@/components/LiveTelemetry";
+import { auth } from "@/auth";
+import { LogoutButton } from "@/components/LogoutButton";
 
 export const metadata: Metadata = {
   title: "Surgical Market Intelligence | Dashboard",
@@ -13,6 +15,7 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 export default async function Home() {
+  const session = await auth();
   const signals = await getMarketSignals();
 
   return (
@@ -117,19 +120,33 @@ export default async function Home() {
 
             {/* CENTER COLUMN: HIGH DENSITY WATCHLIST */}
             <div className="xl:col-span-8">
-              <WatchlistGrid>
-                {signals.map((s, i) => {
-                  const change = s.history.length >= 2 ? ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100 : 0;
-                  return (
-                    <WatchlistItem 
-                      key={i} 
-                      signal={s}
-                      change={change} 
-                      onRemove={async () => { "use server"; await removeAsset(s.ticker); }}
-                    />
-                  );
-                })}
-              </WatchlistGrid>
+              {signals.length > 0 ? (
+                <WatchlistGrid>
+                  {signals.map((s, i) => {
+                    const change = s.history.length >= 2 ? ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100 : 0;
+                    return (
+                      <WatchlistItem 
+                        key={i} 
+                        signal={s}
+                        change={change} 
+                        onRemove={async () => { "use server"; await removeAsset(s.ticker); }}
+                      />
+                    );
+                  })}
+                </WatchlistGrid>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-12 glass-card border border-white/10 relative overflow-hidden h-full min-h-[400px]">
+                   <div className="w-16 h-16 rounded-full border border-matrix/40 bg-matrix/10 flex items-center justify-center mb-6">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-matrix opacity-80">
+                         <path d="M12 5v14m-7-7h14"/>
+                      </svg>
+                   </div>
+                   <h3 className="text-lg font-bold text-white uppercase tracking-tightest mb-2">Terminal Empty</h3>
+                   <p className="text-[11px] font-bold text-zinc-500 tracking-widest uppercase text-center max-w-sm leading-relaxed mb-6">
+                      Awaiting initial asset input. <br/>Search and deploy new trackers from the command line above.
+                   </p>
+                </div>
+              )}
             </div>
 
             {/* RIGHT COLUMN: VELOCITY / NEWS */}
@@ -168,11 +185,13 @@ export default async function Home() {
                 <Stat label="Protocol" value="Vector 1.0" color="text-zinc-500" />
               </div>
             </StealthTooltip>
-            <StealthTooltip content="Encrypted 256-bit session verified">
-              <div className="flex items-center">
-                <Stat label="Identity" value="Auth: Verified" color="text-matrix" />
-              </div>
-            </StealthTooltip>
+            {session?.user && (
+              <StealthTooltip content={`Verified for ${session.user.email}`}>
+                <div className="flex items-center">
+                  <Stat label="Identity" value={session.user.name || session.user.email || "Verified"} color="text-matrix" />
+                </div>
+              </StealthTooltip>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <div className="h-[1px] w-12 bg-white/5" />
@@ -185,12 +204,13 @@ export default async function Home() {
             <div className="h-[1px] w-12 bg-white/5" />
           </div>
           <div className="flex items-center gap-10">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 border-r border-white/5 pr-10 h-10">
               <StealthTooltip content="Live connection to Neural Prediction Engine">
                 <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest">Protocol Integrity</span>
               </StealthTooltip>
               <IntegrityBars />
             </div>
+            <LogoutButton />
           </div>
         </div>
       </footer>

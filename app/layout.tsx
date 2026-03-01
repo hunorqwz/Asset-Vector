@@ -63,6 +63,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { AuthProvider } from "@/components/providers/SessionProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -73,11 +75,13 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} ${pixelFont.variable} antialiased select-none`}
       >
-        <div className="animate-scanline" />
-        <div className="vignette" />
-        <div className="app-grid bg-background overflow-hidden relative">
-          {children}
-        </div>
+        <AuthProvider>
+          <div className="animate-scanline" />
+          <div className="vignette" />
+          <div className="app-grid bg-background overflow-hidden relative">
+            {children}
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

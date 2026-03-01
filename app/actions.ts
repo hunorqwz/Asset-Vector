@@ -1,21 +1,33 @@
 "use server";
 import { fetchMarketData, MarketSignal, fetchHistoryWithInterval, RANGE_INTERVAL_MAP, OHLCV } from "@/lib/market-data";
 import { db } from "@/db";
-import { assets } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { assets, userWatchlists } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import YahooFinance from 'yahoo-finance2';
 import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
 import { predictNextHorizon } from "@/lib/inference";
 import { fetchStockDetails } from "@/lib/stock-details";
 
 const yahooFinance = new YahooFinance();
 
 export async function getMarketSignals(): Promise<MarketSignal[]> {
-  let tickers: string[] = ["BTC-USD", "NVDA", "SPY", "VIX"];
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  let tickers: string[] = []; 
   try {
-    const dbAssets = await db.query.assets.findMany({ where: eq(assets.isActive, true), limit: 12 });
-    if (dbAssets.length) tickers = dbAssets.map((a: any) => a.ticker);
+    const dbWatchlist = await db.query.userWatchlists.findMany({
+      where: eq(userWatchlists.userId, session.user.id),
+      limit: 12
+    });
+    if (dbWatchlist.length > 0) {
+      tickers = dbWatchlist.map((w: any) => w.ticker);
+    }
   } catch {}
+
+  // If no assets in personal watchlist, strictly return empty array
+  if (tickers.length === 0) return [];
 
   const results = await Promise.all(tickers.map(t => fetchMarketData(t, 100).catch(() => null)));
   return results.filter((r): r is MarketSignal => r !== null);
@@ -32,12 +44,25 @@ export async function searchAssets(query: string) {
 }
 
 export async function addAsset(ticker: string, name: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "UNAUTHORIZED" };
+
   try {
-    const current = await db.query.assets.findMany({ where: eq(assets.isActive, true), columns: { ticker: true } });
+    const current = await db.query.userWatchlists.findMany({ 
+      where: eq(userWatchlists.userId, session.user.id),
+      columns: { ticker: true } 
+    });
     if (current.length >= 12) return { success: false, error: "LIMIT_REACHED" };
 
+    // Register asset globally if it doesn't exist
     await db.insert(assets).values({ ticker, name: name.substring(0, 50), isActive: true, sector: "Unknown" })
       .onConflictDoUpdate({ target: assets.ticker, set: { isActive: true } });
+    
+    // Link to user's personal watchlist
+    await db.insert(userWatchlists).values({
+      userId: session.user.id,
+      ticker: ticker
+    }).onConflictDoNothing();
     
     revalidatePath("/");
     return { success: true };
@@ -47,8 +72,15 @@ export async function addAsset(ticker: string, name: string) {
 }
 
 export async function removeAsset(ticker: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false };
+
   try {
-    await db.update(assets).set({ isActive: false }).where(eq(assets.ticker, ticker));
+    await db.delete(userWatchlists)
+      .where(and(
+        eq(userWatchlists.userId, session.user.id),
+        eq(userWatchlists.ticker, ticker)
+      ));
     revalidatePath("/");
     return { success: true };
   } catch {
