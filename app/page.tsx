@@ -74,8 +74,9 @@ export default async function Home() {
               const change = s.history.length >= 2 ? ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100 : 0;
               return (
                 <WatchlistItem 
-                  key={i} ticker={s.ticker} name={s.ticker} price={s.price} change={change} 
-                  history={s.history.map(h => h.close)} aiSignal={s.aiPrediction}
+                  key={i} 
+                  signal={s}
+                  change={change} 
                   onRemove={async () => { "use server"; await removeAsset(s.ticker); }}
                 />
               );

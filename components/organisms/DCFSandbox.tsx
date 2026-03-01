@@ -22,6 +22,19 @@ export const DCFSandbox = React.memo(function DCFSandbox({ details, currentPrice
   const [discountRate, setDiscountRate] = useState(0.09); // 9% WACC
   const [terminalGrowth, setTerminalGrowth] = useState(0.02); // 2% perpetual
 
+  const [activeScenario, setActiveScenario] = useState<'BASE' | 'BULL' | 'BEAR'>('BASE');
+
+  const applyScenario = (scenario: 'BASE' | 'BULL' | 'BEAR') => {
+    setActiveScenario(scenario);
+    if (scenario === 'BASE') {
+      setGrowth1(0.10); setGrowth2(0.05); setDiscountRate(0.09); setTerminalGrowth(0.02);
+    } else if (scenario === 'BULL') {
+      setGrowth1(0.20); setGrowth2(0.12); setDiscountRate(0.08); setTerminalGrowth(0.025);
+    } else if (scenario === 'BEAR') {
+      setGrowth1(0.05); setGrowth2(0.02); setDiscountRate(0.11); setTerminalGrowth(0.015);
+    }
+  };
+
   // Calculate DCF output memoized
   const result: DCFResult = useMemo(() => {
     return calculateDCF({
@@ -82,7 +95,15 @@ export const DCFSandbox = React.memo(function DCFSandbox({ details, currentPrice
         
         {/* SLIDERS PANEL */}
         <div className="space-y-8">
-          <h4 className="text-[12px] uppercase font-bold text-zinc-500 tracking-[0.2em] mb-6 border-b border-white/5 pb-3">Projection Parameters</h4>
+          <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-6">
+            <h4 className="text-[12px] uppercase font-bold text-zinc-500 tracking-[0.2em]">Projection Parameters</h4>
+            
+            <div className="flex bg-[#111111] border border-white/10 rounded overflow-hidden">
+              <button onClick={() => applyScenario('BEAR')} className={`px-3 py-1 text-[10px] font-bold tracking-widest uppercase transition-colors ${activeScenario === 'BEAR' ? 'bg-bear text-white' : 'text-zinc-500 hover:text-white'}`}>Bear</button>
+              <button onClick={() => applyScenario('BASE')} className={`px-3 py-1 text-[10px] font-bold tracking-widest uppercase border-l border-r border-white/10 transition-colors ${activeScenario === 'BASE' ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}>Base</button>
+              <button onClick={() => applyScenario('BULL')} className={`px-3 py-1 text-[10px] font-bold tracking-widest uppercase transition-colors ${activeScenario === 'BULL' ? 'bg-bull text-white' : 'text-zinc-500 hover:text-white'}`}>Bull</button>
+            </div>
+          </div>
           
           <SliderRow 
             label="Year 1-5 Growth" 

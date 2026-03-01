@@ -36,6 +36,8 @@ import { SentimentDeepDive } from "@/components/organisms/SentimentDeepDive";
 import { PeerBenchmarkIntelligence } from "@/components/organisms/PeerBenchmarkIntelligence";
 import { InteractiveEarnings } from "@/components/InteractiveEarnings";
 import { generateStrategicAnalysis, StrategicInsight } from "@/app/actions/ai";
+import { ConfluenceEngine } from "@/components/organisms/ConfluenceEngine";
+import { ContextEngine } from "@/components/organisms/ContextEngine";
 
 const TABS = ['OVERVIEW', 'FUNDAMENTALS', 'VALUATION', 'GOVERNANCE'] as const;
 type TabType = typeof TABS[number];
@@ -159,6 +161,8 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                  </div>
               )}
 
+              <ConfluenceEngine details={d} tech={signal.technicalAnalysis} sentiment={signal.sentiment} ticker={ticker} />
+
               <section className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="w-1 h-3.5 bg-white shadow-none" />
@@ -244,13 +248,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                 <DataRow label="Yearly Momentum" value={fmtPct(p.fiftyTwoWeekChangePercent)} colored />
               </DataSection>
 
-              {d.upcomingCatalysts && (d.upcomingCatalysts.earningsDate || d.upcomingCatalysts.exDividendDate) && (
-                <DataSection title="Catalysts" icon={<CalendarIcon />}>
-                  {d.upcomingCatalysts.earningsDate && <DataRow label="Earnings Release" value={d.upcomingCatalysts.earningsDate} highlight />}
-                  {d.upcomingCatalysts.exDividendDate && <DataRow label="Ex-Dividend Date" value={d.upcomingCatalysts.exDividendDate} />}
-                  {d.upcomingCatalysts.dividendDate && <DataRow label="Dividend Pay Date" value={d.upcomingCatalysts.dividendDate} />}
-                </DataSection>
-              )}
+              <ContextEngine details={d} sentiment={signal.sentiment} />
             </div>
           </>
         )}

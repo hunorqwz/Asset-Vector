@@ -75,7 +75,7 @@ describe('Server Actions', () => {
       const result = await addAsset('TSLA', 'Tesla');
       
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Limit reached');
+      expect(result.error).toContain('LIMIT_REACHED');
     });
   });
 
