@@ -140,3 +140,44 @@ export async function getPositionForTicker(ticker: string): Promise<Position | n
     notes: row.notes,
   };
 }
+import { computePortfolioRisk, RiskIntelligence } from "@/lib/portfolio-risk";
+import { getPortfolioPrices } from "@/app/actions";
+
+export async function getPortfolioRiskIntelligence(): Promise<RiskIntelligence | null> {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  try {
+    const rawPositions = await getPositions();
+    if (rawPositions.length === 0) return null;
+
+    const tickers = [...new Set(rawPositions.map(p => p.ticker))];
+    const prices = await getPortfolioPrices(tickers);
+
+    // Filter out tickers with no price
+    const enriched = rawPositions.map(p => ({
+      ...p,
+      currentPrice: prices[p.ticker] || p.avgCost,
+      currentValue: (prices[p.ticker] || p.avgCost) * p.shares
+    }));
+
+    const totalValue = enriched.reduce((s, p) => s + p.currentValue, 0);
+    if (totalValue === 0) return null;
+
+    // Aggregate weights per ticker (sum multiple positions if they exist)
+    const tickerWeightsMap: Record<string, number> = {};
+    enriched.forEach(p => {
+      tickerWeightsMap[p.ticker] = (tickerWeightsMap[p.ticker] || 0) + (p.currentValue / totalValue);
+    });
+
+    const positionsForRisk = Object.entries(tickerWeightsMap).map(([ticker, weight]) => ({
+      ticker,
+      weight
+    }));
+
+    return await computePortfolioRisk(positionsForRisk);
+  } catch (err) {
+    console.error("Risk Intelligence error:", err);
+    return null;
+  }
+}

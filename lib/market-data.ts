@@ -5,20 +5,23 @@ import { getFromCache, setInCache, CACHE_TTL } from "./cache";
 import { RegimeDetector, MarketRegime } from "./regime";
 import { SentimentAnalyzer, SentimentReport, SentimentFallback } from "./sentiment";
 import { generateTechnicalConfluence, TechnicalIndicators } from "./technical-analysis";
+import { generateSynthesis, MarketSynthesis } from "./synthesis";
 
 const yahooFinance = new YahooFinance();
 
-export type OHLCV = { time: number; open: number; high: number; low: number; close: number; volume: number };
-export type ChartInterval = '1m' | '5m' | '15m' | '1h' | '1d';
-export type NarrativeArticle = { title: string; url: string; date: string };
+import { OHLCV, ChartInterval, NarrativeArticle } from "./types";
+
+export type { OHLCV, ChartInterval, NarrativeArticle };
 
 export type MarketSignal = {
   ticker: string; price: number; smoothPrice: number; uncertainty: number; snr: number;
   aiPrediction?: number; trend: "BULLISH" | "BEARISH" | "NEUTRAL"; regime: MarketRegime;
+  predictability: number;
   sentiment: SentimentReport; history: OHLCV[]; 
   prediction?: PredictionResult;
   news: NarrativeArticle[];
-  technicalAnalysis: TechnicalIndicators;
+  tech: TechnicalIndicators;
+  synthesis: MarketSynthesis;
 };
 
 export const RANGE_INTERVAL_MAP: Record<string, { interval: ChartInterval; lookbackSeconds: number }> = {
@@ -111,10 +114,27 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   const currentPrice = history[history.length - 1].close;
   const isCrypto = ticker.includes("-USD") || ticker === "BTC";
   
-  const { R, Q } = KalmanFilter.deriveParameters(history.map(h => h.close));
+  // 1. Calculate Realized Volatility for Adaptive Filtering
+  const prices = history.map(h => h.close);
+  const returns = [];
+  for (let i = 1; i < prices.length; i++) returns.push(Math.log(prices[i] / prices[i-1]));
+  const variance = returns.reduce((a, b) => a + Math.pow(b, 2), 0) / returns.length;
+  const realizedVol = Math.sqrt(variance * 252); // Annualized
+
+  // 2. Adaptive Kalman Smoothing (v2.0)
+  const { R, Q } = KalmanFilter.deriveParameters(prices);
   const kf = new KalmanFilter(R, Q);
   let smooth = 0, uncert = 0;
-  history.forEach(t => { const r = kf.filter(t.close); smooth = r.prediction; uncert = r.uncertainty; });
+  
+  history.forEach(t => {
+    // Dynamic sensitivity adjustment: 
+    // If volatility is high, we increase Q to follow price movement more closely.
+    const dynamicQ = realizedVol > 0.3 ? Q * 2 : Q; 
+    kf.updateParameters(undefined, dynamicQ);
+    const r = kf.filter(t.close);
+    smooth = r.prediction;
+    uncert = r.uncertainty;
+  });
 
   const [ai, news] = await Promise.all([
     predictNextHorizon(history.map(t => [t.open, t.high, t.low, t.close, t.volume]), ticker),
@@ -129,13 +149,27 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   const aiRet = (ai.p50 - currentPrice) / currentPrice;
   if (Math.abs(aiRet) > 0.015) trend = aiRet > 0 ? "BULLISH" : "BEARISH";
 
+  const regimeInfo = RegimeDetector.detect(history.map(h => h.close));
+
+  const sentiment = SentimentFallback.analyze(news);
+  const technical = generateTechnicalConfluence(history, smooth, regimeInfo.predictability);
+  const synthesis = generateSynthesis(
+    technical,
+    sentiment,
+    regimeInfo.predictability,
+    regimeInfo.regime,
+    kf.getSNR()
+  );
+
   const signal: MarketSignal = {
     ticker, price: Number(currentPrice.toFixed(2)), smoothPrice: Number(smooth.toFixed(2)),
     uncertainty: Number(uncert.toFixed(2)), snr: Number(kf.getSNR().toFixed(4)),
     aiPrediction: Number(ai.p50.toFixed(2)), trend,
-    regime: RegimeDetector.detect(history.map(h => h.close)).regime,
-    sentiment: SentimentFallback.analyze(news.map(n => n.title)),
-    technicalAnalysis: generateTechnicalConfluence(history),
+    regime: regimeInfo.regime,
+    predictability: regimeInfo.predictability,
+    sentiment,
+    tech: technical,
+    synthesis,
     news,
     history
   };

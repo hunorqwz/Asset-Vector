@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { updatePosition, deletePosition } from "@/app/actions/portfolio";
+import { addAsset } from "@/app/actions";
 
 interface PositionRowProps {
   id: string;
@@ -12,6 +13,7 @@ interface PositionRowProps {
   currentPrice: number | null;
   pnl: number | null;
   pnlPct: number | null;
+  isWatchlisted?: boolean;
 }
 
 function fmt(n: number, decimals = 2) {
@@ -19,12 +21,14 @@ function fmt(n: number, decimals = 2) {
 }
 function fmtCurrency(n: number) { return "$" + fmt(n); }
 
-export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, pnl, pnlPct }: PositionRowProps) {
+export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, pnl, pnlPct, isWatchlisted }: PositionRowProps) {
   const [editing, setEditing] = useState(false);
   const [sharesVal, setSharesVal] = useState(shares.toString());
   const [costVal, setCostVal] = useState(avgCost.toString());
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [addingWatch, setAddingWatch] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sharesRef = useRef<HTMLInputElement>(null);
 
@@ -61,6 +65,23 @@ export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, p
     setDeleting(true);
     await deletePosition(id);
     setDeleting(false);
+  };
+
+  const handleAddWatch = async () => {
+    if (isWatchlisted || justAdded) return;
+    setAddingWatch(true);
+    const result = await addAsset(ticker, name);
+    setAddingWatch(false);
+    if (result.success) {
+      setJustAdded(true);
+    } else {
+      if (result.error === "LIMIT_REACHED") {
+        setError("Watchlist limit (12) reached.");
+      } else {
+        setError("Failed to add to watchlist.");
+      }
+      setTimeout(() => setError(null), 3000);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -190,6 +211,29 @@ export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, p
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
+        </button>
+        <button
+          onClick={handleAddWatch}
+          disabled={addingWatch || isWatchlisted || justAdded}
+          title={isWatchlisted || justAdded ? "Already in watchlist" : "Add to watchlist"}
+          className={`${(isWatchlisted || justAdded) ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-all p-1.5 rounded-sm ${
+            isWatchlisted || justAdded
+              ? "text-matrix cursor-default"
+              : "text-zinc-600 hover:text-matrix hover:bg-matrix/10"
+          }`}
+        >
+          {addingWatch ? (
+            <div className="w-3 h-3 border border-matrix border-t-transparent rounded-full animate-spin" />
+          ) : isWatchlisted || justAdded ? (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          ) : (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          )}
         </button>
         <button
           onClick={handleDelete}

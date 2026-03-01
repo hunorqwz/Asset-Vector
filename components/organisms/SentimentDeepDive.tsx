@@ -1,12 +1,12 @@
 "use client";
 import React, { useState } from 'react';
-import { NewsArticle } from '@/lib/stock-details';
+import { NarrativeArticle } from '@/lib/types';
 import { SentimentReport } from '@/lib/sentiment';
 import { extractSentimentNarrative } from '@/app/actions/ai';
 
 interface SentimentDeepDiveProps {
   ticker: string;
-  news: NewsArticle[];
+  news: NarrativeArticle[];
   sentiment: SentimentReport;
   globalTrigger?: boolean;
 }
@@ -19,7 +19,7 @@ export function SentimentDeepDive({ ticker, news, sentiment, globalTrigger }: Se
   const handleExtraction = async () => {
     setIsExtracting(true);
     try {
-      const live = await extractSentimentNarrative(ticker, news.map(n => n.title));
+      const live = await extractSentimentNarrative(ticker, news);
       setLocalSentiment(live);
     } catch (e) {
       console.error(e);

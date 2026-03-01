@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NarrativeArticle } from "./types";
 
 export interface NarrativeDriver {
   driver: string;
@@ -13,51 +14,85 @@ export interface SentimentReport {
   drift: "STABLE" | "ACCELERATING_BULL" | "ACCELERATING_BEAR" | "REVERSAL";
 }
 
-// Fallback logic for when rate-limits or API errors occur
-export class SentimentFallback {
-  private static POS = new Set(["surge", "record", "high", "jump", "rally", "gain", "strong", "beat", "outperform", "buy", "growth", "optimism", "momentum", "bull", "stable", "upside"]);
-  private static NEG = new Set(["drop", "plunge", "fall", "crash", "miss", "weak", "loss", "warning", "bear", "sell", "concern", "risk", "debt", "drag", "slowdown", "downside"]);
+// Institutional Keyword Sets for High-Precision Heuristics
+const POSITIVE_KEYWORDS = new Set(["surge", "record", "high", "jump", "rally", "gain", "strong", "beat", "outperform", "buy", "growth", "optimism", "momentum", "bull", "stable", "upside", "expansion", "profit", "dividend", "acquisition"]);
+const NEGATIVE_KEYWORDS = new Set(["drop", "plunge", "fall", "crash", "miss", "weak", "loss", "warning", "bear", "sell", "concern", "risk", "debt", "drag", "slowdown", "downside", "inflation", "cut", "downgrade", "scandal"]);
 
-  static analyze(heads: string[]): SentimentReport {
-    let s = 0;
+export class SentimentFallback {
+  static analyze(heads: NarrativeArticle[]): SentimentReport {
+    if (heads.length === 0) {
+      return { score: 0, label: "NEUTRAL", headlineCount: 0, drivers: [], drift: "STABLE" };
+    }
+
+    let weightedScore = 0;
+    let totalWeight = 0;
+    let bullCount = 0;
+    let bearCount = 0;
     const kwMap = new Map<string, number>();
 
-    heads.forEach(h => h.toLowerCase().split(/\W+/).forEach(w => {
-      if (this.POS.has(w)) {
-        s++;
-        kwMap.set(w, (kwMap.get(w) || 0) + 1);
-      }
-      if (this.NEG.has(w)) {
-        s--;
-        kwMap.set(w, (kwMap.get(w) || 0) + 1);
-      }
-    }));
+    const now = new Date().getTime();
 
-    const score = heads.length ? Math.max(-1, Math.min(1, s / (heads.length * 0.5 + 1))) : 0;
+    heads.forEach(article => {
+      let localScore = 0;
+      const tokens = article.title.toLowerCase().split(/\W+/);
+      
+      tokens.forEach(w => {
+        if (POSITIVE_KEYWORDS.has(w)) {
+          localScore++;
+          kwMap.set(w, (kwMap.get(w) || 0) + 1);
+        }
+        if (NEGATIVE_KEYWORDS.has(w)) {
+          localScore--;
+          kwMap.set(w, (kwMap.get(w) || 0) + 1);
+        }
+      });
+
+      // 1. Time Decay (Recency Weighting)
+      const ageHours = (now - new Date(article.date).getTime()) / (1000 * 60 * 60);
+      const timeWeight = Math.max(0.1, 1 / (1 + ageHours / 24)); // Weight decays over 24h
+      
+      weightedScore += localScore * timeWeight;
+      totalWeight += timeWeight;
+
+      if (localScore > 0) bullCount++;
+      else if (localScore < 0) bearCount++;
+    });
+
+    // 2. Narrative Stability (Agreement Check)
+    // If news is conflicting (e.g. 50/50 bull/bear), the narrative is "unstable"
+    const totalSentimentBars = bullCount + bearCount;
+    const agreement = totalSentimentBars > 0 
+      ? Math.abs(bullCount - bearCount) / totalSentimentBars 
+      : 1;
+
+    // Final Normalized Score (-1 to 1)
+    let score = totalWeight > 0 ? weightedScore / (totalWeight * 0.5 + 1) : 0;
+    score = Math.max(-1, Math.min(1, score * agreement));
+
     const sorted = Array.from(kwMap.entries()).sort((a, b) => b[1] - a[1]);
-    
-    // Map top 3 keywords to generic drivers
     const drivers = sorted.slice(0, 3).map(([word]) => ({
-      driver: `Mention of "${word}"`,
-      impact: this.POS.has(word) ? "BULLISH" : "BEARISH"
+      driver: `Narrative focus on "${word}"`,
+      impact: POSITIVE_KEYWORDS.has(word) ? "BULLISH" : "BEARISH"
     })) as NarrativeDriver[];
 
-    return {
-      score,
-      label: this.getLabel(score),
-      headlineCount: heads.length,
-      drivers: drivers.length > 0 ? drivers : [{ driver: "General Market Activity", impact: "NEUTRAL" }],
-      drift: "STABLE"
-    };
-  }
+    // 3. Drift Detection
+    let drift: SentimentReport['drift'] = "STABLE";
+    if (agreement < 0.4 && totalSentimentBars >= 2) drift = "REVERSAL";
+    else if (score > 0.4) drift = "ACCELERATING_BULL";
+    else if (score < -0.4) drift = "ACCELERATING_BEAR";
 
-  private static getLabel(s: number): "BULLISH" | "BEARISH" | "NEUTRAL" {
-    return s > 0.2 ? "BULLISH" : (s < -0.2 ? "BEARISH" : "NEUTRAL");
+    return {
+      score: Number(score.toFixed(2)),
+      label: score > 0.2 ? "BULLISH" : (score < -0.2 ? "BEARISH" : "NEUTRAL"),
+      headlineCount: heads.length,
+      drivers: drivers.length > 0 ? drivers : [{ driver: "General Market Narrative", impact: "NEUTRAL" }],
+      drift
+    };
   }
 }
 
 export class SentimentAnalyzer {
-  static async analyzeAsync(ticker: string, heads: string[]): Promise<SentimentReport> {
+  static async analyzeAsync(ticker: string, heads: NarrativeArticle[]): Promise<SentimentReport> {
     if (!heads || heads.length === 0) {
       return { score: 0, label: "NEUTRAL", headlineCount: 0, drivers: [], drift: "STABLE" };
     }
@@ -76,7 +111,7 @@ export class SentimentAnalyzer {
 
       const prompt = `
 Analyze the recent narrative for ${ticker} based on these headlines:
-${heads.slice(0, 5).join(" | ")}
+${heads.slice(0, 5).map(h => h.title).join(" | ")}
 
 Output strict JSON object matching this TypeScript interface exactly:
 {

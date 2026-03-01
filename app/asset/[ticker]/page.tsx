@@ -8,6 +8,8 @@ import { fmt, fmtChange } from "@/lib/format";
 import { Badge } from "@/components/atoms/Badge";
 import { AssetDashboard } from "@/components/organisms/AssetDashboard";
 import { LiveHeader } from "@/components/organisms/LiveHeader";
+import { AccuracyScorecard } from "@/components/organisms/AccuracyScorecard";
+import { getAccuracyScorecard } from "@/app/actions/signals";
 
 export const revalidate = 60;
 export const dynamic = 'force-dynamic';
@@ -41,9 +43,10 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
     );
   }
 
+  const accuracyData = await getAccuracyScorecard(ticker);
+
   const d = signal.stockDetails;
   const p = d.price;
-  const isBull = p.dayChangePercent >= 0;
 
   return (
     <>
@@ -64,9 +67,33 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
       {/* ═══════════════════════════════════════════════════════ */}
       {/* MAIN CONTENT — Scrollable                              */}
       {/* ═══════════════════════════════════════════════════════ */}
-      <main className="overflow-y-auto scrollbar-hide px-6 lg:px-8 py-6">
-        <div className="max-w-[1440px] mx-auto">
-          <AssetDashboard ticker={ticker} signal={signal} />
+      <main className="overflow-y-auto scrollbar-hide px-6 lg:px-8 py-10">
+        <div className="max-w-[1500px] mx-auto grid grid-cols-1 xl:grid-cols-12 gap-10">
+          
+          {/* Main Content Area */}
+          <div className="xl:col-span-9">
+            <AssetDashboard ticker={ticker} signal={signal} />
+          </div>
+
+          {/* Right Sidebar */}
+          <div className="xl:col-span-3">
+            <AccuracyScorecard data={accuracyData} ticker={ticker} />
+            
+            {/* Quick Metrics */}
+            <div className="glass-card p-6 border border-white/10 relative overflow-hidden group">
+               <div className="flex items-center gap-3 mb-6">
+                 <div className="w-1.5 h-6 bg-matrix" />
+                 <h3 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Profile Stats</h3>
+               </div>
+               <div className="space-y-5">
+                 <MetricRow label="Industry" value={d.profile.industry || d.profile.sector || "N/A"} />
+                 <MetricRow label="Employees" value={d.profile.employees?.toLocaleString()} />
+                 <MetricRow label="Market Cap" value={`$${(p.marketCap / 1e9).toFixed(2)}B`} />
+                 <MetricRow label="Beta (5Y)" value={d.keyStats.beta ? d.keyStats.beta.toFixed(2) : "N/A"} />
+               </div>
+            </div>
+          </div>
+
         </div>
       </main>
 
@@ -85,21 +112,18 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
               <span className="text-[12px] font-mono font-bold text-zinc-300">{new Date(d.fetchedAt).toLocaleTimeString()}</span>
             </div>
           </div>
-          <div className="flex items-center gap-10">
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Currency</span>
-              <span className="text-[12px] font-mono font-bold text-white uppercase">{d.profile.currency}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Type</span>
-              <span className="text-[12px] font-mono font-bold text-zinc-400 uppercase">{d.profile.quoteType}</span>
-            </div>
-          </div>
         </div>
       </footer>
     </>
   );
 }
 
-
-
+function MetricRow({ label, value }: { label: string, value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tight">{label}</span>
+      <span className="text-[11px] font-mono font-bold text-zinc-300">{value}</span>
+    </div>
+  );
+}

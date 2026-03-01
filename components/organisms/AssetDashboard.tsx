@@ -38,6 +38,7 @@ import { InteractiveEarnings } from "@/components/InteractiveEarnings";
 import { generateStrategicAnalysis, StrategicInsight } from "@/app/actions/ai";
 import { ConfluenceEngine } from "@/components/organisms/ConfluenceEngine";
 import { ContextEngine } from "@/components/organisms/ContextEngine";
+import { AIEarningsLab } from "@/components/organisms/AIEarningsLab";
 
 const TABS = ['OVERVIEW', 'FUNDAMENTALS', 'VALUATION', 'GOVERNANCE'] as const;
 type TabType = typeof TABS[number];
@@ -161,7 +162,13 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                  </div>
               )}
 
-              <ConfluenceEngine details={d} tech={signal.technicalAnalysis} sentiment={signal.sentiment} ticker={ticker} />
+              <ConfluenceEngine 
+                details={d} 
+                tech={signal.tech} 
+                sentiment={signal.sentiment} 
+                ticker={ticker} 
+                synthesis={signal.synthesis} 
+              />
 
               <section className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
@@ -178,13 +185,14 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                   onExtract={handleExtraction}
                   globalTrigger={isNeuralEngaged} 
                 />
-                <NeuralAnomalyReport history={signal.history} technicals={signal.technicalAnalysis} insight={insight} />
+                <NeuralAnomalyReport history={signal.history} technicals={signal.tech} insight={insight} />
               </section>
 
-              <TechnicalConfluencePanel tech={signal.technicalAnalysis} />
-              <AlgorithmicTargetsPanel tech={signal.technicalAnalysis} />
-              <InstitutionalFlowPanel tech={signal.technicalAnalysis} optionsFlow={d.optionsFlow} currentPrice={p.current} />
+              <TechnicalConfluencePanel tech={signal.tech} />
+              <AlgorithmicTargetsPanel tech={signal.tech} />
+              <InstitutionalFlowPanel tech={signal.tech} optionsFlow={d.optionsFlow} currentPrice={p.current} />
               <RiskEntropyPanel metrics={d.riskMetrics} />
+              <AIEarningsLab details={d} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <NeuralDiagnostics history={signal.history} />

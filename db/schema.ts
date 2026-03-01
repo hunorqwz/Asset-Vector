@@ -93,17 +93,21 @@ export const marketData = pgTable("market_data", {
   };
 });
 
-export const signals = pgTable("signals", {
+export const marketSignals = pgTable("market_signals", {
   id: uuid("id").defaultRandom().primaryKey(),
-  ticker: varchar("ticker", { length: 10 }).references(() => assets.ticker),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
   generatedAt: timestamp("generated_at").defaultNow(),
-  direction: varchar("direction", { length: 10 }),
-  targetPrice: numeric("target_price", { precision: 18, scale: 8 }),
-  horizonDays: numeric("horizon_days"),
-  confidence: numeric("confidence", { precision: 5, scale: 2 }),
+  priceAtGeneration: numeric("price_at_generation", { precision: 18, scale: 8 }),
+  score: numeric("score", { precision: 5, scale: 2 }),
+  signalLabel: varchar("signal_label", { length: 20 }), // e.g. "STRONG BUY", "NEUTRAL"
+  direction: varchar("direction", { length: 10 }), // "BULLISH", "BEARISH", "NEUTRAL"
+  confidence: numeric("confidence", { precision: 10, scale: 4 }), // Predictability units
   snr: numeric("snr", { precision: 10, scale: 4 }),
-  shapFactors: jsonb("shap_factors"),
   regime: varchar("regime", { length: 50 }),
+  // Fields for later evaluation
+  isEvaluated: boolean("is_evaluated").default(false),
+  outcomePrice7D: numeric("outcome_price_7d", { precision: 18, scale: 8 }),
+  accuracy: numeric("accuracy_score", { precision: 5, scale: 2 }), // 1.0 = Correct, 0.0 = Incorrect
 });
 
 export const userPositions = pgTable("user_positions", {
@@ -117,4 +121,20 @@ export const userPositions = pgTable("user_positions", {
   avgCost: numeric("avg_cost", { precision: 18, scale: 8 }).notNull(),
   notes: text("notes"),
   openedAt: timestamp("opened_at").defaultNow(),
+});
+
+export const priceAlerts = pgTable("price_alerts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  targetPrice: numeric("target_price", { precision: 18, scale: 8 }).notNull(),
+  // 'above' = alert when price crosses above target, 'below' = alert when price crosses below
+  direction: varchar("direction", { length: 10 }).notNull().$type<"above" | "below">(),
+  note: text("note"),
+  isTriggered: boolean("is_triggered").default(false),
+  triggeredAt: timestamp("triggered_at"),
+  triggeredPrice: numeric("triggered_price", { precision: 18, scale: 8 }),
+  createdAt: timestamp("created_at").defaultNow(),
 });

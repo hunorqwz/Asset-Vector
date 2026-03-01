@@ -2,6 +2,7 @@ import YahooFinance from 'yahoo-finance2';
 import { getFromCache, setInCache, CACHE_TTL } from './cache';
 import { fetchHistoryWithInterval } from './market-data';
 import { calculateRiskEntropy } from './risk';
+import { NarrativeArticle } from './types';
 
 const yahooFinance = new YahooFinance();
 
@@ -16,7 +17,7 @@ export interface KeyStatistics { beta: number | null; sharesOutstanding: number 
 export interface EarningsQuarter { date: string; actual: number | null; estimate: number | null; surprise: number | null; surprisePercent: number | null; }
 export interface QuarterlyReport { date: string; fiscalQuarter: string; revenue: number | null; netIncome: number | null; epsActual: number | null; epsEstimate: number | null; epsSurprise: number | null; epsSurprisePercent: number | null; reportedDate: string | null; priceReaction: number | null; priceReactionPct: number | null; }
 export interface OptionsFlow { callsVolume: number; putsVolume: number; callsOpenInterest: number; putsOpenInterest: number; impliedVolatility: number | null; nearestExpiration: string | null; }
-export interface StockDetails { ticker: string; fetchedAt: number; profile: StockProfile; price: PriceData; valuation: ValuationMetrics; profitability: ProfitabilityMetrics; financialHealth: FinancialHealth; dividends: DividendData; analyst: AnalystData; keyStats: KeyStatistics; earningsHistory: EarningsQuarter[]; quarterlyReports: QuarterlyReport[]; topHolders: Holder[]; news: NewsArticle[]; insiderTransactions: InsiderTransaction[]; etfHoldings: ETFHolding[]; sectorExposure: SectorExposure[]; alphaIntelligence: BenchmarkPerformance | null; analystTrend: AnalystTrendEntry[]; riskMetrics: RiskMetrics | null; upcomingCatalysts: UpcomingCatalysts | null; secFilings: SECListing[]; peerBenchmark: PeerMetrics | null; isCrypto: boolean; isETF: boolean; optionsFlow: OptionsFlow | null; }
+export interface StockDetails { ticker: string; fetchedAt: number; profile: StockProfile; price: PriceData; valuation: ValuationMetrics; profitability: ProfitabilityMetrics; financialHealth: FinancialHealth; dividends: DividendData; analyst: AnalystData; keyStats: KeyStatistics; earningsHistory: EarningsQuarter[]; quarterlyReports: QuarterlyReport[]; topHolders: Holder[]; news: NarrativeArticle[]; insiderTransactions: InsiderTransaction[]; etfHoldings: ETFHolding[]; sectorExposure: SectorExposure[]; alphaIntelligence: BenchmarkPerformance | null; analystTrend: AnalystTrendEntry[]; riskMetrics: RiskMetrics | null; upcomingCatalysts: UpcomingCatalysts | null; secFilings: SECListing[]; peerBenchmark: PeerMetrics | null; isCrypto: boolean; isETF: boolean; optionsFlow: OptionsFlow | null; }
 export interface PeerMetrics { ticker: string; name: string; price: number; forwardPE: number | null; profitMargin: number | null; revenueGrowth: number | null; }
 export interface SECListing { date: string; type: string; title: string; url: string; }
 export interface UpcomingCatalysts { earningsDate: string | null; isEarningsEstimate: boolean; revenueAverage: number | null; earningsAverage: number | null; exDividendDate: string | null; dividendDate: string | null; }
@@ -25,7 +26,6 @@ export interface AnalystTrendEntry { period: string; strongBuy: number; buy: num
 export interface SectorExposure { sector: string; weight: number; }
 export interface BenchmarkPerformance { assetReturn1Y: number; benchmarkReturn1Y: number; alpha1Y: number; benchmarkTicker: string; }
 export interface ETFHolding { symbol: string; name: string; pct: number | null; }
-export interface NewsArticle { title: string; publisher: string; link: string; providerPublishTime: number; }
 export interface InsiderTransaction { filerName: string; filerRelation: string; transactionText: string; shares: number | null; value: number | null; startDate: string | null; }
 export interface Holder { name: string; pctHeld: number | null; value: number | null; pctChange: number | null; }
 export interface QuarterlyReport { date: string; fiscalQuarter: string; revenue: number | null; netIncome: number | null; epsActual: number | null; epsEstimate: number | null; epsSurprise: number | null; epsSurprisePercent: number | null; reportedDate: string | null; priceReaction: number | null; priceReactionPct: number | null; }
@@ -168,7 +168,12 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
     earningsHistory: (res.earningsHistory?.history || []).map((e: any) => ({ date: safeDate(e.date), actual: safeNum(e.actual), estimate: safeNum(e.estimate), surprise: safeNum(e.actual - e.estimate), surprisePercent: safeNum(e.surprisePct) })),
     quarterlyReports: mergeQuarterly(res.earnings?.earningsChart?.quarterly, res.earnings?.financialsChart?.quarterly, history),
     topHolders: (res.institutionOwnership?.ownershipList || []).map((h: any) => ({ name: h.organization, pctHeld: safeNum(h.pctHeld), value: safeNum(h.value), pctChange: safeNum(h.pctChange) })),
-    news: ((search as any)?.news || []).map((n: any) => ({ title: n.title, publisher: n.publisher, link: n.link, providerPublishTime: n.providerPublishTime })),
+    news: ((search as any)?.news || []).map((n: any) => ({ 
+      title: n.title, 
+      publisher: n.publisher, 
+      url: n.link, 
+      date: new Date(n.providerPublishTime * 1000).toISOString() 
+    })),
     insiderTransactions: (res.insiderTransactions?.transactions || []).map((t: any) => ({ filerName: t.filerName, filerRelation: t.filerRelation, transactionText: t.transactionText, shares: safeNum(t.shares), value: safeNum(t.value), startDate: safeDate(t.startDate) })),
     etfHoldings: (res.topHoldings?.holdings || []).map((h: any) => ({ symbol: h.symbol, name: h.holdingName, pct: safeNum(h.holdingPercent) })),
     sectorExposure: (res.topHoldings?.sectorWeightings || []).map((s: any) => ({ sector: Object.keys(s)[0], weight: safeNum(Object.values(s)[0]) })),

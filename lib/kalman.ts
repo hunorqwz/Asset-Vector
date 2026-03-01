@@ -1,41 +1,98 @@
 export class KalmanFilter {
-  private R: number; private Q: number; private A: number; private B: number; private C: number;
-  private cov: number = NaN; private x: number = NaN;
+  private R: number; // Measurement Noise
+  private Q: number; // Process Noise
+  private A: number; // State Transition
+  private C: number; // Measurement Mapping
+  private cov: number = NaN;
+  private x: number = NaN;
 
-  constructor(R: number = 1, Q: number = 0.1, A: number = 1, B: number = 0, C: number = 1) {
-    this.R = R; this.Q = Q; this.A = A; this.B = B; this.C = C;
+  constructor(R: number = 1, Q: number = 0.1, A: number = 1, C: number = 1) {
+    this.R = R; this.Q = Q; this.A = A; this.C = C;
   }
 
-  filter(z: number, u: number = 0) {
-    if (isNaN(this.x)) { this.x = z; this.cov = this.R; return { prediction: this.x, uncertainty: this.cov }; }
-    const px = (this.A * this.x) + (this.B * u);
-    const pc = (this.A * this.cov * this.A) + this.Q;
-    const k = (pc * this.C) / ((this.C * pc * this.C) + this.R);
-    this.x = px + k * (z - (this.C * px));
-    this.cov = pc - (k * this.C * pc);
-    return { prediction: this.x, uncertainty: this.cov, gain: k };
+  /**
+   * Adaptive parameter update.
+   * Allows the system to become more "sensitive" or "stable" based on external signals.
+   */
+  updateParameters(newR?: number, newQ?: number) {
+    if (newR !== undefined) this.R = newR;
+    if (newQ !== undefined) this.Q = newQ;
   }
 
-  static deriveParameters(prices: number[]) {
-    if (prices.length < 10) return { R: 1, Q: 0.01 };
-    // Institutional calibration: Q is process variance, R is measurement noise.
-    // Calculate variance of price changes
-    const diffs = [];
-    for (let i = 1; i < prices.length; i++) diffs.push(Math.abs(prices[i] - prices[i-1]));
-    const avgChange = diffs.reduce((a, b) => a + b, 0) / diffs.length;
-    const variance = diffs.reduce((a, b) => a + Math.pow(b - avgChange, 2), 0) / diffs.length;
+  filter(z: number) {
+    // Initialization
+    if (isNaN(this.x)) {
+      this.x = z;
+      this.cov = this.R;
+      return { prediction: this.x, uncertainty: this.cov, gain: 0 };
+    }
+
+    // Prediction Phase
+    const predX = this.A * this.x;
+    const predCov = (this.A * this.cov * this.A) + this.Q;
+
+    // Innovation / Measurement Update Phase
+    // Kalman Gain (k) determines how much we trust the new measurement (z) vs our prediction
+    const k = (predCov * this.C) / ((this.C * predCov * this.C) + this.R);
+
+    // Correct the state
+    this.x = predX + k * (z - (this.C * predX));
     
-    return {
-      R: variance > 0 ? variance * 2 : 1, // High measurement noise to prevent over-fitting
-      Q: variance > 0 ? variance * 0.1 : 0.01 // Responsive process noise
+    // Correct the covariance (uncertainty)
+    this.cov = (1 - (k * this.C)) * predCov;
+
+    return { 
+      prediction: this.x, 
+      uncertainty: this.cov, 
+      gain: k 
     };
   }
 
-  getSNR(): number { return this.Q / (this.cov + 1e-9); }
+  /**
+   * Institutional Calibration Engine
+   * Calculates optimal R and Q by analyzing the variance of price-velocity.
+   */
+  static deriveParameters(prices: number[]) {
+    if (prices.length < 20) return { R: 1, Q: 0.01 };
+    
+    const diffs: number[] = [];
+    for (let i = 1; i < prices.length; i++) {
+        diffs.push(Math.abs(prices[i] - prices[i - 1]));
+    }
+
+    const meanDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+    const variance = diffs.reduce((a, b) => a + Math.pow(b - meanDiff, 2), 0) / diffs.length;
+    
+    // R (Measurement Noise): Represents how much 'flutter' is in the quote feed.
+    // Q (Process Noise): Represents the rate of actual underlying price change.
+    // High R/Q ratio = More smoothing, slower response.
+    // Low R/Q ratio = Less smoothing, faster response.
+    return {
+      R: variance > 0 ? variance * 5 : 1, // Base measurement noise
+      Q: variance > 0 ? variance * 0.2 : 0.01 // Base process noise
+    };
+  }
+
+  getSNR(): number {
+    return this.Q / (this.cov + 1e-9);
+  }
 }
 
-export function runKalmanBatch(prices: number[], overrideR?: number, overrideQ?: number) {
+/**
+ * Runs a batch filter with institutional adaptive windowing.
+ */
+export function runKalmanBatch(prices: number[], volatility?: number) {
   const { R, Q } = KalmanFilter.deriveParameters(prices);
-  const kf = new KalmanFilter(overrideR ?? R, overrideQ ?? Q);
-  return prices.map(p => kf.filter(p));
+  const kf = new KalmanFilter(R, Q);
+  
+  return prices.map((p, i) => {
+    // If we have volatility data, we can adaptively increase Q (process noise)
+    // to allow the filter to "catch up" faster during high-volatility events.
+    if (volatility && volatility > 0.02) {
+        kf.updateParameters(undefined, Q * (1 + volatility * 10));
+    } else {
+        kf.updateParameters(undefined, Q);
+    }
+    return kf.filter(p);
+  });
 }

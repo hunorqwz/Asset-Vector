@@ -1,7 +1,6 @@
 "use server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { OHLCV } from "@/lib/market-data";
-import { NewsArticle } from "@/lib/stock-details";
+import { OHLCV, NarrativeArticle } from "@/lib/types";
 import { getFromCache, setInCache } from "@/lib/cache";
 import { SentimentAnalyzer, SentimentReport, SentimentFallback } from "@/lib/sentiment";
 
@@ -20,7 +19,7 @@ export interface StrategicInsight {
   riskAnalysis: string;
 }
 
-export async function generateStrategicAnalysis(ticker: string, history: OHLCV[], news: NewsArticle[]): Promise<StrategicInsight | null> {
+export async function generateStrategicAnalysis(ticker: string, history: OHLCV[], news: NarrativeArticle[]): Promise<StrategicInsight | null> {
   const cacheKey = `ai_strategy_${ticker}`;
   const cached = getFromCache<StrategicInsight | string>(cacheKey);
   if (cached) return cached === "COOLDOWN" ? null : cached as StrategicInsight;
@@ -70,7 +69,7 @@ export async function generateStrategicAnalysis(ticker: string, history: OHLCV[]
   try { return await promise; } finally { activeRequests.delete(ticker); }
 }
 
-export async function extractSentimentNarrative(ticker: string, headlines: string[]): Promise<SentimentReport> {
+export async function extractSentimentNarrative(ticker: string, headlines: NarrativeArticle[]): Promise<SentimentReport> {
   const cacheKey = `ai_sentiment_extraction_${ticker}`;
   const cached = getFromCache<SentimentReport | string>(cacheKey);
   

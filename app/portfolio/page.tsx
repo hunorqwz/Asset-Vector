@@ -1,8 +1,15 @@
 import { Metadata } from "next";
-import { getPositions } from "@/app/actions/portfolio";
-import { getPortfolioPrices } from "@/app/actions";
+import { getPositions, getPortfolioRiskIntelligence } from "@/app/actions/portfolio";
+import { getPortfolioPrices, getWatchlistTickers } from "@/app/actions";
 import { AddPositionForm } from "@/components/organisms/AddPositionForm";
 import { PositionRow } from "@/components/organisms/PositionRow";
+import { AddAllToWatchlist } from "@/components/organisms/AddAllToWatchlist";
+import { PortfolioAnalyticsPanel } from "@/components/organisms/PortfolioAnalyticsPanel";
+import { computePortfolioAnalytics } from "@/lib/portfolio-analytics";
+import { StrategicStressTest } from "@/components/organisms/StrategicStressTest";
+import { AlertManager } from "@/components/organisms/AlertManager";
+import { AlertBell } from "@/components/AlertBell";
+import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
 import Link from "next/link";
 import { auth } from "@/auth";
 
@@ -22,7 +29,11 @@ function fmtCurrency(n: number) {
 }
 
 export default async function PortfolioPage() {
-  const positions = await getPositions();
+  const [positions, watchlist, riskData] = await Promise.all([
+    getPositions(),
+    getWatchlistTickers(),
+    getPortfolioRiskIntelligence()
+  ]);
 
   // Fetch live prices directly for all portfolio tickers — independent of watchlist
   const tickers = [...new Set(positions.map((p) => p.ticker))];
@@ -43,6 +54,15 @@ export default async function PortfolioPage() {
   const totalPnl = totalValue - totalInvested;
   const totalPnlPct = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
 
+  // Portfolio analytics computation
+  const analytics = computePortfolioAnalytics(enriched);
+
+  // Check and fetch price alerts
+  await checkAndTriggerAlerts(priceMap);
+  const alerts = await getAlerts();
+  // All portfolio tickers + watchlist tickers for the alert quick-select
+  const alertTickers = [...new Set([...tickers, ...watchlist])];
+
   return (
     <>
       <header className="glass-panel z-[100] flex items-center px-8 sticky top-0 border-b border-white/5 bg-black/80 backdrop-blur-xl">
@@ -61,9 +81,12 @@ export default async function PortfolioPage() {
               <span className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase">Portfolio</span>
             </div>
           </div>
-          <Link href="/" className="text-[11px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition-colors">
-            ← Dashboard
-          </Link>
+          <div className="flex items-center gap-8">
+            <AlertBell alerts={alerts} />
+            <Link href="/" className="text-[11px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition-colors">
+              ← Dashboard
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -75,14 +98,21 @@ export default async function PortfolioPage() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-[2px] w-8 bg-matrix" />
-                <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-matrix">Portfolio</span>
+                <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-matrix">Intelligence Hub</span>
               </div>
-              <h1 className="text-5xl font-bold tracking-tightest leading-[1]">My Holdings</h1>
+              <h1 className="text-5xl font-bold tracking-tightest leading-[1]">Portfolio Radar</h1>
             </div>
             <p className="text-[12px] font-bold text-zinc-500 text-right tracking-[0.15em] uppercase leading-relaxed">
-              <span className="text-zinc-300">{positions.length} POSITIONS</span> TRACKED
+              <span className="text-zinc-300">{positions.length} POSITIONS</span> ACTIVE
             </p>
           </div>
+
+          {/* Strategic Risk Intelligence Section */}
+          {riskData && (
+            <div className="mb-12">
+               <StrategicStressTest risk={riskData} />
+            </div>
+          )}
 
           {/* Summary Stats */}
           {positions.length > 0 && (
@@ -110,6 +140,18 @@ export default async function PortfolioPage() {
             </div>
           )}
 
+          {/* Portfolio Analytics */}
+          {positions.length > 0 && (
+            <div className="mb-12">
+              <PortfolioAnalyticsPanel analytics={analytics} />
+            </div>
+          )}
+
+          {/* Price Alerts */}
+          <div className="mb-12">
+            <AlertManager initialAlerts={alerts} watchlistTickers={alertTickers} />
+          </div>
+
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
             {/* Positions Table */}
             <div className="xl:col-span-8">
@@ -117,8 +159,11 @@ export default async function PortfolioPage() {
                 <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
                   <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
-                    Positions
+                    Holdings
                   </h2>
+                  {positions.length > 0 && (
+                    <AddAllToWatchlist />
+                  )}
                 </div>
 
                 {enriched.length === 0 ? (
@@ -153,6 +198,7 @@ export default async function PortfolioPage() {
                         currentPrice={pos.currentPrice}
                         pnl={pos.pnl}
                         pnlPct={pos.pnlPct}
+                        isWatchlisted={watchlist.includes(pos.ticker)}
                       />
                     ))}
                   </div>
@@ -167,7 +213,7 @@ export default async function PortfolioPage() {
                 <div className="border-b border-white/10 px-6 py-4">
                   <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
-                    Add Position
+                    New Allocation
                   </h2>
                 </div>
                 <div className="p-6">
@@ -175,7 +221,7 @@ export default async function PortfolioPage() {
                 </div>
                 <div className="px-6 pb-6">
                   <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest leading-relaxed">
-                    Live prices are fetched directly from Yahoo Finance when you load this page.
+                    Beta analysis and stress simulations are calculated against SPY (S&P 500) historical variance.
                   </p>
                 </div>
               </div>

@@ -8,6 +8,13 @@ import { LiveLatency, IntegrityBars, StealthTooltip } from "@/components/LiveTel
 import { auth } from "@/auth";
 import { LogoutButton } from "@/components/LogoutButton";
 import Link from "next/link";
+import { AlertBell } from "@/components/AlertBell";
+import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
+import { AccuracyScorecard } from "@/components/organisms/AccuracyScorecard";
+import { getAccuracyScorecard } from "@/app/actions/signals";
+import { getMarketPulse } from "@/app/actions";
+import { MarketPulse } from "@/components/molecules/MarketPulse";
+import { detectSectorAlpha } from "@/lib/market-pulse";
 
 export const metadata: Metadata = {
   title: "Dashboard | Asset Vector",
@@ -18,7 +25,25 @@ export const revalidate = 60;
 
 export default async function Home() {
   const session = await auth();
-  const signals = await getMarketSignals();
+  const [signals, initialAccuracy, pulseData, alerts] = await Promise.all([
+    getMarketSignals(),
+    getAccuracyScorecard(),
+    getMarketPulse(),
+    getAlerts(),
+  ]);
+
+  // Build price map from live signals and check alerts against it
+  const priceMap: Record<string, number> = {};
+  signals.forEach(s => { if (s.price) priceMap[s.ticker] = s.price; });
+  
+  // Trigger alerts in background
+  await checkAndTriggerAlerts(priceMap);
+
+  // Fresh data for the render
+  const [freshAlerts, accuracyData] = await Promise.all([
+    getAlerts(),
+    getAccuracyScorecard(),
+  ]);
 
   return (
     <>
@@ -38,9 +63,12 @@ export default async function Home() {
               <IndexItem symb="SPY" val="+0.07%" up />
               <IndexItem symb="QQQ" val="-0.12%" />
               <IndexItem symb="BTC" val="+1.42%" up />
-              <div className="border-l border-white/10 pl-8">
+              <div className="border-l border-white/10 pl-8 flex items-center gap-6">
                 <Link href="/portfolio" className="text-[11px] font-bold text-zinc-500 hover:text-matrix uppercase tracking-[0.2em] transition-colors">
                   Portfolio
+                </Link>
+                <Link href="/compare" className="text-[11px] font-bold text-zinc-500 hover:text-matrix uppercase tracking-[0.2em] transition-colors">
+                  Compare
                 </Link>
               </div>
             </div>
@@ -49,18 +77,19 @@ export default async function Home() {
           <div className="flex-1 px-8 max-w-2xl">
             <AssetCommand />
           </div>
-          <div className="flex items-center gap-8" aria-label="System status">
-            <div className="flex flex-col items-end">
-              <StealthTooltip content="Data pipeline is streaming." position="bottom">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" aria-hidden="true" />
-                  <span className="text-[12px] font-bold text-matrix uppercase tracking-[0.15em]">Live Vector</span>
-                </div>
-              </StealthTooltip>
-              <StealthTooltip content="WebSocket market feed delay" position="bottom">
-                <span className="text-[11px] font-mono font-bold text-zinc-500 mt-1 uppercase tracking-widest">Latency: <LiveLatency /></span>
-              </StealthTooltip>
-            </div>
+          <div className="flex items-center gap-4" aria-label="System status">
+              <AlertBell alerts={freshAlerts} />
+              <div className="flex flex-col items-end">
+                <StealthTooltip content="Data pipeline is streaming." position="bottom">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" aria-hidden="true" />
+                    <span className="text-[12px] font-bold text-matrix uppercase tracking-[0.15em]">Live Vector</span>
+                  </div>
+                </StealthTooltip>
+                <StealthTooltip content="WebSocket market feed delay" position="bottom">
+                  <span className="text-[11px] font-mono font-bold text-zinc-500 mt-1 uppercase tracking-widest">Latency: <LiveLatency /></span>
+                </StealthTooltip>
+              </div>
           </div>
         </div>
       </header>
@@ -90,40 +119,9 @@ export default async function Home() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            {/* LEFT COLUMN: MACRO ENVIRONMENT */}
             <div className="xl:col-span-2 flex flex-col gap-6">
-              <div className="glass-card p-6 border border-white/10 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
-                  Macro Environment
-                </h2>
-                <div className="flex flex-col gap-5">
-                  <MacroItem name="VIX" desc="Volatility Index" value="14.20" change="-2.10%" up={false} />
-                  <MacroItem name="DXY" desc="US Dollar Index" value="103.54" change="+0.42%" up={true} />
-                  <MacroItem name="US10Y" desc="10-Year Treasury" value="4.25%" change="+0.02%" up={true} />
-                  <MacroItem name="VVIX" desc="VIX Volatility" value="84.15" change="-1.20%" up={false} />
-                </div>
-              </div>
-              
-              <div className="glass-card p-6 border border-white/10 relative overflow-hidden">
-                <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase mb-4 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-bull" />
-                  Breadth Engine
-                </h2>
-                <div className="flex items-end justify-between mb-2">
-                   <span className="text-2xl font-bold font-mono text-white">68%</span>
-                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Advancing</span>
-                </div>
-                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden flex">
-                   <div className="h-full bg-bull" style={{width: '68%'}} />
-                   <div className="h-full bg-bear" style={{width: '32%'}} />
-                </div>
-                <div className="flex justify-between mt-3 text-[10px] font-bold tracking-widest uppercase">
-                    <span className="text-bull">2,410</span>
-                    <span className="text-bear">1,105</span>
-                </div>
-              </div>
+              <AccuracyScorecard data={accuracyData} />
+              <MarketPulse data={pulseData} />
             </div>
 
             {/* CENTER COLUMN: HIGH DENSITY WATCHLIST */}
@@ -131,12 +129,12 @@ export default async function Home() {
               {signals.length > 0 ? (
                 <WatchlistGrid>
                   {signals.map((s, i) => {
-                    const change = s.history.length >= 2 ? ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100 : 0;
+                    const isAlpha = detectSectorAlpha(s.ticker, ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100, pulseData);
                     return (
                       <WatchlistItem 
                         key={i} 
                         signal={s}
-                        change={change} 
+                        alpha={isAlpha}
                         onRemove={async () => { "use server"; await removeAsset(s.ticker); }}
                       />
                     );
@@ -234,18 +232,3 @@ function Stat({ label, value, color }: { label: string, value: string, color: st
   );
 }
 
-function MacroItem({ name, desc, value, change, up }: { name: string, desc: string, value: string, change: string, up: boolean }) {
-  const color = up ? 'text-bull' : 'text-bear';
-  return (
-    <div className="flex items-center justify-between group">
-       <div className="flex flex-col">
-          <span className="text-[12px] font-bold text-white tracking-widest uppercase">{name}</span>
-          <span className="text-[10px] text-zinc-500 font-medium tracking-wide">{desc}</span>
-       </div>
-       <div className="flex flex-col items-end">
-          <span className="text-[13px] font-mono font-bold text-white tabular-nums">{value}</span>
-          <span className={`text-[10px] font-mono font-bold tabular-nums ${color}`}>{change}</span>
-       </div>
-    </div>
-  );
-}

@@ -3,6 +3,7 @@ import { StockDetails } from "@/lib/stock-details";
 import { TechnicalIndicators } from "@/lib/technical-analysis";
 import { SentimentReport } from "@/lib/sentiment";
 import { calculateGrahamNumber, calculatePeterLynchFairValue } from "@/lib/valuation";
+import { MarketSynthesis } from "@/lib/synthesis";
 import { StatsIcon } from "@/components/Icons";
 
 interface ConfluenceEngineProps {
@@ -10,9 +11,10 @@ interface ConfluenceEngineProps {
   tech: TechnicalIndicators;
   sentiment: SentimentReport;
   ticker: string;
+  synthesis: MarketSynthesis;
 }
 
-export function ConfluenceEngine({ details, tech, sentiment, ticker }: ConfluenceEngineProps) {
+export function ConfluenceEngine({ details, tech, sentiment, ticker, synthesis }: ConfluenceEngineProps) {
   // 1. Fundamental State
   const eps = details.keyStats.trailingEps;
   const bvps = details.valuation.bookValue;
@@ -41,23 +43,14 @@ export function ConfluenceEngine({ details, tech, sentiment, ticker }: Confluenc
     return "FAIR VALUE";
   }, [eps, bvps, growthRate, price, details.valuation.forwardPE]);
 
-  // 2. Technical State
+  // 2. Technical State (Hurst-Adaptive & Confluence-Aware)
   const technicalState = useMemo(() => {
-    const isMacdBullish = tech.macd.histogram > 0;
-    const rsi = tech.rsi14;
-
-    let score = 0;
-    if (isMacdBullish) score += 2; else score -= 2;
-    if (rsi < 40) score += 2; // Oversold = Bullish bias for reversion
-    if (rsi > 60) score -= 2; // Overbought = Bearish bias
+    const score = tech.confluenceScore;
     
-    if (tech.signal === 'BUY' || tech.signal === 'STRONG BUY') score += 3;
-    if (tech.signal === 'SELL' || tech.signal === 'STRONG SELL') score -= 3;
-
-    if (score >= 3) return "BULLISH TREND";
-    if (score <= -3) return "BEARISH TREND";
+    if (score >= 60) return "BULLISH TREND";
+    if (score <= 40) return "BEARISH TREND";
     return "SIDEWAYS";
-  }, [tech]);
+  }, [tech.confluenceScore]);
 
   // 3. Contextual State
   const contextualState = useMemo(() => {
@@ -67,22 +60,29 @@ export function ConfluenceEngine({ details, tech, sentiment, ticker }: Confluenc
     return "NEUTRAL";
   }, [sentiment]);
 
-  // The Synthesis
+  // The Final Synthesis (Institutional Recommendation)
   const analysis = useMemo(() => {
-    const isBullAligned = fundamentalState === "UNDERVALUED" && technicalState === "BULLISH TREND" && contextualState !== "NEGATIVE";
-    const isBearAligned = fundamentalState === "OVERVALUED" && technicalState === "BEARISH TREND" && contextualState !== "POSITIVE";
+    const score = synthesis.score;
+    const signal = synthesis.signal;
     
-    if (isBullAligned) return { label: "HIGH-CONVICTION VECTOR (BULL)", color: "text-bull border-bull/30 bg-bull/5", iconColor: "text-bull", desc: "Fundamental discount combined with bullish momentum and supportive sentiment." };
-    if (isBearAligned) return { label: "HIGH-CONVICTION VECTOR (BEAR)", color: "text-bear border-bear/30 bg-bear/5", iconColor: "text-bear", desc: "Fundamental premium combined with bearish flow and negative/neutral sentiment." };
+    let color = "text-white/60 border-white/10 bg-white/5";
+    let iconColor = "text-white/60";
     
-    const isDivergent = 
-      (fundamentalState === "UNDERVALUED" && technicalState === "BEARISH TREND") ||
-      (fundamentalState === "OVERVALUED" && technicalState === "BULLISH TREND");
-      
-    if (isDivergent) return { label: "DIVERGENCE DETECTED", color: "text-yellow-500 border-yellow-500/30 bg-yellow-500/5", iconColor: "text-yellow-500", desc: "Price action contradicts fundamental value. Wait for technical confirmation." };
+    if (signal.includes('BUY') || signal === 'ACCUMULATE') {
+      color = "text-bull border-bull/30 bg-bull/5";
+      iconColor = "text-bull";
+    } else if (signal.includes('SELL') || signal === 'REDUCE') {
+      color = "text-bear border-bear/30 bg-bear/5";
+      iconColor = "text-bear";
+    }
 
-    return { label: "HIGH NOISE / INDECISION", color: "text-white/60 border-white/10 bg-white/5", iconColor: "text-white/60", desc: "Conflicting signals across layers. Low probability environment." };
-  }, [fundamentalState, technicalState, contextualState]);
+    return { 
+      label: `${signal} (${score} INDEX)`, 
+      color, 
+      iconColor, 
+      desc: synthesis.primaryDriver 
+    };
+  }, [synthesis]);
 
   return (
     <section className={`p-6 border transition-all ${analysis.color} relative overflow-hidden bg-[#050505]`}>

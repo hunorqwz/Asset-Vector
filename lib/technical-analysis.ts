@@ -53,10 +53,18 @@ export interface TechnicalIndicators {
 }
 
 /**
- * Generates an institutional-grade confluence score based on RSI, MACD, and Bollinger %B.
- * This is used for the Technical Confluence Panel.
+ * Generates an institutional-grade confluence score.
+ * Upgraded to be Adaptive and Regime-Aware.
+ * 
+ * @param history Raw OHLCV data
+ * @param smoothPrice The current Kalman-smoothed price (v2.0)
+ * @param predictability The Hurst-based predictability score (Phase 1)
  */
-export function generateTechnicalConfluence(history: OHLCV[]): TechnicalIndicators {
+export function generateTechnicalConfluence(
+  history: OHLCV[], 
+  smoothPrice?: number,
+  predictability: number = 0.5
+): TechnicalIndicators {
   if (history.length < 30) {
     return {
       isValid: false,
@@ -74,17 +82,14 @@ export function generateTechnicalConfluence(history: OHLCV[]): TechnicalIndicato
   const prices = history.map(h => h.close);
   const lastPrice = prices[prices.length - 1];
 
-  // 1. Calculate Technical Indicators
+  // 1. Calculate Core Indicators
   const rsiValues = RSI.calculate({ period: 14, values: prices });
   const rsi14 = rsiValues[rsiValues.length - 1] || 50;
 
   const macdValues = MACD.calculate({
     values: prices,
-    fastPeriod: 12,
-    slowPeriod: 26,
-    signalPeriod: 9,
-    SimpleMAOscillator: false,
-    SimpleMASignal: false
+    fastPeriod: 12, slowPeriod: 26, signalPeriod: 9,
+    SimpleMAOscillator: false, SimpleMASignal: false
   });
   const lastMacd = macdValues[macdValues.length - 1] || { MACD: 0, signal: 0, histogram: 0 };
 
@@ -92,137 +97,103 @@ export function generateTechnicalConfluence(history: OHLCV[]): TechnicalIndicato
   const lastBB = bbValues[bbValues.length - 1] || { upper: 0, middle: 0, lower: 0 };
   const percentB = lastBB.upper !== lastBB.lower ? (lastPrice - lastBB.lower) / (lastBB.upper - lastBB.lower) : 0.5;
 
-  // 2. Adaptive Scoring (Institutional Logic)
-  // We distinguish between "Momentum" and "Mean Reversion" phases.
+  // 2. High-Precision Confluence Logic
   let score = 50;
-  const isMomentumPhase = (lastMacd.MACD || 0) > 0 && (lastMacd.histogram || 0) > 0;
-  
-  if (isMomentumPhase) {
-    // In MOMENTUM: High RSI is a sign of strength, NOT a sell signal.
-    if (rsi14 >= 75) score += 20;
-    else if (rsi14 >= 60) score += 10;
-    
-    // Bollinger %B: Riding the upper band is bullish
-    if (percentB > 0.8) score += 10;
-  } else {
-    // In MEAN REVERSION: We look for overextension.
-    if (rsi14 >= 70) score -= 20;
-    else if (rsi14 <= 30) score += 20;
-    
-    // Bollinger %B: Rejection at bands
-    if (percentB > 1.0) score -= 15;
-    else if (percentB < 0.0) score += 15;
+
+  // A. KALMAN MOMENTUM (Highest Weight)
+  if (smoothPrice) {
+    const kalmanDiff = (lastPrice - smoothPrice) / smoothPrice;
+    // If price is above Kalman and moving away, momentum is strong
+    if (kalmanDiff > 0.005) score += 15;
+    else if (kalmanDiff < -0.005) score -= 15;
   }
 
-  // Trend Momentum (MACD) - Always adds/subs points
-  if ((lastMacd.histogram || 0) > 0) score += 10;
-  else if ((lastMacd.histogram || 0) < 0) score -= 10;
+  // B. MACD ACCELERATION
+  if ((lastMacd.histogram || 0) > 0) {
+    score += 10;
+    // Check for acceleration (growing histogram)
+    const prevMacd = macdValues[macdValues.length - 2]?.histogram || 0;
+    if ((lastMacd.histogram || 0) > prevMacd) score += 5;
+  } else if ((lastMacd.histogram || 0) < 0) {
+    score -= 10;
+    const prevMacd = macdValues[macdValues.length - 2]?.histogram || 0;
+    if ((lastMacd.histogram || 0) < prevMacd) score -= 5;
+  }
+
+  // C. ADAPTIVE RSI (Regime-Aware)
+  // In highly predictable trends (Hurst > 0.6), we don't sell overbought RSI
+  const isTrending = predictability > 0.2; 
+  if (isTrending) {
+    if (rsi14 > 70) score += 10; // Strength confirmation
+    else if (rsi14 < 30) score -= 10; // Extreme weakness
+  } else {
+    // Mean Reversion mode
+    if (rsi14 > 70) score -= 15; // Mean reversion sell
+    else if (rsi14 < 30) score += 15; // Mean reversion buy
+  }
+
+  // D. VOLATILITY EXTENSION (Bollinger %B)
+  if (percentB > 0.95) score -= 10; // Overextended
+  else if (percentB < 0.05) score += 10; // Overextended
+
+  // 3. PREDICTABILITY NOISE FILTER
+  // If market is random (Predictability near 0), pull the score back toward 50 (Neutral)
+  // This prevents the system from being "too confident" in noisy data.
+  const neutralPull = 1 - predictability; 
+  score = 50 + (score - 50) * predictability;
 
   // Signal Mapping
   let signal: TechnicalIndicators['signal'] = 'NEUTRAL';
-  if (score >= 80) signal = 'STRONG BUY';
+  if (score >= 75) signal = 'STRONG BUY';
   else if (score >= 60) signal = 'BUY';
-  else if (score <= 20) signal = 'STRONG SELL';
+  else if (score <= 25) signal = 'STRONG SELL';
   else if (score <= 40) signal = 'SELL';
 
-  // Predictive Algorithms (Fibonacci & Pivots)
-  let predictivePivots = null;
-  let fibonacci = null;
+  // 4. Structural Analysis (Static calculation)
   const lastBar = history[history.length - 1];
-  if (lastBar) {
-    const pHigh = lastBar.high;
-    const pLow = lastBar.low;
-    const pClose = lastBar.close;
-    const pivot = (pHigh + pLow + pClose) / 3;
-    predictivePivots = {
-      pivot,
-      r1: 2 * pivot - pLow,
-      r2: pivot + (pHigh - pLow),
-      r3: pivot + 2 * (pHigh - pLow),
-      s1: 2 * pivot - pHigh,
-      s2: pivot - (pHigh - pLow),
-      s3: pivot - 2 * (pHigh - pLow),
-    };
+  const pHigh = lastBar.high, pLow = lastBar.low, pClose = lastBar.close;
+  const pivot = (pHigh + pLow + pClose) / 3;
+  const predictivePivots = {
+    pivot, r1: 2 * pivot - pLow, r2: pivot + (pHigh - pLow), r3: pivot + 2 * (pHigh - pLow),
+    s1: 2 * pivot - pHigh, s2: pivot - (pHigh - pLow), s3: pivot - 2 * (pHigh - pLow),
+  };
 
-    let maxH = -Infinity;
-    let minL = Infinity;
-    history.forEach(b => {
-      if (b.high > maxH) maxH = b.high;
-      if (b.low < minL) minL = b.low;
-    });
-    const diff = maxH - minL;
-    fibonacci = {
-      level0: maxH,
-      level236: maxH - 0.236 * diff,
-      level382: maxH - 0.382 * diff,
-      level500: maxH - 0.5 * diff,
-      level618: maxH - 0.618 * diff,
-      level786: maxH - 0.786 * diff,
-      level100: minL,
-    };
-  }
+  let maxH = -Infinity, minL = Infinity;
+  history.forEach(b => { if (b.high > maxH) maxH = b.high; if (b.low < minL) minL = b.low; });
+  const fibDiff = maxH - minL;
+  const fibonacci = {
+    level0: maxH, level236: maxH - 0.236 * fibDiff, level382: maxH - 0.382 * fibDiff,
+    level500: maxH - 0.5 * fibDiff, level618: maxH - 0.618 * fibDiff, level786: maxH - 0.786 * fibDiff,
+    level100: minL,
+  };
 
-  // Institutional Order Blocks (Fair Value Gaps - unresolved)
   const orderBlocks: OrderBlock[] = [];
   const lookback = Math.min(history.length, 90);
   const recentHistory = history.slice(-lookback);
-  
   for (let i = 0; i < recentHistory.length - 2; i++) {
-    const c1 = recentHistory[i];
-    const c2 = recentHistory[i + 1];
-    const c3 = recentHistory[i + 2];
-    
-    // Bullish FVG (Demand)
+    const c1 = recentHistory[i], c2 = recentHistory[i + 1], c3 = recentHistory[i + 2];
     if (c3.low > c1.high && c2.close > c2.open) {
-      const top = c3.low;
-      const bottom = c1.high;
-      // Check if mitigated by any future candle
+      const top = c3.low, bottom = c1.high;
       let mitigated = false;
-      for (let j = i + 3; j < recentHistory.length; j++) {
-        if (recentHistory[j].low <= top) { mitigated = true; break; }
-      }
-      if (!mitigated) {
-        orderBlocks.push({ type: 'BULLISH', top, bottom, date: new Date(c2.time * 1000).toISOString().split('T')[0] });
-      }
+      for (let j = i + 3; j < recentHistory.length; j++) { if (recentHistory[j].low <= top) { mitigated = true; break; } }
+      if (!mitigated) orderBlocks.push({ type: 'BULLISH', top, bottom, date: new Date(c2.time * 1000).toISOString().split('T')[0] });
     }
-    
-    // Bearish FVG (Supply)
     if (c3.high < c1.low && c2.close < c2.open) {
-      const top = c1.low;
-      const bottom = c3.high;
-      // Check if mitigated by any future candle
+      const top = c1.low, bottom = c3.high;
       let mitigated = false;
-      for (let j = i + 3; j < recentHistory.length; j++) {
-        if (recentHistory[j].high >= bottom) { mitigated = true; break; }
-      }
-      if (!mitigated) {
-        orderBlocks.push({ type: 'BEARISH', top, bottom, date: new Date(c2.time * 1000).toISOString().split('T')[0] });
-      }
+      for (let j = i + 3; j < recentHistory.length; j++) { if (recentHistory[j].high >= bottom) { mitigated = true; break; } }
+      if (!mitigated) orderBlocks.push({ type: 'BEARISH', top, bottom, date: new Date(c2.time * 1000).toISOString().split('T')[0] });
     }
   }
-  
-  // Sort from most recent
-  orderBlocks.reverse();
 
   return {
     isValid: true,
-    confluenceScore: Math.max(0, Math.min(100, score)),
+    confluenceScore: Math.round(score),
     signal,
-    rsi14,
-    macd: {
-      line: lastMacd.MACD || 0,
-      signal: lastMacd.signal || 0,
-      histogram: lastMacd.histogram || 0
-    },
-    bollingerBands: {
-      upper: lastBB.upper,
-      middle: lastBB.middle,
-      lower: lastBB.lower,
-      percentB
-    },
-    predictivePivots,
-    fibonacci,
-    orderBlocks: orderBlocks.slice(0, 3) // Return max 3 unmitigated blocks
+    rsi14: Math.round(rsi14),
+    macd: { line: lastMacd.MACD || 0, signal: lastMacd.signal || 0, histogram: lastMacd.histogram || 0 },
+    bollingerBands: { upper: lastBB.upper, middle: lastBB.middle, lower: lastBB.lower, percentB },
+    predictivePivots, fibonacci, orderBlocks: orderBlocks.reverse().slice(0, 3)
   };
 }
 

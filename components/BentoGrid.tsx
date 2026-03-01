@@ -94,9 +94,9 @@ export const WatchlistGrid = ({ children }: { children: React.ReactNode }) => {
                 <div className="w-[120px] lg:w-[140px] shrink-0">Asset Vector</div>
                 <div className="w-[140px] lg:w-[160px] shrink-0">Last Price (USD)</div>
                 <div className="flex-1 min-w-[80px] px-2 lg:px-6 border-l border-white/5">Trend (1Y)</div>
-                <div className="w-[140px] shrink-0 hidden md:block border-l border-white/5 pl-4">Momentum</div>
-                <div className="w-[120px] shrink-0 hidden lg:block border-l border-white/5 pl-4">Narrative</div>
-                <div className="w-[140px] shrink-0 hidden xl:flex border-l border-white/5 pl-4">Machine Synthesis</div>
+                <div className="w-[140px] shrink-0 hidden md:block border-l border-white/5 pl-4">Tech Confluence</div>
+                <div className="w-[120px] shrink-0 hidden lg:block border-l border-white/5 pl-4">Narrative Momentum</div>
+                <div className="w-[140px] shrink-0 hidden xl:flex border-l border-white/5 pl-4">Synthesis (Confidence)</div>
                 <div className="w-10 shrink-0"></div>
              </div>
              {isEmpty ? (
@@ -120,33 +120,28 @@ export const WatchlistGrid = ({ children }: { children: React.ReactNode }) => {
 
 
 // 3. THE "STRICT ROW" (Surgical Density)
-export const WatchlistItem = ({
-  signal,
-  change,
-  onRemove
-}: {
+export interface WatchlistItemProps {
   signal: MarketSignal;
-  change: number; 
   onRemove?: () => void;
-}) => {
-  const [pulseClass, setPulseClass] = useState("");
-  const prevPriceRef = useRef(signal.price);
+  alpha?: boolean;
+}
 
-  useEffect(() => {
-    if (signal.price !== prevPriceRef.current) {
-        const isHigher = signal.price > prevPriceRef.current;
-        setPulseClass(isHigher ? "animate-pulse-bull" : "animate-pulse-bear");
-        prevPriceRef.current = signal.price;
-        const timer = setTimeout(() => setPulseClass(""), 1000);
-        return () => clearTimeout(timer);
-    }
+export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
+  const [pulseClass, setPulseClass] = React.useState("");
+  
+  const change = signal.history.length >= 2 ? ((signal.price - signal.history[signal.history.length-2].close) / signal.history[signal.history.length-2].close) * 100 : 0;
+  
+  React.useEffect(() => {
+    setPulseClass("animate-pulse text-matrix");
+    const t = setTimeout(() => setPulseClass(""), 2000);
+    return () => clearTimeout(t);
   }, [signal.price]);
 
-  const fmt = (n: number) => new Intl.NumberFormat('en-US', { 
-    style: 'currency', 
+  const fmt = (n: number) => new Intl.NumberFormat('en-US', {
+    style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2 
+    maximumFractionDigits: 2,
   }).format(n);
   
   const fmtPct = (n: number) => (n > 0 ? "+" : "") + n.toFixed(2) + "%";
@@ -155,7 +150,7 @@ export const WatchlistItem = ({
   const color = isBull ? "hsl(var(--bull))" : "hsl(var(--bear))"; 
 
   // Compute Tags
-  const isTechBullish = signal.technicalAnalysis.macd.histogram > 0 && signal.technicalAnalysis.rsi14 > 40;
+  const isTechBullish = signal.tech.macd.histogram > 0 && signal.tech.rsi14 > 40;
   const sentScore = signal.sentiment.score;
 
   return (
@@ -168,9 +163,16 @@ export const WatchlistItem = ({
           
           {/* COL 1: IDENTITY */}
           <div className="w-[120px] lg:w-[140px] flex flex-col shrink-0">
-               <span className="text-[15px] font-bold text-white tracking-tight leading-none group-hover:text-zinc-300 transition-colors">
-                   {signal.ticker}
-               </span>
+               <div className="flex items-center gap-2">
+                 <span className="text-[15px] font-bold text-white tracking-tight leading-none group-hover:text-zinc-300 transition-colors">
+                     {signal.ticker}
+                 </span>
+                 {alpha && (
+                   <span className="text-[8px] font-black bg-matrix/20 text-matrix px-1 rounded-sm border border-matrix/30 leading-none py-0.5 tracking-widest">
+                     ALPHA
+                   </span>
+                 )}
+               </div>
                <div className="flex items-center gap-1.5 mt-1" aria-hidden="true">
                     <span className="text-[9px] uppercase font-bold tracking-[0.2em] text-zinc-500">{signal.regime.split('_')[0]}</span>
                </div>
@@ -191,28 +193,71 @@ export const WatchlistItem = ({
                <Sparkline data={signal.history.map(h => h.close)} color={color} height={36} />
           </div>
 
-          {/* COL 4: TECH */}
-          <div className="w-[140px] shrink-0 hidden md:flex items-center border-l border-white/5 pl-4">
-              <span className={`text-[9px] lg:text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-sm border ${isTechBullish ? 'bg-bull/10 border-bull/20 text-bull' : 'bg-bear/10 border-bear/20 text-bear'}`}>
-                  {isTechBullish ? 'BULLISH' : 'BEARISH'}
-              </span>
+          {/* COL 4: TECH (Confluence Gauge) */}
+          <div className="w-[140px] shrink-0 hidden md:flex flex-col justify-center border-l border-white/5 pl-4">
+                <div className="flex items-baseline gap-1 mb-1">
+                   <span className={`text-[9px] font-bold uppercase ${signal.tech.signal === 'BUY' || signal.tech.signal === 'STRONG BUY' ? 'text-bull' : signal.tech.signal === 'SELL' || signal.tech.signal === 'STRONG SELL' ? 'text-bear' : 'text-zinc-500'}`}>
+                      {signal.tech.signal}
+                   </span>
+               </div>
+               <div className="flex items-center gap-1.5">
+                  <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                     <div 
+                        className={`h-full transition-all duration-700 ${signal.tech.confluenceScore > 60 ? 'bg-bull' : signal.tech.confluenceScore < 40 ? 'bg-bear' : 'bg-zinc-600'}`}
+                        style={{ width: `${signal.tech.confluenceScore}%` }}
+                     />
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-zinc-500">{signal.tech.confluenceScore}</span>
+               </div>
           </div>
 
-          {/* COL 5: NARRATIVE */}
-          <div className="w-[120px] shrink-0 hidden lg:flex items-center border-l border-white/5 pl-4">
-               <span className={`text-[9px] lg:text-[10px] font-bold font-mono px-2 py-1 border ${sentScore > 0 ? 'border-bull/30 text-bull bg-bull/5' : sentScore < 0 ? 'border-bear/30 text-bear bg-bear/5' : 'border-zinc-500/30 text-zinc-400 bg-white/5'}`}>
-                   {sentScore > 0 ? 'POSITIVE' : sentScore < 0 ? 'NEGATIVE' : 'NEUTRAL'}
+          {/* COL 5: NARRATIVE MOMENTUM */}
+          <div className="w-[120px] shrink-0 hidden lg:flex flex-col justify-center border-l border-white/5 pl-4">
+               <div className="flex items-center gap-1.5 mb-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    signal.sentiment.drift.startsWith('ACCELERATING') ? 'bg-bull animate-pulse' : 
+                    signal.sentiment.drift === 'REVERSAL' ? 'bg-amber-500' : 'bg-zinc-500 opacity-50'
+                  }`} />
+                  <span className={`text-[10px] font-bold font-mono tracking-tight ${sentScore > 0 ? 'text-bull' : sentScore < 0 ? 'text-bear' : 'text-zinc-400'}`}>
+                      {signal.sentiment.label}
+                  </span>
+               </div>
+               <span className="text-[9px] font-black uppercase text-zinc-600 tracking-tighter">
+                   {signal.sentiment.drift.replace('_', ' ')}
                </span>
           </div>
 
           {/* COL 6: SYNTHESIS */}
-          <div className="w-[140px] shrink-0 hidden xl:flex items-center border-l border-white/5 pl-4">
-              <div className="flex items-center gap-2">
-                 <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_hsla(var(--bull)/0.4)] ${isTechBullish && sentScore > 0 ? 'bg-bull' : !isTechBullish && sentScore < 0 ? 'bg-bear' : 'bg-zinc-500'}`} />
-                 <span className={`text-[10px] font-bold uppercase tracking-widest ${isTechBullish && sentScore > 0 ? 'text-bull' : !isTechBullish && sentScore < 0 ? 'text-bear' : 'text-zinc-400'}`}>
-                    {isTechBullish && sentScore > 0 ? 'HIGH CONVICTION' : !isTechBullish && sentScore < 0 ? 'CAUTION' : 'NOISE'}
-                 </span>
-              </div>
+          <div className="w-[140px] shrink-0 hidden xl:flex flex-col justify-center border-l border-white/5 pl-4 overflow-hidden">
+               <div className="flex items-center justify-between mb-1.5 pr-2">
+                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Confidence</span>
+                  <span className={`text-[10px] font-mono font-bold ${
+                    signal.synthesis.score >= 60 ? 'text-bull' : 
+                    signal.synthesis.score <= 40 ? 'text-bear' : 'text-zinc-400'
+                  }`}>
+                      {signal.synthesis.score}%
+                  </span>
+               </div>
+               <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden flex mr-2">
+                   <div 
+                      className={`h-full transition-all duration-500 ${
+                        signal.synthesis.score >= 60 ? 'bg-bull' : 
+                        signal.synthesis.score <= 40 ? 'bg-bear' : 'bg-zinc-500'
+                      }`} 
+                      style={{ width: `${signal.synthesis.score}%` }} 
+                   />
+               </div>
+               <div className="flex flex-col gap-0.5 mt-2">
+                  <span className={`text-[9px] font-bold uppercase tracking-tight ${
+                    signal.synthesis.signal.includes('BUY') ? 'text-bull' : 
+                    signal.synthesis.signal.includes('SELL') ? 'text-bear' : 'text-zinc-300'
+                  }`}>
+                     {signal.synthesis.signal}
+                  </span>
+                  <span className="text-[8px] font-medium text-zinc-500 uppercase tracking-tighter">
+                    Rel: {signal.synthesis.confidence}
+                  </span>
+               </div>
           </div>
 
           {/* COL 7: REMOVE */}
