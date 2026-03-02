@@ -7,14 +7,14 @@ import { AddAllToWatchlist } from "@/components/organisms/AddAllToWatchlist";
 import { PortfolioAnalyticsPanel } from "@/components/organisms/PortfolioAnalyticsPanel";
 import { computePortfolioAnalytics } from "@/lib/portfolio-analytics";
 import { StrategicStressTest } from "@/components/organisms/StrategicStressTest";
+import { GlobalCorrelationLab } from "@/components/organisms/GlobalCorrelationLab";
 import { AlertManager } from "@/components/organisms/AlertManager";
-import { AlertBell } from "@/components/AlertBell";
 import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
-import Link from "next/link";
 import { auth } from "@/auth";
+import { GlobalHeader } from "@/components/organisms/GlobalHeader";
 
 export const metadata: Metadata = {
-  title: "Portfolio | Asset Vector",
+  title: "Portfolio",
   description: "Track your holdings and see your performance against AI price targets.",
 };
 
@@ -57,38 +57,15 @@ export default async function PortfolioPage() {
   // Portfolio analytics computation
   const analytics = computePortfolioAnalytics(enriched);
 
-  // Check and fetch price alerts
-  await checkAndTriggerAlerts(priceMap);
+  // Check and perform institutional audit
+  const { insights } = await checkAndTriggerAlerts(priceMap);
   const alerts = await getAlerts();
   // All portfolio tickers + watchlist tickers for the alert quick-select
   const alertTickers = [...new Set([...tickers, ...watchlist])];
 
   return (
     <>
-      <header className="glass-panel z-[100] flex items-center px-8 sticky top-0 border-b border-white/5 bg-black/80 backdrop-blur-xl">
-        <div className="w-full flex items-center justify-between py-4">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-3.5 group">
-              <div className="w-9 h-9 glass-card rounded-xl flex items-center justify-center glow-matrix bg-matrix/5 border-matrix/20">
-                <div className="w-2.5 h-2.5 bg-matrix rounded-sm rotate-45 shadow-[0_0_12px_hsla(var(--matrix)/0.6)]" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold tracking-tightest text-[16px] text-white uppercase leading-none mb-1">Vector</span>
-                <span className="text-[12px] font-bold text-zinc-500 tracking-[0.2em] uppercase leading-none">Intelligence</span>
-              </div>
-            </Link>
-            <div className="border-l border-white/10 pl-6 flex items-center gap-2">
-              <span className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase">Portfolio</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-8">
-            <AlertBell alerts={alerts} />
-            <Link href="/" className="text-[11px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition-colors">
-              ← Dashboard
-            </Link>
-          </div>
-        </div>
-      </header>
+      <GlobalHeader alerts={alerts} insights={insights} />
 
       <main className="overflow-y-auto scrollbar-hide px-8 py-10">
         <div className="max-w-[1400px] mx-auto">
@@ -106,11 +83,11 @@ export default async function PortfolioPage() {
               <span className="text-zinc-300">{positions.length} POSITIONS</span> ACTIVE
             </p>
           </div>
-
           {/* Strategic Risk Intelligence Section */}
           {riskData && (
-            <div className="mb-12">
+            <div className="mb-12 space-y-12">
                <StrategicStressTest risk={riskData} />
+               <GlobalCorrelationLab data={riskData.correlationMatrix} />
             </div>
           )}
 

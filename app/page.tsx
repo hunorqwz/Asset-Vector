@@ -1,13 +1,10 @@
 import { Metadata } from "next";
 import { WatchlistGrid, WatchlistItem } from "@/components/BentoGrid";
 import { getMarketSignals, removeAsset } from "@/app/actions";
-import { AssetCommand } from "@/components/AssetCommand";
 import { EmptyWatchlist } from "@/components/EmptyWatchlist";
 import { LiveTime } from "@/components/LiveTime";
-import { LiveLatency, IntegrityBars, StealthTooltip } from "@/components/LiveTelemetry";
+import { IntegrityBars, StealthTooltip } from "@/components/LiveTelemetry";
 import { auth } from "@/auth";
-import { LogoutButton } from "@/components/LogoutButton";
-import Link from "next/link";
 import { AlertBell } from "@/components/AlertBell";
 import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
 import { AccuracyScorecard } from "@/components/organisms/AccuracyScorecard";
@@ -15,9 +12,11 @@ import { getAccuracyScorecard } from "@/app/actions/signals";
 import { getMarketPulse } from "@/app/actions";
 import { MarketPulse } from "@/components/molecules/MarketPulse";
 import { detectSectorAlpha } from "@/lib/market-pulse";
+import { GlobalHeader } from "@/components/organisms/GlobalHeader";
+import { LogoutButton } from "@/components/LogoutButton";
 
 export const metadata: Metadata = {
-  title: "Dashboard | Asset Vector",
+  title: "Dashboard",
   description: "Real-time asset tracking and AI-driven market intelligence. Monitor your personal watchlist with precision.",
 };
 
@@ -36,8 +35,8 @@ export default async function Home() {
   const priceMap: Record<string, number> = {};
   signals.forEach(s => { if (s.price) priceMap[s.ticker] = s.price; });
   
-  // Trigger alerts in background
-  await checkAndTriggerAlerts(priceMap);
+  // Trigger alerts and perform institutional audit in background
+  const { insights } = await checkAndTriggerAlerts(priceMap);
 
   // Fresh data for the render
   const [freshAlerts, accuracyData] = await Promise.all([
@@ -47,52 +46,7 @@ export default async function Home() {
 
   return (
     <>
-      <header className="glass-panel z-[100] flex items-center px-8 sticky top-0 border-b border-white/5 bg-black/80 backdrop-blur-xl">
-        <div className="w-full flex items-center justify-between py-4">
-          <div className="flex items-center gap-12">
-            <div className="flex items-center gap-3.5" aria-hidden="true">
-              <div className="w-9 h-9 glass-card rounded-xl flex items-center justify-center glow-matrix bg-matrix/5 border-matrix/20">
-                <div className="w-2.5 h-2.5 bg-matrix rounded-sm rotate-45 shadow-[0_0_12px_hsla(var(--matrix)/0.6)]" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold tracking-tightest text-[16px] text-white uppercase leading-none mb-1">Vector</span>
-                <span className="text-[12px] font-bold text-zinc-500 tracking-[0.2em] uppercase leading-none">Intelligence</span>
-              </div>
-            </div>
-            <div className="hidden xl:flex items-center gap-8 border-l border-white/10 pl-12">
-              <IndexItem symb="SPY" val="+0.07%" up />
-              <IndexItem symb="QQQ" val="-0.12%" />
-              <IndexItem symb="BTC" val="+1.42%" up />
-              <div className="border-l border-white/10 pl-8 flex items-center gap-6">
-                <Link href="/portfolio" className="text-[11px] font-bold text-zinc-500 hover:text-matrix uppercase tracking-[0.2em] transition-colors">
-                  Portfolio
-                </Link>
-                <Link href="/compare" className="text-[11px] font-bold text-zinc-500 hover:text-matrix uppercase tracking-[0.2em] transition-colors">
-                  Compare
-                </Link>
-              </div>
-            </div>
-          </div>
-          {/* SEARCH — fills the available centre space */}
-          <div className="flex-1 px-8 max-w-2xl">
-            <AssetCommand />
-          </div>
-          <div className="flex items-center gap-4" aria-label="System status">
-              <AlertBell alerts={freshAlerts} />
-              <div className="flex flex-col items-end">
-                <StealthTooltip content="Data pipeline is streaming." position="bottom">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" aria-hidden="true" />
-                    <span className="text-[12px] font-bold text-matrix uppercase tracking-[0.15em]">Live Vector</span>
-                  </div>
-                </StealthTooltip>
-                <StealthTooltip content="WebSocket market feed delay" position="bottom">
-                  <span className="text-[11px] font-mono font-bold text-zinc-500 mt-1 uppercase tracking-widest">Latency: <LiveLatency /></span>
-                </StealthTooltip>
-              </div>
-          </div>
-        </div>
-      </header>
+      <GlobalHeader alerts={freshAlerts} insights={insights} />
 
       <main className="overflow-y-auto scrollbar-hide px-8 py-10">
         <div className="max-w-[1600px] mx-auto">
@@ -211,15 +165,6 @@ export default async function Home() {
         </div>
       </footer>
     </>
-  );
-}
-
-function IndexItem({ symb, val, up }: { symb: string, val: string, up?: boolean }) {
-  return (
-    <div className="flex items-center gap-4">
-      <span className="text-[12px] font-bold text-zinc-500 tracking-widest uppercase">{symb}</span>
-      <span className={`text-[13px] font-mono font-bold tabular-nums tracking-tighter ${up ? 'text-bull drop-shadow-[0_0_8px_hsla(var(--bull)/0.2)]' : 'text-bear drop-shadow-[0_0_8px_hsla(var(--bear)/0.2)]'}`}>{val}</span>
-    </div>
   );
 }
 

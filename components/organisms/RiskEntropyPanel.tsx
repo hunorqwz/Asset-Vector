@@ -47,9 +47,9 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
             <span>Sharpe Ratio</span>
             <span className={sharpe.color}>{sharpe.label}</span>
           </div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-1">
             <span className="text-3xl font-mono font-bold text-white tabular-nums">{metrics.sharpeRatio.toFixed(2)}</span>
-            <span className="text-[10px] font-mono text-zinc-600">x</span>
+            <span className="text-[12px] font-mono font-bold text-zinc-600">x</span>
           </div>
           <div className="space-y-2 pt-2 border-t border-white/5">
              <span className="text-[9px] text-zinc-500 leading-relaxed block">
@@ -70,9 +70,9 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
             <span>Sortino Ratio</span>
             <span className={sortino.color}>{sortino.label}</span>
           </div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-1">
             <span className="text-3xl font-mono font-bold text-white tabular-nums">{metrics.sortinoRatio.toFixed(2)}</span>
-            <span className="text-[10px] font-mono text-zinc-600">x</span>
+            <span className="text-[12px] font-mono font-bold text-zinc-600">x</span>
           </div>
           <div className="space-y-2 pt-2 border-t border-white/5">
              <span className="text-[9px] text-zinc-500 leading-relaxed block">

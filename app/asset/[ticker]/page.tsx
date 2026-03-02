@@ -10,6 +10,7 @@ import { AssetDashboard } from "@/components/organisms/AssetDashboard";
 import { LiveHeader } from "@/components/organisms/LiveHeader";
 import { AccuracyScorecard } from "@/components/organisms/AccuracyScorecard";
 import { getAccuracyScorecard } from "@/app/actions/signals";
+import { AlpacaTerminal } from "@/components/organisms/AlpacaTerminal";
 
 export const revalidate = 60;
 export const dynamic = 'force-dynamic';
@@ -79,19 +80,22 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
           <div className="xl:col-span-3">
             <AccuracyScorecard data={accuracyData} ticker={ticker} />
             
-            {/* Quick Metrics */}
-            <div className="glass-card p-6 border border-white/10 relative overflow-hidden group">
-               <div className="flex items-center gap-3 mb-6">
-                 <div className="w-1.5 h-6 bg-matrix" />
-                 <h3 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Profile Stats</h3>
-               </div>
-               <div className="space-y-5">
-                 <MetricRow label="Industry" value={d.profile.industry || d.profile.sector || "N/A"} />
-                 <MetricRow label="Employees" value={d.profile.employees?.toLocaleString()} />
-                 <MetricRow label="Market Cap" value={`$${(p.marketCap / 1e9).toFixed(2)}B`} />
-                 <MetricRow label="Beta (5Y)" value={d.keyStats.beta ? d.keyStats.beta.toFixed(2) : "N/A"} />
-               </div>
-            </div>
+             {/* Quick Metrics */}
+             <div className="glass-card mt-10 p-6 border border-white/10 relative overflow-hidden group">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-1.5 h-6 bg-matrix" />
+                  <h3 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Profile Stats</h3>
+                </div>
+                <div className="space-y-5">
+                  <MetricRow label="Industry" value={d.profile.industry || d.profile.sector || "N/A"} />
+                  <MetricRow label="Employees" value={d.profile.employees?.toLocaleString()} />
+                  <MetricRow label="Market Cap" value={`$${(p.marketCap / 1e9).toFixed(2)}B`} />
+                  <MetricRow label="Beta (5Y)" value={d.keyStats.beta ? d.keyStats.beta.toFixed(2) : "N/A"} />
+                </div>
+             </div>
+
+             {/* Trading Executive */}
+             <AlpacaTerminal ticker={ticker} />
           </div>
 
         </div>

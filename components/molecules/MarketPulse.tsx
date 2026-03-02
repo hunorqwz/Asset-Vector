@@ -33,15 +33,15 @@ export function MarketPulse({ data }: MarketPulseProps) {
           Breadth Engine
         </h2>
         
-        <div className="flex items-baseline justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-baseline sm:justify-between mb-4 gap-2">
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-white tracking-tighter">{breadthPercent}%</span>
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Advancing</span>
+            <span className="text-2xl sm:text-3xl font-bold font-mono text-white tracking-tighter">{breadthPercent}%</span>
+            <span className="text-[9px] sm:text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Advancing</span>
           </div>
-          <div className="text-right">
-            <div className="text-[11px] font-mono font-bold text-zinc-400">
-              {breadthAdvancing}<span className="text-bull">▲</span> / {breadthDeclining}<span className="text-bear">▼</span>
-            </div>
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-bold text-zinc-400">
+            <span className="flex items-center gap-0.5">{breadthAdvancing}<span className="text-bull text-[9px] sm:text-[10px]">▲</span></span>
+            <span className="opacity-30">/</span>
+            <span className="flex items-center gap-0.5">{breadthDeclining}<span className="text-bear text-[9px] sm:text-[10px]">▼</span></span>
           </div>
         </div>
 
@@ -56,10 +56,19 @@ export function MarketPulse({ data }: MarketPulseProps) {
           />
         </div>
 
-        <div className="flex justify-between mt-4 text-[9px] font-bold tracking-[0.2em] uppercase text-zinc-600">
-          <span>Oversold</span>
-          <span>Balanced</span>
-          <span>Overbought</span>
+        <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1.5 sm:gap-1 mt-4 text-[9px] sm:text-[8px] font-bold tracking-tight sm:tracking-widest uppercase text-zinc-600">
+          <div className="flex justify-between items-center sm:block">
+            <span className="text-left">Oversold</span>
+            <span className="sm:hidden text-[10px] text-zinc-800">0-30%</span>
+          </div>
+          <div className="flex justify-between items-center sm:block">
+            <span className="text-left sm:text-center">Balanced</span>
+            <span className="sm:hidden text-[10px] text-zinc-800">30-70%</span>
+          </div>
+          <div className="flex justify-between items-center sm:block">
+            <span className="text-left sm:text-right">Overbought</span>
+            <span className="sm:hidden text-[10px] text-zinc-800">70-100%</span>
+          </div>
         </div>
       </div>
 

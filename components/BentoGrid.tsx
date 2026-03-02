@@ -91,12 +91,12 @@ export const WatchlistGrid = ({ children }: { children: React.ReactNode }) => {
     return (
         <div className="w-full glass-card overflow-hidden">
              <div className="flex items-center px-4 py-3 border-b border-white/10 text-[10px] uppercase font-bold tracking-widest text-zinc-500 bg-[#070707]">
-                <div className="w-[120px] lg:w-[140px] shrink-0">Asset Vector</div>
-                <div className="w-[140px] lg:w-[160px] shrink-0">Last Price (USD)</div>
-                <div className="flex-1 min-w-[80px] px-2 lg:px-6 border-l border-white/5">Trend (1Y)</div>
+                <div className="w-[100px] lg:w-[140px] shrink-0">Asset</div>
+                <div className="w-[100px] lg:w-[160px] shrink-0 ml-2">Market Price</div>
+                <div className="flex-1 min-w-[60px] px-2 lg:px-6 border-l border-white/5">Trend</div>
                 <div className="w-[140px] shrink-0 hidden md:block border-l border-white/5 pl-4">Tech Confluence</div>
-                <div className="w-[120px] shrink-0 hidden lg:block border-l border-white/5 pl-4">Narrative Momentum</div>
-                <div className="w-[140px] shrink-0 hidden xl:flex border-l border-white/5 pl-4">Synthesis (Confidence)</div>
+                <div className="w-[120px] shrink-0 hidden lg:block border-l border-white/5 pl-4">Narrative</div>
+                <div className="w-[140px] shrink-0 hidden xl:flex border-l border-white/5 pl-4">Synthesis</div>
                 <div className="w-10 shrink-0"></div>
              </div>
              {isEmpty ? (
@@ -162,34 +162,58 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
           <div className={`absolute left-0 top-0 bottom-0 w-[2px] opacity-0 transition-opacity group-hover:opacity-100 ${isBull ? 'bg-bull' : 'bg-bear'}`} aria-hidden="true"></div>
           
           {/* COL 1: IDENTITY */}
-          <div className="w-[120px] lg:w-[140px] flex flex-col shrink-0">
-               <div className="flex items-center gap-2">
-                 <span className="text-[15px] font-bold text-white tracking-tight leading-none group-hover:text-zinc-300 transition-colors">
-                     {signal.ticker}
-                 </span>
-                 {alpha && (
-                   <span className="text-[8px] font-black bg-matrix/20 text-matrix px-1 rounded-sm border border-matrix/30 leading-none py-0.5 tracking-widest">
-                     ALPHA
-                   </span>
-                 )}
-               </div>
-               <div className="flex items-center gap-1.5 mt-1" aria-hidden="true">
-                    <span className="text-[9px] uppercase font-bold tracking-[0.2em] text-zinc-500">{signal.regime.split('_')[0]}</span>
-               </div>
+          <div className="w-[100px] lg:w-[140px] flex flex-col shrink-0">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className="text-[14px] sm:text-[15px] font-bold text-white tracking-tight leading-none group-hover:text-zinc-300 transition-colors truncate">
+                      {signal.ticker}
+                  </span>
+                  {alpha && (
+                    <span className="ml-1 text-[7px] font-black bg-matrix/20 text-matrix px-1 rounded-sm border border-matrix/30 leading-none py-0.5 tracking-tighter uppercase shrink-0">
+                      α
+                    </span>
+                  )}
+                </div>
+                <div className="hidden sm:flex flex-col gap-1 mt-1" aria-hidden="true">
+                     <span className="text-[9px] uppercase font-medium tracking-wider text-zinc-500">
+                        {signal.benchmark ? (
+                            <span className="flex items-center gap-2">
+                                 <span className={signal.benchmark.alpha > 0 ? 'text-bull' : 'text-zinc-500'}>
+                                     Alpha {signal.benchmark.alpha}%
+                                 </span>
+                                 <span className="text-zinc-500">Corr {signal.benchmark.correlation}</span>
+                                 <span className="text-zinc-500">Beta {signal.benchmark.beta}</span>
+                            </span>
+                        ) : signal.regime.split('_')[0]}
+                     </span>
+                     {signal.quality && (
+                        <div className="flex items-center gap-1.5 leading-none">
+                            <div className={`w-1 h-1 rounded-full ${
+                                signal.quality.level === 'INSTITUTIONAL' || signal.quality.level === 'HIGH' ? 'bg-bull' : 
+                                signal.quality.level === 'AVERAGE' ? 'bg-zinc-500' : 'bg-bear'
+                            }`} />
+                            <span className={`text-[8px] font-black tracking-widest uppercase ml-1.5 ${
+                                signal.quality.level === 'INSTITUTIONAL' || signal.quality.level === 'HIGH' ? 'text-bull' : 
+                                signal.quality.level === 'AVERAGE' ? 'text-zinc-500' : 'text-bear'
+                            }`}>
+                                {signal.quality.level}
+                            </span>
+                        </div>
+                     )}
+                </div>
           </div>
 
           {/* COL 2: PRICE */}
-          <div className="w-[140px] lg:w-[160px] flex flex-col justify-center shrink-0">
-               <div className={`font-mono text-[14px] font-bold text-white tabular-nums ${pulseClass}`}>
+          <div className="w-[100px] lg:w-[160px] flex flex-col justify-center shrink-0 ml-2">
+               <div className={`font-mono text-[13px] sm:text-[14px] font-bold text-white tabular-nums ${pulseClass}`}>
                    {fmt(signal.price)}
                </div>
-               <div className={`text-[11px] font-bold font-mono tracking-wide tabular-nums ${isBull ? 'text-bull' : 'text-bear'}`}>
+               <div className={`text-[10px] sm:text-[11px] font-bold font-mono tracking-wide tabular-nums ${isBull ? 'text-bull' : 'text-bear'}`}>
                    {isBull ? '+' : ''}{fmtPct(change)}
                </div>
           </div>
 
           {/* COL 3: SPARKLINE */}
-          <div className="flex-1 px-2 lg:px-6 min-w-[80px] h-9 border-l border-white/5 opacity-70 group-hover:opacity-100 transition-opacity flex items-center overflow-hidden" role="img">
+          <div className="flex-1 px-1 lg:px-6 min-w-[60px] h-9 border-l border-white/5 opacity-70 group-hover:opacity-100 transition-opacity flex items-center overflow-hidden" role="img">
                <Sparkline data={signal.history.map(h => h.close)} color={color} height={36} />
           </div>
 
@@ -207,9 +231,21 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
                         style={{ width: `${signal.tech.confluenceScore}%` }}
                      />
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-zinc-500">{signal.tech.confluenceScore}</span>
-               </div>
-          </div>
+                   <span className="text-[10px] font-mono font-bold text-zinc-500">{signal.tech.confluenceScore}</span>
+                </div>
+                {signal.structuralProbability && signal.structuralProbability.length > 0 && (
+                    <div className="mt-2 space-y-0.5">
+                        {signal.structuralProbability.slice(0, 2).map((p, i) => (
+                            <div key={i} className="flex justify-between items-center text-[7.5px] font-mono tracking-tighter uppercase leading-none">
+                                <span className="text-zinc-500 truncate">{p.type} {Math.round(p.price)}</span>
+                                <span className={p.probability > 0.6 ? 'text-bull' : 'text-zinc-500'}>
+                                    {Math.round(p.probability * 100)}%
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+           </div>
 
           {/* COL 5: NARRATIVE MOMENTUM */}
           <div className="w-[120px] shrink-0 hidden lg:flex flex-col justify-center border-l border-white/5 pl-4">
@@ -222,7 +258,7 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
                       {signal.sentiment.label}
                   </span>
                </div>
-               <span className="text-[9px] font-black uppercase text-zinc-600 tracking-tighter">
+               <span className="text-[9px] font-bold uppercase text-zinc-500 tracking-tighter">
                    {signal.sentiment.drift.replace('_', ' ')}
                </span>
           </div>
@@ -230,7 +266,7 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
           {/* COL 6: SYNTHESIS */}
           <div className="w-[140px] shrink-0 hidden xl:flex flex-col justify-center border-l border-white/5 pl-4 overflow-hidden">
                <div className="flex items-center justify-between mb-1.5 pr-2">
-                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Confidence</span>
+                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest opacity-0">Confidence</span>
                   <span className={`text-[10px] font-mono font-bold ${
                     signal.synthesis.score >= 60 ? 'text-bull' : 
                     signal.synthesis.score <= 40 ? 'text-bear' : 'text-zinc-400'
@@ -254,7 +290,7 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
                   }`}>
                      {signal.synthesis.signal}
                   </span>
-                  <span className="text-[8px] font-medium text-zinc-500 uppercase tracking-tighter">
+                  <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-tighter">
                     Rel: {signal.synthesis.confidence}
                   </span>
                </div>

@@ -7,11 +7,17 @@ export interface ScenarioResult {
   impactLevel: 'LOW' | 'MEDIUM' | 'HIGH';
 }
 
+export interface CorrelationMatrix {
+  tickers: string[];
+  matrix: number[][];
+}
+
 export interface RiskIntelligence {
   portfolioBeta: number;
   correlationAlerts: string[];
   scenarios: ScenarioResult[];
   volatilityAnnualized: number;
+  correlationMatrix: CorrelationMatrix;
 }
 
 /**
@@ -20,7 +26,13 @@ export interface RiskIntelligence {
  */
 export async function computePortfolioRisk(positions: { ticker: string; weight: number }[]): Promise<RiskIntelligence> {
   if (positions.length === 0) {
-    return { portfolioBeta: 0, correlationAlerts: [], scenarios: [], volatilityAnnualized: 0 };
+    return { 
+      portfolioBeta: 0, 
+      correlationAlerts: [], 
+      scenarios: [], 
+      volatilityAnnualized: 0,
+      correlationMatrix: { tickers: [], matrix: [] }
+    };
   }
 
   // 1. Fetch 1Y History for all assets + SPY Benchmark
@@ -40,7 +52,13 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
 
   const spyHistory = historyData.find(h => h.ticker === spyTicker)?.history || [];
   if (spyHistory.length < 50) {
-     return { portfolioBeta: 1, correlationAlerts: [], scenarios: [], volatilityAnnualized: 0 };
+     return { 
+       portfolioBeta: 1, 
+       correlationAlerts: [], 
+       scenarios: [], 
+       volatilityAnnualized: 0,
+       correlationMatrix: { tickers: positions.map(p => p.ticker), matrix: [] }
+    };
   }
 
   const spyReturns = calculateReturns(spyHistory.map(h => h.close));
@@ -65,12 +83,15 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
     totalPortfolioBeta += pos.weight * beta;
   });
 
-  // 3. Concentration Guard (Hidden Correlation)
+  // 3. Concentration Guard (Hidden Correlation) & Global Matrix
   const alerts: string[] = [];
   const activeTickers = positions.map(p => p.ticker);
+  const matrix: number[][] = Array(activeTickers.length).fill(0).map(() => Array(activeTickers.length).fill(1));
   
   for (let i = 0; i < activeTickers.length; i++) {
-    for (let j = i + 1; j < activeTickers.length; j++) {
+    for (let j = 0; j < activeTickers.length; j++) {
+      if (i === j) continue;
+      
       const t1 = activeTickers[i];
       const t2 = activeTickers[j];
       const r1 = assetReturnsMap[t1];
@@ -78,9 +99,14 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
       
       if (r1 && r2) {
         const corr = calculateCorrelation(r1, r2);
-        if (corr > 0.85) {
+        matrix[i][j] = Number(corr.toFixed(4));
+        
+        // Only add alerts once per pair
+        if (i < j && corr > 0.85) {
           alerts.push(`High Correlation: ${t1} & ${t2} (${Math.round(corr * 100)}%). They move in lockstep, increasing hidden risk.`);
         }
+      } else {
+        matrix[i][j] = 0;
       }
     }
   }
@@ -129,7 +155,11 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
     portfolioBeta: Number(totalPortfolioBeta.toFixed(2)),
     correlationAlerts: alerts,
     scenarios,
-    volatilityAnnualized: Number((portfolioVolAnnual * 100).toFixed(2))
+    volatilityAnnualized: Number((portfolioVolAnnual * 100).toFixed(2)),
+    correlationMatrix: {
+      tickers: activeTickers,
+      matrix
+    }
   };
 }
 

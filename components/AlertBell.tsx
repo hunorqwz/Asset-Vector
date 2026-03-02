@@ -1,19 +1,20 @@
 "use client";
 import { useState, useTransition } from "react";
-import { PriceAlert, dismissAlert } from "@/app/actions/alerts";
+import { PriceAlert, Insight, dismissAlert } from "@/app/actions/alerts";
 
 interface AlertBellProps {
   alerts: PriceAlert[];
+  insights?: Insight[];
 }
 
-export function AlertBell({ alerts }: AlertBellProps) {
+export function AlertBell({ alerts, insights = [] }: AlertBellProps) {
   const [open, setOpen] = useState(false);
   const [localAlerts, setLocalAlerts] = useState(alerts);
   const [isPending, startTransition] = useTransition();
 
   const triggered = localAlerts.filter(a => a.isTriggered);
   const active = localAlerts.filter(a => !a.isTriggered);
-  const hasNew = triggered.length > 0;
+  const hasNew = triggered.length > 0 || insights.length > 0;
 
   const handleDismiss = (id: string) => {
     startTransition(async () => {
@@ -82,13 +83,44 @@ export function AlertBell({ alerts }: AlertBellProps) {
             </div>
 
             {/* List */}
-            <div className="max-h-72 overflow-y-auto">
-              {localAlerts.length === 0 ? (
+            <div className="max-h-96 overflow-y-auto scrollbar-hide">
+              {localAlerts.length === 0 && insights.length === 0 ? (
                 <div className="py-10 text-center">
                   <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">No alerts</p>
                 </div>
               ) : (
                 <div className="divide-y divide-white/5">
+                  {/* Institutional Insights */}
+                  {insights.map((insight, ii) => (
+                    <div key={`insight-${ii}`} className="group relative px-4 py-4 bg-matrix/5 border-b border-matrix/20 overflow-hidden">
+                       <div className="absolute top-0 right-0 p-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                          <span className="text-[8px] font-black text-matrix">INSIGHT</span>
+                       </div>
+                       <div className="flex items-start gap-3">
+                          <div className="w-1.5 h-1.5 rounded-sm bg-matrix mt-1.5 shrink-0 shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" />
+                          <div>
+                             <p className="text-[11px] font-bold font-mono text-white flex items-center gap-2">
+                                {insight.ticker}
+                                <span className="text-[9px] font-black px-1 py-0.5 border border-matrix/30 text-matrix uppercase tracking-tighter rounded-sm">
+                                   {insight.label}
+                                </span>
+                             </p>
+                             <p className="text-[10px] text-zinc-400 font-medium mt-1 leading-relaxed">
+                                {insight.message}
+                             </p>
+                             {insight.score && (
+                               <div className="mt-2 flex items-center gap-2">
+                                  <div className="h-0.5 bg-white/10 flex-1 max-w-[60px]">
+                                     <div className="h-full bg-matrix" style={{ width: `${insight.score}%` }} />
+                                  </div>
+                                  <span className="text-[9px] font-bold font-mono text-matrix italic">{insight.score}/100</span>
+                               </div>
+                             )}
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+
                   {/* Triggered first */}
                   {triggered.map(a => (
                     <div key={a.id} className="flex items-start gap-3 px-4 py-3 bg-bull/5 group">

@@ -231,14 +231,16 @@ export function detectSupportResistance(data: OHLCV[], sensitivity: number = 0.0
     }
   }
 
-  // 2. Cluster pivots that are close to each other
+  // 2. Cluster pivots that are close to each other (Log-Space)
   const clusters: { price: number; touches: number; types: string[] }[] = [];
   
   pivots.forEach(p => {
-    const existing = clusters.find(c => Math.abs(c.price - p.price) / p.price < sensitivity);
+    // We use log-distance to ensure sensitivity is relative to price magnitude (v2.1)
+    const existing = clusters.find(c => Math.abs(Math.log(c.price / p.price)) < sensitivity);
     if (existing) {
       existing.touches++;
-      existing.price = (existing.price + p.price) / 2; // Average the level
+      // Average the level in log-space for better geometric centering
+      existing.price = Math.exp((Math.log(existing.price) + Math.log(p.price)) / 2);
       existing.types.push(p.type);
     } else {
       clusters.push({ price: p.price, touches: 1, types: [p.type] });

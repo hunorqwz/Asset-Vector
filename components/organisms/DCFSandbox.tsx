@@ -91,7 +91,7 @@ export const DCFSandbox = React.memo(function DCFSandbox({ details, currentPrice
         </div>
       </div>
 
-      <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-8 bg-transparent">
+      <div className="p-5 grid grid-cols-1 xl:grid-cols-2 gap-8 bg-transparent">
         
         {/* SLIDERS PANEL */}
         <div className="space-y-8">
@@ -157,9 +157,12 @@ export const DCFSandbox = React.memo(function DCFSandbox({ details, currentPrice
                 <ValuationRow label="Enterprise Value" value={result.enterpriseValue} />
                 <ValuationRow label="Add: Total Cash" value={cash} isAdd />
                 <ValuationRow label="Less: Total Debt" value={debt} isSub />
-                <div className="w-full bg-white/20 h-px my-2" />
-                <ValuationRow label="Implied Equity Value" value={result.equityValue} bold />
-                <ValuationRow label="Shares Outstanding" value={shares} raw />
+                <div className="overflow-x-auto scrollbar-hide">
+                  <div className="min-w-[300px] space-y-2.5">
+                    <ValuationRow label="Implied Equity Value" value={result.equityValue} bold />
+                    <ValuationRow label="Shares Outstanding" value={shares} raw />
+                  </div>
+                </div>
               </div>
            </div>
            

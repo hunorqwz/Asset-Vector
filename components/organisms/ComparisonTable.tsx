@@ -2,6 +2,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { ComparisonAsset } from "@/app/actions/compare";
+import { calculateAlphaScore, calculateCatalystRisk } from "@/lib/alpha-engine";
 
 // ── Formatters ─────────────────────────────────────────────────────────────
 function fmt(n: number | null | undefined, d = 2): string {
@@ -84,6 +85,13 @@ const ROWS: RowDef[] = [
     tooltip: "Institutional Synthesis Engine score (0-100)"
   },
   {
+    label: "Alpha Score", category: "Synthesis",
+    getValue: a => calculateAlphaScore(a.signal, a.details).score,
+    format: n => n !== null ? `${fmt(n, 0)} / 100` : "—",
+    better: "higher",
+    tooltip: "Discovery Engine score: high conviction based on Momentum, Value, and Correlation"
+  },
+  {
     label: "Signal", category: "Synthesis",
     getValue: a => {
       const map: Record<string, number> = {
@@ -158,9 +166,9 @@ const ROWS: RowDef[] = [
     getValue: a => a.signal.sentiment.score,
     format: n => {
       if (n === null) return "—";
-      if (n > 0.3) return `${fmt(n, 3)} [BULLISH]`;
-      if (n < -0.3) return `${fmt(n, 3)} [BEARISH]`;
-      return `${fmt(n, 3)} [NEUTRAL]`;
+      if (n > 0.3) return `${fmt(n, 3)} [BULL]`;
+      if (n < -0.3) return `${fmt(n, 3)} [BEAR]`;
+      return `${fmt(n, 3)} [NEUT]`;
     },
     better: "higher", colorize: true,
     tooltip: "Narrative Momentum score (-1 to +1)"
@@ -249,6 +257,27 @@ const ROWS: RowDef[] = [
     format: n => n !== null ? fmt(n, 2) : "—",
     better: "lower",
     tooltip: "Sensitivity to market moves: >1 = more volatile than market"
+  },
+  {
+    label: "Catalyst Move (Est)", category: "Risk",
+    getValue: a => calculateCatalystRisk(a.details).expectedMovePct,
+    format: n => n !== null ? `±${fmt(n, 1)}%` : "—",
+    better: "lower",
+    tooltip: "Projected price swing on next earnings event based on IV/History"
+  },
+  {
+    label: "Surprise Momentum", category: "Risk",
+    getValue: a => {
+      const { momentum } = calculateCatalystRisk(a.details);
+      return momentum === 'BULLISH' ? 100 : momentum === 'BEARISH' ? 0 : 50;
+    },
+    format: n => {
+      if (n === 100) return "BULLISH (BEATS)";
+      if (n === 0) return "BEARISH (MISSES)";
+      return "NEUTRAL";
+    },
+    better: "higher", colorize: true,
+    tooltip: "Trend of earnings surprise history (Last 4 quarters)"
   },
   {
     label: "Max Drawdown (1Y)", category: "Risk",
@@ -410,7 +439,7 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-white/10 bg-[#0a0a0a]">
               <th className="text-left px-5 py-4 w-[200px]">
-                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-600">Metric</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400">Metric</span>
               </th>
               {assets.map((a, ai) => {
                 const isLeader = wins[ai] === maxWins && wins[ai] > 0;
@@ -435,7 +464,7 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-zinc-500 font-medium truncate max-w-[160px]">
+                      <p className="text-[10px] text-zinc-400 font-medium truncate max-w-[160px]">
                         {a.details.profile.name}
                       </p>
                       <div className="flex items-center gap-2">
@@ -499,10 +528,10 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
                       }`}
                       title={row.tooltip}
                     >
-                      <td className="px-5 py-3 text-[11px] text-zinc-500 font-medium whitespace-nowrap">
+                      <td className="px-5 py-3 text-[11px] text-zinc-400 font-medium whitespace-nowrap">
                         {row.label}
                         {row.tooltip && (
-                          <span className="ml-1.5 text-[8px] text-zinc-700 font-normal" title={row.tooltip}>(?)</span>
+                          <span className="ml-1.5 text-[8px] text-zinc-500 font-normal" title={row.tooltip}>(?)</span>
                         )}
                       </td>
                       {assets.map((a, ai) => {

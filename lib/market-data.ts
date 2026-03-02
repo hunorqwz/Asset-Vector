@@ -13,6 +13,17 @@ import { OHLCV, ChartInterval, NarrativeArticle } from "./types";
 
 export type { OHLCV, ChartInterval, NarrativeArticle };
 
+import { QualityScore, calculateQualityScore } from "./quality-engine";
+import { LevelTouchProbability, calculateProbabilityOfTouch } from "./probability";
+import { detectSupportResistance } from "./technical-analysis";
+
+export type RollingCorrelation = {
+  ticker: string;
+  correlation: number; // -1 to 1
+  alpha: number; // Excess return vs benchmark (beta-adjusted)
+  beta: number; // Sensitivity to market
+};
+
 export type MarketSignal = {
   ticker: string; price: number; smoothPrice: number; uncertainty: number; snr: number;
   aiPrediction?: number; trend: "BULLISH" | "BEARISH" | "NEUTRAL"; regime: MarketRegime;
@@ -22,6 +33,9 @@ export type MarketSignal = {
   news: NarrativeArticle[];
   tech: TechnicalIndicators;
   synthesis: MarketSynthesis;
+  benchmark?: RollingCorrelation;
+  quality?: QualityScore;
+  structuralProbability?: LevelTouchProbability[];
 };
 
 export const RANGE_INTERVAL_MAP: Record<string, { interval: ChartInterval; lookbackSeconds: number }> = {
@@ -106,6 +120,9 @@ async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
     : [{ title: "Market liquidity stable", url: "#", date: new Date().toISOString() }];
 }
 
+// Global Benchmark Cache to prevent redundant fetches (v2.1)
+let GLOBAL_BENCHMARK_DATA: { time: number; data: OHLCV[] } | null = null;
+
 export async function fetchMarketData(ticker: string, len: number = 2500): Promise<MarketSignal> {
   const cached = getFromCache<MarketSignal>(ticker);
   if (cached) return cached;
@@ -127,8 +144,6 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   let smooth = 0, uncert = 0;
   
   history.forEach(t => {
-    // Dynamic sensitivity adjustment: 
-    // If volatility is high, we increase Q to follow price movement more closely.
     const dynamicQ = realizedVol > 0.3 ? Q * 2 : Q; 
     kf.updateParameters(undefined, dynamicQ);
     const r = kf.filter(t.close);
@@ -136,10 +151,51 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     uncert = r.uncertainty;
   });
 
-  const [ai, news] = await Promise.all([
-    predictNextHorizon(history.map(t => [t.open, t.high, t.low, t.close, t.volume]), ticker),
-    fetchHeadlines(ticker)
+  // Benchmark Singleton Logic
+  if (!GLOBAL_BENCHMARK_DATA || Date.now() - GLOBAL_BENCHMARK_DATA.time > 3600000) {
+      const bHistory = await fetchHistory("SPY", 2500).catch(() => []);
+      GLOBAL_BENCHMARK_DATA = { time: Date.now(), data: bHistory };
+  }
+
+  const [ai, news, fundamentals, tnxQuote] = await Promise.all([
+    predictNextHorizon(history.map(t => [t.open, t.high, t.low, t.close, t.volume]), ticker, realizedVol),
+    fetchHeadlines(ticker),
+    !isCrypto ? yahooFinance.quoteSummary(ticker, { modules: ['summaryDetail', 'financialData', 'defaultKeyStatistics'] }).catch(() => null) : Promise.resolve(null),
+    yahooFinance.quote("^TNX").catch(() => null) 
   ]);
+
+  const riskFreeRate = (tnxQuote?.regularMarketPrice || 4.0) / 100;
+
+  let benchmark: RollingCorrelation | undefined = undefined;
+  if (GLOBAL_BENCHMARK_DATA && ticker !== "SPY") {
+      benchmark = calculateCorrelationMetrics(history, GLOBAL_BENCHMARK_DATA.data, "SPY", riskFreeRate);
+  }
+
+  let quality: QualityScore | undefined = undefined;
+  if (fundamentals) {
+    const f = fundamentals as any;
+    quality = calculateQualityScore({
+        profitability: {
+            operatingMargins: f.financialData?.operatingMargins,
+            profitMargins: f.financialData?.profitMargins,
+            returnOnAssets: f.financialData?.returnOnAssets,
+            returnOnEquity: f.financialData?.returnOnEquity,
+            revenueGrowth: f.financialData?.revenueGrowth,
+            earningsGrowth: f.financialData?.earningsGrowth,
+            grossMargins: f.financialData?.grossMargins
+        } as any,
+        financialHealth: {
+            debtToEquity: f.financialData?.debtToEquity,
+            currentRatio: f.financialData?.currentRatio,
+            freeCashflow: f.financialData?.freeCashflow,
+            totalRevenue: f.financialData?.totalRevenue
+        } as any,
+        valuation: {
+            forwardPE: f.summaryDetail?.forwardPE,
+            pegRatio: f.defaultKeyStatistics?.pegRatio
+        } as any
+    });
+  }
 
   // Guard against short history (needs at least 6 bars for 5-bar lookback)
   const lookback = Math.min(5, history.length - 1);
@@ -153,12 +209,22 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   const sentiment = SentimentFallback.analyze(news);
   const technical = generateTechnicalConfluence(history, smooth, regimeInfo.predictability);
+  const levels = detectSupportResistance(history);
+  const structuralProbability: LevelTouchProbability[] = levels.map(l => ({
+    price: l.price,
+    type: l.type,
+    timeframe: "5D",
+    probability: Number(calculateProbabilityOfTouch(currentPrice, l.price, realizedVol, 5).toFixed(4))
+  }));
+
   const synthesis = generateSynthesis(
     technical,
     sentiment,
     regimeInfo.predictability,
     regimeInfo.regime,
-    kf.getSNR()
+    kf.getSNR(),
+    benchmark,
+    quality
   );
 
   const signal: MarketSignal = {
@@ -171,9 +237,74 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     tech: technical,
     synthesis,
     news,
-    history
+    history,
+    benchmark,
+    quality,
+    structuralProbability
   };
 
   setInCache(ticker, signal, CACHE_TTL.MARKET_DATA);
   return signal;
+}
+
+/**
+ * Calculates rolling correlation, beta, and Jensen's Alpha (v2.1).
+ */
+function calculateCorrelationMetrics(
+    assetData: OHLCV[], 
+    benchmarkData: OHLCV[], 
+    benchmarkTicker: string,
+    riskFreeRate: number = 0.04
+): RollingCorrelation {
+    // 1. Sync data by time
+    const benchMap = new Map(benchmarkData.map(d => [d.time, d.close]));
+    const syncResults: { asset: number; bench: number }[] = [];
+    
+    for (let i = 1; i < assetData.length; i++) {
+        const t = assetData[i].time;
+        const prevT = assetData[i-1].time;
+        if (benchMap.has(t) && benchMap.has(prevT)) {
+            const assetRet = Math.log(assetData[i].close / assetData[i-1].close);
+            const benchRet = Math.log(benchMap.get(t)! / benchMap.get(prevT)!);
+            syncResults.push({ asset: assetRet, bench: benchRet });
+        }
+    }
+
+    const window = syncResults.slice(-60);
+    if (window.length < 10) return { ticker: benchmarkTicker, correlation: 0, alpha: 0, beta: 1 };
+
+    const assetRets = window.map(w => w.asset);
+    const benchRets = window.map(w => w.bench);
+
+    const assetMean = assetRets.reduce((a, b) => a + b, 0) / assetRets.length;
+    const benchMean = benchRets.reduce((a, b) => a + b, 0) / benchRets.length;
+
+    let covar = 0;
+    let varBench = 0;
+    let varAsset = 0;
+
+    for (let i = 0; i < window.length; i++) {
+        const aDiff = assetRets[i] - assetMean;
+        const bDiff = benchRets[i] - benchMean;
+        covar += aDiff * bDiff;
+        varBench += bDiff * bDiff;
+        varAsset += aDiff * aDiff;
+    }
+
+    const beta = varBench !== 0 ? covar / varBench : 1;
+    const correlation = (varBench !== 0 && varAsset !== 0) ? covar / Math.sqrt(varBench * varAsset) : 0;
+    
+    // Jensen's Alpha Calculation (v2.1)
+    // alpha = R_p - [R_f + Beta * (R_m - R_f)]
+    const assetCumRet = assetData[assetData.length - 1].close / assetData[assetData.length - Math.min(assetData.length, 252)].close - 1;
+    const benchCumRet = benchmarkData[benchmarkData.length - 1].close / benchmarkData[benchmarkData.length - Math.min(benchmarkData.length, 252)].close - 1;
+    
+    const jensensAlpha = assetCumRet - (riskFreeRate + beta * (benchCumRet - riskFreeRate));
+
+    return {
+        ticker: benchmarkTicker,
+        correlation: Number(correlation.toFixed(4)),
+        beta: Number(beta.toFixed(4)),
+        alpha: Number((jensensAlpha * 100).toFixed(2)) // Percentage
+    };
 }

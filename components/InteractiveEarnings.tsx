@@ -66,13 +66,13 @@ export const InteractiveEarnings = React.memo(function InteractiveEarnings({ rep
                   
                   {/* Price Reaction Marker (Earnings Beta) */}
                   {q.priceReactionPct !== null && (
-                    <div className="absolute top-2 w-full flex justify-center z-20">
-                      <div className={`text-[9px] font-mono font-bold px-1 py-0.5 border ${
+                    <div className="absolute top-0 w-full flex justify-center z-20">
+                      <div className={`text-[8px] font-mono font-bold px-1 py-0.5 border ${
                         q.priceReactionPct > 0 
-                          ? 'text-bull border-bull/20 bg-bull/5' 
-                          : 'text-bear border-bear/20 bg-bear/5'
+                          ? 'text-bull border-bull/30 bg-bull/10' 
+                          : 'text-bear border-bear/30 bg-bear/10'
                       }`}>
-                        {q.priceReactionPct > 0 ? '+' : ''}{q.priceReactionPct.toFixed(1)}%
+                        {q.priceReactionPct > 0 ? '▲' : '▼'} {Math.abs(q.priceReactionPct).toFixed(1)}%
                       </div>
                     </div>
                   )}

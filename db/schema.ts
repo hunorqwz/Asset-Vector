@@ -100,7 +100,7 @@ export const marketSignals = pgTable("market_signals", {
   priceAtGeneration: numeric("price_at_generation", { precision: 18, scale: 8 }),
   score: numeric("score", { precision: 5, scale: 2 }),
   signalLabel: varchar("signal_label", { length: 20 }), // e.g. "STRONG BUY", "NEUTRAL"
-  direction: varchar("direction", { length: 10 }), // "BULLISH", "BEARISH", "NEUTRAL"
+  direction: varchar("direction", { length: 20 }), // e.g. "UNCORRELATED"
   confidence: numeric("confidence", { precision: 10, scale: 4 }), // Predictability units
   snr: numeric("snr", { precision: 10, scale: 4 }),
   regime: varchar("regime", { length: 50 }),

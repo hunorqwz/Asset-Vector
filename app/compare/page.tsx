@@ -4,7 +4,7 @@ import { fetchComparisonData } from "@/app/actions/compare";
 import { ComparisonTable } from "@/components/organisms/ComparisonTable";
 import { CompareTickerManager } from "@/components/organisms/CompareTickerManager";
 import { AlertBell } from "@/components/AlertBell";
-import { getAlerts } from "@/app/actions/alerts";
+import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
 import { auth } from "@/auth";
 
 export const metadata: Metadata = {
@@ -26,11 +26,16 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     .map(t => t.trim().toUpperCase())
     .filter(t => t.length > 0 && t.length <= 10)
     .slice(0, 4);
-
-  const [assets, alerts] = await Promise.all([
+  const [assets, initialAlerts] = await Promise.all([
     tickers.length > 0 ? fetchComparisonData(tickers) : Promise.resolve([]),
     getAlerts(),
   ]);
+
+  // Audit these specific tickers for insights
+  const priceMap: Record<string, number> = {};
+  assets.forEach(a => { priceMap[a.ticker] = a.details.price.current; });
+  const { insights } = await checkAndTriggerAlerts(priceMap);
+  const alerts = await getAlerts();
 
   return (
     <>
@@ -47,12 +52,15 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                 <span className="text-[12px] font-bold text-zinc-500 tracking-[0.2em] uppercase leading-none">Intelligence</span>
               </div>
             </Link>
-            <div className="border-l border-white/10 pl-6 flex items-center gap-2">
+            <div className="border-l border-white/10 pl-6 flex items-center gap-6">
               <span className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase">Compare</span>
+              <Link href="/discovery" className="text-[11px] font-bold text-zinc-500 hover:text-matrix uppercase tracking-[0.2em] transition-colors border-l border-white/10 pl-6">
+                Discovery
+              </Link>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <AlertBell alerts={alerts} />
+            <AlertBell alerts={alerts} insights={insights} />
             <Link href="/" className="text-[11px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition-colors">
               ← Dashboard
             </Link>

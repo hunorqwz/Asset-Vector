@@ -106,17 +106,63 @@ export async function dismissAlert(id: string): Promise<{ success: boolean }> {
   }
 }
 
+import { calculateAlphaScore } from "@/lib/alpha-engine";
+import { getAssetDetails } from "@/app/actions";
+
+export type Insight = {
+  ticker: string;
+  type: "ALPHA" | "REDUNDANCY";
+  label: string;
+  message: string;
+  score?: number;
+};
+
+export type AlertSessionState = {
+  triggered: PriceAlert[];
+  insights: Insight[];
+};
+
+/**
+ * Perform a structural audit of the user's focus tickers (Watchlist + Portfolio)
+ * and detect institutional regime shifts or high Alpha scores.
+ */
+export async function getInstitutionalInsights(tickers: string[]): Promise<Insight[]> {
+  const session = await auth();
+  if (!session?.user?.id || tickers.length === 0) return [];
+
+  const capped = tickers.slice(0, 10); // Performance cap
+  const results = await Promise.allSettled(capped.map(t => getAssetDetails(t)));
+  const insights: Insight[] = [];
+
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      const data = r.value;
+      const { score, scanner } = calculateAlphaScore(data, data.stockDetails);
+      
+      if (score > 85 && scanner) {
+        insights.push({
+          ticker: capped[i],
+          type: "ALPHA",
+          label: `${scanner} SIGNAL`,
+          message: `High conviction institutional ${scanner.toLowerCase()} detected.`,
+          score: Math.round(score)
+        });
+      }
+    }
+  });
+
+  return insights;
+}
+
 /**
  * Called server-side on each dashboard refresh.
- * Checks all active (non-triggered) alerts against the current price map.
- * Marks triggered alerts in the DB.
- * Returns the list of newly triggered alerts for display.
+ * Now returns both newly triggered price alerts and real-time institutional insights.
  */
 export async function checkAndTriggerAlerts(
   priceMap: Record<string, number>
-): Promise<PriceAlert[]> {
+): Promise<AlertSessionState> {
   const session = await auth();
-  if (!session?.user?.id) return [];
+  if (!session?.user?.id) return { triggered: [], insights: [] };
 
   const active = await db.query.priceAlerts.findMany({
     where: and(
@@ -126,7 +172,9 @@ export async function checkAndTriggerAlerts(
   });
 
   const triggered: PriceAlert[] = [];
+  const tickersToAudit = Object.keys(priceMap);
 
+  // 1. Check Price Alerts
   for (const alert of active) {
     const currentPrice = priceMap[alert.ticker];
     if (currentPrice === undefined) continue;
@@ -162,5 +210,8 @@ export async function checkAndTriggerAlerts(
     }
   }
 
-  return triggered;
+  // 2. Perform Institutional Audit the tickers in the priceMap
+  const insights = await getInstitutionalInsights(tickersToAudit);
+
+  return { triggered, insights };
 }

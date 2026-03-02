@@ -11,6 +11,41 @@ import { fetchStockDetails } from "@/lib/stock-details";
 import { archiveSignal, evaluateOldSignals } from "@/app/actions/signals";
 
 import { fetchMarketPulse, MarketPulseData } from "@/lib/market-pulse";
+import { getAlpacaAccount, getAlpacaPositions, placeAlpacaOrder, getAlpacaQuote } from "@/lib/alpaca-client";
+
+export async function getAlpacaData() {
+  try {
+    const [account, positions] = await Promise.all([
+      getAlpacaAccount(),
+      getAlpacaPositions()
+    ]);
+    return { account, positions };
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function executeTrade(symbol: string, qty: string, side: "buy" | "sell") {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "UNAUTHORIZED" };
+  
+  try {
+    const order = await placeAlpacaOrder(symbol, qty, side);
+    return { success: true, order };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getLiveQuote(symbol: string) {
+  try {
+    const q = await getAlpacaQuote(symbol);
+    if (!q) return null;
+    return { ap: q.ap, bp: q.bp };
+  } catch {
+    return null;
+  }
+}
 
 const WATCHLIST_LIMIT = 12;
 
