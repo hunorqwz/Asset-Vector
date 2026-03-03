@@ -237,7 +237,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     tech: technical,
     synthesis,
     news,
-    history,
+    history: history.slice(-60), // Trim payload size drastically
     benchmark,
     quality,
     structuralProbability

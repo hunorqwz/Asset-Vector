@@ -176,6 +176,18 @@ export async function getAssetDetails(ticker: string) {
   return { ...signal, prediction, stockDetails };
 }
 
+export async function getMinimalAssetDetails(ticker: string) {
+  const sym = decodeURIComponent(ticker);
+  // Fetch only 300 bars (sufficient for Regime/Kalman) instead of 2500
+  // Avoid fully running predictNextHorizon on the server for background tasks
+  const [signal, stockDetails] = await Promise.all([
+    fetchMarketData(sym, 300),
+    fetchStockDetails(sym), // This is heavily cached (1 hour)
+  ]);
+  
+  return { ...signal, stockDetails };
+}
+
 export async function fetchChartData(ticker: string, range: string): Promise<OHLCV[]> {
   const config = RANGE_INTERVAL_MAP[range] || { interval: '1d', lookbackSeconds: 0 };
   return fetchHistoryWithInterval(ticker, config.interval, config.lookbackSeconds);

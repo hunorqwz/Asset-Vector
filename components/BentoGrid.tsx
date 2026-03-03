@@ -156,10 +156,10 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
   return (
       <Link 
         href={`/asset/${signal.ticker}`} 
-        className="group relative flex items-center px-4 py-1 h-16 hover:bg-white/[0.02] transition-colors"
+        className="group relative flex items-center px-4 py-3 min-h-[5rem] hover:bg-white/[0.02] transition-colors"
       >
           {/* ACTIVE INDICATOR */}
-          <div className={`absolute left-0 top-0 bottom-0 w-[2px] opacity-0 transition-opacity group-hover:opacity-100 ${isBull ? 'bg-bull' : 'bg-bear'}`} aria-hidden="true"></div>
+          <div className={`absolute left-0 top-0 bottom-0 w-[2px] opacity-0 transition-opacity group-hover:opacity-100 ${isBull ? 'bg-bull drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-bear drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} aria-hidden="true"></div>
           
           {/* COL 1: IDENTITY */}
           <div className="w-[100px] lg:w-[140px] flex flex-col shrink-0">
@@ -219,25 +219,25 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
 
           {/* COL 4: TECH (Confluence Gauge) */}
           <div className="w-[140px] shrink-0 hidden md:flex flex-col justify-center border-l border-white/5 pl-4">
-                <div className="flex items-baseline gap-1 mb-1">
-                   <span className={`text-[9px] font-bold uppercase ${signal.tech.signal === 'BUY' || signal.tech.signal === 'STRONG BUY' ? 'text-bull' : signal.tech.signal === 'SELL' || signal.tech.signal === 'STRONG SELL' ? 'text-bear' : 'text-zinc-500'}`}>
+                <div className="flex items-baseline gap-1 mb-1.5">
+                   <span className={`text-[9.5px] font-bold uppercase tracking-wider ${signal.tech.signal === 'BUY' || signal.tech.signal === 'STRONG BUY' ? 'text-bull' : signal.tech.signal === 'SELL' || signal.tech.signal === 'STRONG SELL' ? 'text-bear' : 'text-zinc-500'}`}>
                       {signal.tech.signal}
                    </span>
                </div>
-               <div className="flex items-center gap-1.5">
-                  <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+               <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
                      <div 
-                        className={`h-full transition-all duration-700 ${signal.tech.confluenceScore > 60 ? 'bg-bull' : signal.tech.confluenceScore < 40 ? 'bg-bear' : 'bg-zinc-600'}`}
+                        className={`h-full transition-all duration-700 ${signal.tech.confluenceScore > 60 ? 'bg-bull' : signal.tech.confluenceScore < 40 ? 'bg-bear' : 'bg-zinc-500'}`}
                         style={{ width: `${signal.tech.confluenceScore}%` }}
                      />
                   </div>
-                   <span className="text-[10px] font-mono font-bold text-zinc-500">{signal.tech.confluenceScore}</span>
+                   <span className="text-[10px] font-mono font-bold text-zinc-400 w-5 text-right">{signal.tech.confluenceScore}</span>
                 </div>
                 {signal.structuralProbability && signal.structuralProbability.length > 0 && (
-                    <div className="mt-2 space-y-0.5">
+                    <div className="mt-2.5 space-y-1">
                         {signal.structuralProbability.slice(0, 2).map((p, i) => (
-                            <div key={i} className="flex justify-between items-center text-[7.5px] font-mono tracking-tighter uppercase leading-none">
-                                <span className="text-zinc-500 truncate">{p.type} {Math.round(p.price)}</span>
+                            <div key={i} className="flex justify-between items-center text-[8px] font-mono tracking-tighter uppercase leading-none">
+                                <span className="text-zinc-500 truncate pr-2">{p.type} {Math.round(p.price)}</span>
                                 <span className={p.probability > 0.6 ? 'text-bull' : 'text-zinc-500'}>
                                     {Math.round(p.probability * 100)}%
                                 </span>

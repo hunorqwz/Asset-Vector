@@ -6,12 +6,7 @@ import { AssetCommand } from "@/components/AssetCommand";
 import { AlertBell } from "@/components/AlertBell";
 import { StealthTooltip, LiveLatency } from "@/components/LiveTelemetry";
 
-// Define the tickers in a constant - could be made dynamic in the future
-const GLOBAL_TICKERS = [
-  { symb: "SPY", val: "+0.07%", up: true },
-  { symb: "QQQ", val: "-0.12%", up: false },
-  { symb: "BTC", val: "+1.42%", up: true },
-];
+
 
 interface GlobalHeaderProps {
   alerts: any[];
@@ -43,14 +38,9 @@ export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
             </div>
           </Link>
 
-          {/* Desktop Tickers & Nav */}
+          {/* Desktop Nav */}
           <div className="hidden xl:flex items-center gap-8 border-l border-white/10 pl-12">
-            <div className="flex items-center gap-8">
-              {GLOBAL_TICKERS.map((t) => (
-                <IndexItem key={t.symb} symb={t.symb} val={t.val} up={t.up} />
-              ))}
-            </div>
-            <nav className="border-l border-white/10 pl-8 flex items-center gap-6">
+            <nav className="flex items-center gap-8">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
@@ -67,7 +57,7 @@ export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
         </div>
 
         {/* CENTER: Search Bar - Persistent but collapses on mobile */}
-        <div className="hidden md:block flex-1 px-8 max-w-2xl">
+        <div className="hidden lg:block flex-1 px-8 max-w-2xl transition-all duration-300">
           <AssetCommand />
         </div>
 
@@ -110,8 +100,8 @@ export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
 
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
-        <div className="xl:hidden absolute top-[calc(100%+1px)] left-0 w-full bg-black/95 backdrop-blur-2xl border-b border-white/10 animate-in slide-in-from-top-4 duration-300 p-8 flex flex-col gap-10 shadow-2xl overflow-y-auto max-h-[90vh]">
-           <div className="md:hidden">
+        <div className="xl:hidden absolute top-[calc(100%+1px)] left-0 w-full bg-gradient-to-b from-black/95 to-zinc-950/95 backdrop-blur-2xl border-b border-white/10 animate-in slide-in-from-top-4 duration-300 p-8 flex flex-col gap-10 shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-y-auto max-h-[90vh] z-50">
+           <div className="lg:hidden">
               <AssetCommand />
            </div>
            
@@ -131,17 +121,7 @@ export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
               ))}
            </nav>
 
-           <div className="space-y-6 pt-2">
-             <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest border-b border-white/5 pb-4">Market Telemetry</p>
-             <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-               {GLOBAL_TICKERS.map((t) => (
-                  <div key={t.symb} className="flex flex-col gap-1">
-                    <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">{t.symb}</span>
-                    <span className={`text-sm font-mono font-bold ${t.up ? 'text-bull' : 'text-bear'}`}>{t.val}</span>
-                  </div>
-                ))}
-             </div>
-           </div>
+
 
            <div className="mt-4 p-4 bg-white/[0.03] border border-white/5 rounded-sm">
               <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-relaxed">
@@ -151,16 +131,5 @@ export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
         </div>
       )}
     </header>
-  );
-}
-
-function IndexItem({ symb, val, up }: { symb: string; val: string; up?: boolean }) {
-  return (
-    <div className="flex items-center gap-4 shrink-0 group">
-      <span className="text-[12px] font-bold text-zinc-500 tracking-widest uppercase transition-colors group-hover:text-zinc-300">{symb}</span>
-      <span className={`text-[13px] font-mono font-bold tabular-nums tracking-tighter ${up ? 'text-bull drop-shadow-[0_0_8px_hsla(var(--bull)/0.2)]' : 'text-bear drop-shadow-[0_0_8px_hsla(var(--bear)/0.2)]'}`}>
-        {val}
-      </span>
-    </div>
   );
 }

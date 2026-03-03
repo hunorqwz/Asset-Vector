@@ -40,12 +40,18 @@ export async function predictNextHorizon(
       }))
     };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 500);
+
     const res = await fetch("http://127.0.0.1:5000/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
     
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       const data = await res.json() as { p10: number; p50: number; p90: number };
       const result: PredictionResult = { p10: data.p10, p50: data.p50, p90: data.p90, source: "TFT-v2.1 (Z-Score)" };

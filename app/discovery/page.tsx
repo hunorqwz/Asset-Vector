@@ -15,17 +15,15 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function DiscoveryPage() {
-  // Sync the audit records before loading the UI
-  await evaluateAlphaPicks();
-  
-  const [picks, alerts, backtestData] = await Promise.all([
+  // Parallelize all data fetching and background tasks
+  const [picks, alerts, backtestData, _eval] = await Promise.all([
     getInstitutionalAlphaPicks(),
     getAlerts(),
     getBacktestWinRate(),
+    evaluateAlphaPicks(), // Runs in parallel with others
   ]);
 
-  // Optionally trigger alerts/insights for the Discovery context if needed, 
-  // but for the header, we just need the persistent state.
+  // Insights check - Cap the priceMap to empty for discovery unless we want to audit picks
   const { insights } = await checkAndTriggerAlerts({}); 
 
   return (
@@ -51,9 +49,9 @@ export default async function DiscoveryPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 mb-12">
-            <div className="xl:col-span-8 flex flex-col gap-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-fit">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 mb-12 items-start">
+            <div className="xl:col-span-8 2xl:col-span-9 flex flex-col gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[stretch]">
                 <ScannerInfoCard 
                   title="Momentum Tech" 
                   description="Assets breaking higher with RSI > 60 and positive MACD histograms."
@@ -71,7 +69,7 @@ export default async function DiscoveryPage() {
                 />
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
                 {picks.map((pick, i) => (
                   <DiscoveryCard key={i} pick={pick} />
                 ))}
@@ -84,7 +82,7 @@ export default async function DiscoveryPage() {
               </div>
             </div>
 
-            <div className="xl:col-span-4">
+            <div className="xl:col-span-4 2xl:col-span-3">
               <BacktestScorecard data={backtestData} />
             </div>
           </div>
@@ -96,13 +94,13 @@ export default async function DiscoveryPage() {
 
 function ScannerInfoCard({ title, description, color }: { title: string, description: string, color: string }) {
   return (
-    <div className="glass-card p-6 border border-white/10 relative overflow-hidden group">
-      <div className={`absolute top-0 right-0 w-12 h-12 ${color} opacity-5 blur-3xl`} />
-      <div className="flex items-center gap-3 mb-4">
-        <div className={`w-3 h-3 ${color} rounded-sm`} />
-        <h3 className="text-[12px] font-bold text-white uppercase tracking-widest">{title}</h3>
+    <div className="glass-card p-6 border border-white/10 bg-gradient-to-br from-zinc-900/50 to-zinc-950/80 backdrop-blur-md relative overflow-hidden group hover:border-white/20 hover:-translate-y-1 transition-all duration-300 flex flex-col">
+      <div className={`absolute -top-4 -right-4 w-24 h-24 ${color} opacity-[0.03] blur-2xl group-hover:opacity-10 transition-opacity duration-300`} />
+      <div className="flex items-center gap-3 mb-3 relative z-10">
+        <div className={`w-2 h-2 ${color} rounded-sm opacity-80`} />
+        <h3 className="text-[12px] font-bold text-white uppercase tracking-[0.2em]">{title}</h3>
       </div>
-      <p className="text-[11px] text-zinc-400 leading-relaxed font-medium">{description}</p>
+      <p className="text-[11px] text-zinc-400 leading-relaxed font-medium relative z-10 flex-1">{description}</p>
     </div>
   );
 }
@@ -115,33 +113,35 @@ function DiscoveryCard({ pick }: { pick: AlphaPick }) {
   };
 
   return (
-    <Link href={`/asset/${pick.ticker}`} className="glass-card border border-white/10 hover:border-white/20 transition-all p-6 group">
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <span className="text-sm font-bold font-mono text-white block mb-1 uppercase">{pick.ticker}</span>
-          <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest truncate max-w-[150px]">{pick.name}</span>
+    <Link 
+      href={`/asset/${pick.ticker}`} 
+      className="glass-card flex flex-col h-full border border-white/10 hover:border-white/20 bg-gradient-to-br from-zinc-900/40 to-black/60 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 p-6 group"
+    >
+      <div className="flex justify-between items-start mb-6 gap-3">
+        <div className="flex-1 min-w-0 pr-2">
+          <span className="text-sm font-bold font-mono text-white block mb-1 uppercase tracking-wider">{pick.ticker}</span>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] truncate block w-full group-hover:text-zinc-400 transition-colors">{pick.name}</span>
         </div>
-        <div className={`text-[9px] font-black px-1.5 py-0.5 border rounded uppercase tracking-tighter ${scannerColors[pick.scanner]}`}>
+        <div className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 border rounded uppercase tracking-tighter shadow-sm ${scannerColors[pick.scanner as keyof typeof scannerColors]}`}>
           {pick.scanner}
         </div>
       </div>
       
-      <div className="mb-6">
-         <p className="text-[11px] text-zinc-400 font-bold leading-snug group-hover:text-white transition-colors">{pick.reason}</p>
+      <div className="mb-6 flex-1">
+         <p className="text-[11px] text-zinc-400 font-medium leading-relaxed group-hover:text-zinc-300 transition-colors line-clamp-3">{pick.reason}</p>
       </div>
 
-      <div className="flex items-end justify-between pt-6 border-t border-white/5">
+      <div className="flex items-end justify-between pt-5 border-t border-white/5 mt-auto">
         <div>
-          <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Alpha Score</p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-white">{pick.score.toFixed(0)}</span>
-            <span className="text-[9px] font-bold text-zinc-500">/ 100</span>
+          <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] mb-1.5">Alpha Score</p>
+          <div className="flex items-baseline gap-1">
+            <span className={`text-3xl font-bold font-mono tracking-tighter ${pick.score > 80 ? 'text-bull drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]' : pick.score > 70 ? 'text-matrix drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]' : 'text-white'}`}>{pick.score.toFixed(0)}</span>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-[11px] font-bold text-white mb-0.5">${pick.price.toFixed(2)}</p>
-          <p className={`text-[11px] font-bold ${pick.change >= 0 ? 'text-bull' : 'text-bear'}`}>
-            {pick.change >= 0 ? '+' : ''}{pick.change.toFixed(2)}%
+        <div className="text-right pb-0.5">
+          <p className="text-[13px] font-mono font-bold text-white mb-0.5">${pick.price.toFixed(2)}</p>
+          <p className={`text-[11px] font-mono font-bold flex items-center justify-end gap-1 ${pick.change >= 0 ? 'text-bull' : 'text-bear'}`}>
+            <span>{pick.change >= 0 ? '+' : ''}{pick.change.toFixed(2)}%</span>
           </p>
         </div>
       </div>

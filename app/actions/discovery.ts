@@ -1,5 +1,5 @@
 import { fetchStockDetails } from "@/lib/stock-details";
-import { getAssetDetails } from "@/app/actions";
+import { getAssetDetails, getMinimalAssetDetails } from "@/app/actions";
 import { MarketSignal } from "@/lib/market-data";
 import { PredictionResult } from "@/lib/inference";
 import { StockDetails } from "@/lib/stock-details";
@@ -24,11 +24,18 @@ const DISCOVERY_TICKERS = [
   'XOM', 'CVX', 'TSM', 'ASML'
 ];
 
+import { getFromCache, setInCache } from "@/lib/cache";
+
 export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
+  const CACHE_KEY = "institutional_alpha_picks";
+  const cached = getFromCache<AlphaPick[]>(CACHE_KEY);
+  if (cached) return cached;
+
   const picks: AlphaPick[] = [];
   
+  // Performance-capped parallel scan of major tickers
   const results = await Promise.allSettled(
-    DISCOVERY_TICKERS.map(t => getAssetDetails(t))
+    DISCOVERY_TICKERS.map(t => getMinimalAssetDetails(t))
   );
 
   const signals = results
@@ -63,6 +70,9 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
 
   const finalPicks = Array.from(uniquePicks.values()).slice(0, 8);
   
+  // Cache the results for 15 minutes to prevent scanner hammering
+  setInCache(CACHE_KEY, finalPicks, 15 * 60 * 1000);
+
   // Archival Loop for performance backtesting
   await recordAlphaPicks(finalPicks);
 

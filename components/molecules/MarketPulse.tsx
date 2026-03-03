@@ -19,6 +19,10 @@ export function MarketPulse({ data }: MarketPulseProps) {
           Macro pulse
         </h2>
         <div className="flex flex-col gap-5">
+           <MacroPanelItem name="SPY" desc="S&P 500 ETF" value={macro.spy.value.toFixed(2)} change={macro.spy.change} />
+           <MacroPanelItem name="QQQ" desc="Nasdaq 100 ETF" value={macro.qqq.value.toFixed(2)} change={macro.qqq.change} />
+           <MacroPanelItem name="BTC" desc="Bitcoin" value={macro.btc.value.toFixed(2)} change={macro.btc.change} />
+           <div className="h-px bg-white/5 w-full my-1" />
            <MacroPanelItem name="VIX" desc="Volatility Index" value={macro.vix.value.toFixed(2)} change={macro.vix.change} />
            <MacroPanelItem name="DXY" desc="US Dollar Index" value={macro.dxy.value.toFixed(2)} change={macro.dxy.change} />
            <MacroPanelItem name="US10Y" desc="10Y Treasury" value={`${macro.us10y.value.toFixed(2)}%`} change={macro.us10y.change} />

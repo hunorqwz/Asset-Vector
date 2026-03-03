@@ -397,10 +397,11 @@ function SignalBadge({ signal }: { signal: string }) {
 // ── Category Header Row ───────────────────────────────────────────────────
 function CategoryRow({ label, colCount }: { label: string; colCount: number }) {
   return (
-    <tr className="border-t-2 border-white/10 bg-white/[0.025]">
-      <td colSpan={1 + colCount} className="px-5 py-2.5">
-        <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-white">{label}</span>
+    <tr className="border-t border-white/10 bg-gradient-to-r from-zinc-900/80 to-transparent">
+      <td className="px-6 py-3 sticky left-0 z-10 bg-zinc-900/90 backdrop-blur-md border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.2)]">
+        <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/90 drop-shadow-md">{label}</span>
       </td>
+      <td colSpan={colCount} className="py-3"></td>
     </tr>
   );
 }
@@ -432,50 +433,52 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
   const signalWinnerIdx = getWinner(signalValues, "higher");
 
   return (
-    <div className="border border-white/10 bg-[#0a0a0a] overflow-hidden">
-      <div className="overflow-x-auto">
+    <div className="glass-card border border-white/10 bg-gradient-to-br from-zinc-900/40 to-black/60 backdrop-blur-md overflow-hidden rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
         <table className="w-full border-collapse">
           {/* ── Sticky Header ─────────────────────────────────────────────── */}
-          <thead className="sticky top-0 z-10">
-            <tr className="border-b border-white/10 bg-[#0a0a0a]">
-              <th className="text-left px-5 py-4 w-[200px]">
-                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400">Metric</span>
+          <thead className="sticky top-0 z-20">
+            <tr className="border-b border-white/10 bg-black/80 backdrop-blur-xl">
+              <th className="text-left px-6 py-5 w-[220px] shrink-0 sticky left-0 z-30 bg-black/80 backdrop-blur-xl border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.2)]">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Metric</span>
               </th>
               {assets.map((a, ai) => {
                 const isLeader = wins[ai] === maxWins && wins[ai] > 0;
                 return (
-                  <th key={a.ticker} className="px-5 py-4 text-left">
-                    <div className="flex flex-col gap-2">
+                  <th key={a.ticker} className="px-6 py-5 text-left min-w-[200px] hover:bg-white/[0.02] transition-colors relative group">
+                    {/* Column highlight decoration */}
+                    <div className="absolute inset-y-0 left-0 w-[1px] bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex flex-col gap-2.5 relative z-10">
                       {/* Win badge */}
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/asset/${a.ticker}`}
-                          className="text-[15px] font-bold font-mono text-white uppercase tracking-tight hover:text-zinc-300 transition-colors"
+                          className="text-[16px] font-bold font-mono text-white uppercase tracking-tight hover:text-matrix transition-colors"
                         >
                           {a.ticker}
                         </Link>
                         {wins[ai] > 0 && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 font-mono tabular-nums border ${
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 font-mono tabular-nums border rounded-sm ${
                             isLeader
-                              ? "border-bull/50 bg-bull/10 text-bull"
+                              ? "border-bull/50 bg-bull/15 text-bull shadow-[0_0_8px_rgba(34,197,94,0.3)]"
                               : "border-white/15 bg-white/5 text-zinc-400"
                           }`}>
                             {wins[ai]}W
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-zinc-400 font-medium truncate max-w-[160px]">
+                      <p className="text-[11px] text-zinc-400 font-medium truncate max-w-[180px] group-hover:text-zinc-300 transition-colors">
                         {a.details.profile.name}
                       </p>
                       <div className="flex items-center gap-2">
                         <SignalBadge signal={a.signal.synthesis.signal} />
                         {signalWinnerIdx === ai && (
-                          <span className="w-1 h-1 rounded-full bg-white" title="Best signal" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] animate-pulse" title="Best signal" />
                         )}
                       </div>
-                      <p className="text-[10px] font-mono font-bold text-zinc-500">
-                        ${fmt(a.details.price.current)} ·{" "}
-                        <span className={a.details.price.dayChangePercent >= 0 ? "text-bull" : "text-bear"}>
+                      <p className="text-[11px] font-mono font-bold text-zinc-500 mt-1">
+                        ${fmt(a.details.price.current)} <span className="text-zinc-600 mx-1">/</span>{" "}
+                        <span className={a.details.price.dayChangePercent >= 0 ? "text-bull drop-shadow-sm" : "text-bear"}>
                           {a.details.price.dayChangePercent >= 0 ? "+" : ""}{fmt(a.details.price.dayChangePercent, 2)}%
                         </span>
                       </p>
@@ -523,16 +526,18 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
                   return (
                     <tr
                       key={row.label}
-                      className={`border-b border-white/[0.04] hover:bg-white/[0.025] transition-colors ${
+                      className={`border-b border-white/[0.04] hover:bg-white/[0.04] transition-colors relative group/row ${
                         ri % 2 === 1 ? "bg-white/[0.01]" : ""
                       }`}
                       title={row.tooltip}
                     >
-                      <td className="px-5 py-3 text-[11px] text-zinc-400 font-medium whitespace-nowrap">
-                        {row.label}
-                        {row.tooltip && (
-                          <span className="ml-1.5 text-[8px] text-zinc-500 font-normal" title={row.tooltip}>(?)</span>
-                        )}
+                      <td className={`px-6 py-3 text-[11px] font-medium whitespace-nowrap sticky left-0 z-10 border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.2)] transition-colors group-hover/row:text-white ${ri % 2 === 1 ? 'bg-[#0f0f0f]' : 'bg-[#0a0a0a]'} text-zinc-400`}>
+                        <div className="flex items-center">
+                           {row.label}
+                           {row.tooltip && (
+                             <span className="ml-2 w-3 h-3 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[7px] text-zinc-500 font-bold group-hover/row:text-zinc-400 transition-colors" title={row.tooltip}>?</span>
+                           )}
+                        </div>
                       </td>
                       {assets.map((a, ai) => {
                         const raw = row.getValue(a);

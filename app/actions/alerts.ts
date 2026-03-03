@@ -107,7 +107,7 @@ export async function dismissAlert(id: string): Promise<{ success: boolean }> {
 }
 
 import { calculateAlphaScore } from "@/lib/alpha-engine";
-import { getAssetDetails } from "@/app/actions";
+import { getAssetDetails, getMinimalAssetDetails } from "@/app/actions";
 
 export type Insight = {
   ticker: string;
@@ -126,30 +126,52 @@ export type AlertSessionState = {
  * Perform a structural audit of the user's focus tickers (Watchlist + Portfolio)
  * and detect institutional regime shifts or high Alpha scores.
  */
+import { getFromCache, setInCache } from "@/lib/cache";
+
 export async function getInstitutionalInsights(tickers: string[]): Promise<Insight[]> {
   const session = await auth();
   if (!session?.user?.id || tickers.length === 0) return [];
 
   const capped = tickers.slice(0, 10); // Performance cap
-  const results = await Promise.allSettled(capped.map(t => getAssetDetails(t)));
   const insights: Insight[] = [];
 
-  results.forEach((r, i) => {
-    if (r.status === 'fulfilled') {
-      const data = r.value;
-      const { score, scanner } = calculateAlphaScore(data, data.stockDetails);
-      
-      if (score > 85 && scanner) {
-        insights.push({
-          ticker: capped[i],
-          type: "ALPHA",
-          label: `${scanner} SIGNAL`,
-          message: `High conviction institutional ${scanner.toLowerCase()} detected.`,
-          score: Math.round(score)
-        });
-      }
+  // Check cache for each ticker individually to maximize hit rate
+  const pendingTickers: string[] = [];
+  const pendingIndices: number[] = [];
+
+  capped.forEach((ticker, i) => {
+    const cached = getFromCache<Insight>(`insight:${ticker}`);
+    if (cached) {
+      insights.push(cached);
+    } else {
+      pendingTickers.push(ticker);
+      pendingIndices.push(i);
     }
   });
+
+  if (pendingTickers.length > 0) {
+    const results = await Promise.allSettled(pendingTickers.map(t => getMinimalAssetDetails(t)));
+    
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        const data = r.value;
+        const { score, scanner } = calculateAlphaScore(data, data.stockDetails);
+        
+        if (score > 85 && scanner) {
+          const insight: Insight = {
+            ticker: pendingTickers[i],
+            type: "ALPHA",
+            label: `${scanner} SIGNAL`,
+            message: `High conviction institutional ${scanner.toLowerCase()} detected.`,
+            score: Math.round(score)
+          };
+          insights.push(insight);
+          // Cache for 30 minutes
+          setInCache(`insight:${pendingTickers[i]}`, insight, 30 * 60 * 1000);
+        }
+      }
+    });
+  }
 
   return insights;
 }

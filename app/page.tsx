@@ -24,29 +24,27 @@ export const revalidate = 60;
 
 export default async function Home() {
   const session = await auth();
-  const [signals, initialAccuracy, pulseData, alerts] = await Promise.all([
+  
+  // Use a single parallel fetch for all initial page data
+  const [signals, pulseData, alerts, accuracyData] = await Promise.all([
     getMarketSignals(),
-    getAccuracyScorecard(),
     getMarketPulse(),
     getAlerts(),
+    getAccuracyScorecard(),
   ]);
 
-  // Build price map from live signals and check alerts against it
+  // Build price map efficiently
   const priceMap: Record<string, number> = {};
   signals.forEach(s => { if (s.price) priceMap[s.ticker] = s.price; });
   
-  // Trigger alerts and perform institutional audit in background
+  // Run alerts/insights check. 
+  // NOTE: getInstitutionalInsights (called inside) is the main performance bottleneck.
+  // It has been optimized with internal caching.
   const { insights } = await checkAndTriggerAlerts(priceMap);
-
-  // Fresh data for the render
-  const [freshAlerts, accuracyData] = await Promise.all([
-    getAlerts(),
-    getAccuracyScorecard(),
-  ]);
 
   return (
     <>
-      <GlobalHeader alerts={freshAlerts} insights={insights} />
+      <GlobalHeader alerts={alerts} insights={insights} />
 
       <main className="overflow-y-auto scrollbar-hide px-8 py-10">
         <div className="max-w-[1600px] mx-auto">

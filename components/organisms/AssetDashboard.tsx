@@ -120,15 +120,15 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
       </div>
 
       {/* TABS BUTTON BAR */}
-      <div className="flex items-center border border-white/10 bg-[#0a0a0a] w-full mb-8 overflow-x-auto scrollbar-hide">
+      <div className="flex items-center glass-card border border-white/10 bg-gradient-to-br from-zinc-900/60 to-black/80 backdrop-blur-md w-full mb-8 overflow-x-auto scrollbar-hide rounded-xl rounded-b-none border-b-0 p-1">
         {TABS.map(tab => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 
-            className={`flex-1 py-3.5 px-6 text-[10px] font-bold tracking-[0.25em] transition-all uppercase border-r border-white/5 last:border-r-0 whitespace-nowrap ${
+            className={`flex-1 py-3 px-6 text-[10.5px] font-bold tracking-[0.2em] transition-all uppercase rounded-lg whitespace-nowrap block text-center ${
               activeTab === tab 
-                ? 'bg-white text-black' 
-                : 'text-zinc-500 hover:bg-white/5 hover:text-white'
+                ? 'bg-matrix/10 text-matrix shadow-[0_0_12px_rgba(59,130,246,0.15)] glow-matrix' 
+                : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
             }`}
           >
             {tab}

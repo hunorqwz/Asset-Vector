@@ -16,6 +16,9 @@ export interface MarketPulseData {
     vix: { value: number; change: number };
     dxy: { value: number; change: number };
     us10y: { value: number; change: number };
+    spy: { value: number; change: number };
+    qqq: { value: number; change: number };
+    btc: { value: number; change: number };
   };
 }
 
@@ -36,10 +39,19 @@ const SECTOR_ETFS: Record<string, string> = {
 const MACRO_TICKERS = {
   vix: "^VIX",
   dxy: "DX-Y.NYB",
-  us10y: "^TNX"
+  us10y: "^TNX",
+  spy: "SPY",
+  qqq: "QQQ",
+  btc: "BTC-USD"
 };
 
+import { getFromCache, setInCache } from './cache';
+
 export async function fetchMarketPulse(): Promise<MarketPulseData> {
+  const CACHE_KEY = "market_pulse_data";
+  const cached = getFromCache<MarketPulseData>(CACHE_KEY);
+  if (cached) return cached;
+
   const sectorTickers = Object.values(SECTOR_ETFS);
   const macroTickers = Object.values(MACRO_TICKERS);
   
@@ -78,7 +90,7 @@ export async function fetchMarketPulse(): Promise<MarketPulseData> {
     };
   };
 
-  return {
+  const result: MarketPulseData = {
     breadthAdvancing: advancing,
     breadthDeclining: declining,
     breadthPercent: Number(breadthPercent.toFixed(0)),
@@ -86,9 +98,15 @@ export async function fetchMarketPulse(): Promise<MarketPulseData> {
     macro: {
       vix: m(0),
       dxy: m(1),
-      us10y: m(2)
+      us10y: m(2),
+      spy: m(3),
+      qqq: m(4),
+      btc: m(5)
     }
   };
+
+  setInCache(CACHE_KEY, result, 60 * 1000);
+  return result;
 }
 
 export function detectSectorAlpha(ticker: string, tickerChange: number, sectorData: MarketPulseData): boolean {
