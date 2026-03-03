@@ -8,10 +8,11 @@ interface SentimentDeepDiveProps {
   ticker: string;
   news: NarrativeArticle[];
   sentiment: SentimentReport;
+  divergence?: "BULLISH_DIVERGENCE" | "BEARISH_DIVERGENCE" | "NONE";
   globalTrigger?: boolean;
 }
 
-export function SentimentDeepDive({ ticker, news, sentiment, globalTrigger }: SentimentDeepDiveProps) {
+export function SentimentDeepDive({ ticker, news, sentiment, divergence, globalTrigger }: SentimentDeepDiveProps) {
   const [showLogic, setShowLogic] = useState(false);
   const [localSentiment, setLocalSentiment] = useState<SentimentReport>(sentiment);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -91,8 +92,20 @@ export function SentimentDeepDive({ ticker, news, sentiment, globalTrigger }: Se
                <div className="text-right space-y-1">
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Core Score</span>
                   <div className="text-2xl font-bold text-white font-mono">{(localSentiment.score * 100).toFixed(1)}%</div>
+                  {localSentiment.velocity !== 0 && (
+                     <div className={`text-[9px] font-bold font-mono tracking-widest mt-1 ${localSentiment.velocity > 0 ? 'text-bull' : 'text-bear'}`}>
+                       VEL: {localSentiment.velocity > 0 ? '+' : ''}{localSentiment.velocity}
+                     </div>
+                  )}
                </div>
             </div>
+
+            {divergence && divergence !== 'NONE' && (
+               <div className={`p-4 border animate-pulse flex items-center justify-between mb-4 ${divergence === 'BULLISH_DIVERGENCE' ? 'bg-bull/10 border-bull/30 text-bull' : 'bg-bear/10 border-bear/30 text-bear'}`}>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{divergence.replace('_', ' ')} ALERT</span>
+                  <div className={`w-2 h-2 rounded-full ${divergence === 'BULLISH_DIVERGENCE' ? 'bg-bull' : 'bg-bear'}`} />
+               </div>
+            )}
 
             <div className="space-y-4">
               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-[0.2em] block border-b border-white/5 pb-2">Top Drivers Extracted</span>

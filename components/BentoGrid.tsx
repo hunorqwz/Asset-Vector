@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { resolveCanvasColor } from "@/lib/chart-config";
+import { fmt, fmtPct } from "@/lib/format";
 
 // 1. SPARKLINE COMPONENT (Ultra-Minimalist)
 // 1. SPARKLINE COMPONENT (High-Fidelity)
@@ -36,9 +37,12 @@ const Sparkline = ({ data, color, height = 30 }: { data: number[]; color: string
         const colorValues = color.includes('var(') ? resolveCanvasColor(color) : color;
         const isHSL = color.includes('var(');
 
-        const baseColor = isHSL ? `hsla(${colorValues}, 0.2)` : `${color}20`;
-        const transparentColor = isHSL ? `hsla(${colorValues}, 0)` : `${color}00`;
-        const strokeColor = isHSL ? `hsl(${colorValues})` : color;
+        // Normalize space-separated HSL values (e.g. from modern CSS variables) to comma-separated format for Canvas API compatibility
+        const cv = typeof colorValues === 'string' ? colorValues.replace(/\s+/g, ', ') : colorValues;
+        
+        const baseColor = isHSL ? `hsla(${cv}, 0.2)` : `${color}20`;
+        const transparentColor = isHSL ? `hsla(${cv}, 0)` : `${color}00`;
+        const strokeColor = isHSL ? `hsl(${cv})` : color;
         
         gradient.addColorStop(0, baseColor);
         gradient.addColorStop(1, transparentColor);
@@ -130,14 +134,6 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
     // Price updates are now reflected purely via the numeric value and sparkline.
   }, [signal.price]);
 
-  const fmt = (n: number) => new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-  
-  const fmtPct = (n: number) => (n > 0 ? "+" : "") + n.toFixed(2) + "%";
 
   const isBull = change >= 0;
   const color = isBull ? "hsl(var(--bull))" : "hsl(var(--bear))"; 

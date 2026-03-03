@@ -103,6 +103,19 @@ export function ConfluenceEngine({ details, tech, sentiment, ticker, synthesis }
 
       <p className="text-[12px] text-zinc-300 leading-relaxed font-medium mb-8 max-w-2xl relative z-10">{analysis.desc}</p>
       
+      {synthesis.sentimentPriceDivergence && synthesis.sentimentPriceDivergence !== 'NONE' && (
+        <div className={`mb-8 p-4 border animate-pulse flex items-center justify-between relative z-10 ${synthesis.sentimentPriceDivergence === 'BULLISH_DIVERGENCE' ? 'bg-bull/10 border-bull/30 text-bull' : 'bg-bear/10 border-bear/30 text-bear'}`}>
+           <div className="flex items-center gap-3">
+             <div className="w-1.5 h-6 bg-current shadow-[0_0_10px_currentColor]" />
+             <div>
+               <h4 className="text-[11px] font-bold uppercase tracking-[0.2em]">{synthesis.sentimentPriceDivergence.replace('_', ' ')} DETECTED</h4>
+               <p className="text-[10px] opacity-70 font-medium">Narrative velocity is decoupling from current price action. Expect trend reset.</p>
+             </div>
+           </div>
+           <div className={`w-3 h-3 rounded-full bg-current`} />
+        </div>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-white/5 relative z-10">
          <div className="p-5 bg-black/60 border-b md:border-b-0 md:border-r border-white/5">
             <span className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Fundamental Stratum</span>

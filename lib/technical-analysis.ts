@@ -1,4 +1,4 @@
-import { RSI, MACD, BollingerBands, SMA, ATR } from 'technicalindicators';
+import { RSI, MACD, BollingerBands, SMA, ATR, ADX } from 'technicalindicators';
 import { OHLCV } from './market-data';
 
 export interface PivotLevel {
@@ -6,6 +6,13 @@ export interface PivotLevel {
   type: 'SUPPORT' | 'RESISTANCE';
   strength: number; // 1-5
   touches: number;
+}
+
+export interface VolumeNode {
+  price: number;
+  volume: number;
+  type: 'HVN' | 'LVN'; /* High/Low Volume Node */
+  strength: number;
 }
 
 export interface OrderBlock {
@@ -54,6 +61,7 @@ export interface TechnicalIndicators {
     isSqueezing: boolean;
     compressionScore: number; // 0-100 scale
   };
+  adx: number;
 }
 
 /**
@@ -80,7 +88,8 @@ export function generateTechnicalConfluence(
       predictivePivots: null,
       fibonacci: null,
       orderBlocks: [],
-      volatilityCompression: { isSqueezing: false, compressionScore: 0 }
+      volatilityCompression: { isSqueezing: false, compressionScore: 0 },
+      adx: 20
     };
   }
 
@@ -107,8 +116,16 @@ export function generateTechnicalConfluence(
     high: history.map(h => h.high),
     low: history.map(h => h.low),
     close: history.map(h => h.close),
-    period: 20
+    period: 14
   });
+  const adxValues = ADX.calculate({
+    high: history.map(h => h.high),
+    low: history.map(h => h.low),
+    close: history.map(h => h.close),
+    period: 14
+  });
+  const adx = adxValues[adxValues.length - 1]?.adx || 20;
+
   const sma20 = SMA.calculate({ period: 20, values: prices });
   
   const lastSMA = sma20[sma20.length - 1];
@@ -241,7 +258,8 @@ export function generateTechnicalConfluence(
     macd: { line: lastMacd.MACD || 0, signal: lastMacd.signal || 0, histogram: lastMacd.histogram || 0 },
     bollingerBands: { upper: lastBB.upper, middle: lastBB.middle, lower: lastBB.lower, percentB },
     predictivePivots, fibonacci, orderBlocks: orderBlocks.reverse().slice(0, 3),
-    volatilityCompression: { isSqueezing, compressionScore: Math.round(compressionScore) }
+    volatilityCompression: { isSqueezing, compressionScore: Math.round(compressionScore) },
+    adx: Math.round(adx)
   };
 }
 
@@ -311,4 +329,64 @@ export function detectSupportResistance(data: OHLCV[], sensitivity: number = 0.0
     })
     .sort((a, b) => b.touches - a.touches)
     .slice(0, 4); // Only show top 4 strongest levels to prevent clutter
+}
+
+/**
+ * Institutional Volume Profile
+ * Maps volume at specific price levels to identify High Volume Nodes (HVNs)
+ * which act as significant algorithmic support/resistance gravity wells.
+ */
+export function detectVolumeProfileNodes(data: OHLCV[], bins: number = 50): VolumeNode[] {
+  if (data.length < 2) return [];
+
+  let maxPrice = -Infinity, minPrice = Infinity;
+  let totalVol = 0;
+
+  data.forEach(b => {
+    if (b.high > maxPrice) maxPrice = b.high;
+    if (b.low < minPrice) minPrice = b.low;
+    if (b.volume) totalVol += b.volume;
+  });
+
+  if (maxPrice === minPrice || totalVol === 0) return [];
+
+  const binSize = (maxPrice - minPrice) / bins;
+  const volumeProfile = new Array(bins).fill(0);
+
+  data.forEach(b => {
+    if (!b.volume) return;
+    
+    const startBin = Math.max(0, Math.floor((b.low - minPrice) / binSize));
+    let endBin = Math.min(bins - 1, Math.floor((b.high - minPrice) / binSize));
+    
+    if (startBin > endBin) endBin = startBin;
+
+    const binsSpanned = endBin - startBin + 1;
+    const volPerBin = b.volume / binsSpanned;
+
+    for (let i = startBin; i <= endBin; i++) volumeProfile[i] += volPerBin;
+  });
+
+  const avgVolPerBin = totalVol / bins;
+  const nodes: { index: number, volume: number }[] = [];
+  
+  // Find local maxima (HVNs)
+  for (let i = 2; i < bins - 2; i++) {
+    const vol = volumeProfile[i];
+    if (vol > avgVolPerBin * 1.5 && 
+        vol > volumeProfile[i-1] && vol > volumeProfile[i-2] &&
+        vol > volumeProfile[i+1] && vol > volumeProfile[i+2]) {
+      nodes.push({ index: i, volume: vol });
+    }
+  }
+
+  return nodes
+    .sort((a, b) => b.volume - a.volume)
+    .slice(0, 3) 
+    .map(n => ({
+      price: Number((minPrice + (n.index * binSize) + (binSize / 2)).toFixed(2)),
+      volume: n.volume,
+      type: 'HVN',
+      strength: Math.min(5, Math.ceil(n.volume / avgVolPerBin))
+    }));
 }

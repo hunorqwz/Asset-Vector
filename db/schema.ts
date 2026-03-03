@@ -109,7 +109,19 @@ export const marketSignals = pgTable("market_signals", {
   // Fields for later evaluation
   isEvaluated: boolean("is_evaluated").default(false),
   outcomePrice7D: numeric("outcome_price_7d", { precision: 18, scale: 8 }),
-  accuracy: numeric("accuracy_score", { precision: 5, scale: 2 }), // 1.0 = Correct, 0.0 = Incorrect
+  benchmarkPriceAtGeneration: numeric("benchmark_price_at_generation", { precision: 18, scale: 8 }),
+  benchmarkOutcomePrice: numeric("benchmark_outcome_price", { precision: 18, scale: 8 }),
+  betaAtGeneration: numeric("beta_at_generation", { precision: 10, scale: 4 }),
+  alphaPerformance: numeric("alpha_performance", { precision: 10, scale: 4 }),
+  accuracy: numeric("accuracy_score", { precision: 5, scale: 2 }), // 1.0 = Correct (Beat Market), 0.0 = Incorrect
+  fullData: jsonb("full_data"), // Stores the complete serialized MarketSignal
+}, (table) => {
+  return {
+    tickerIdx: index("idx_signals_ticker").on(table.ticker),
+    labelIdx: index("idx_signals_label").on(table.signalLabel),
+    evalIdx: index("idx_signals_eval").on(table.isEvaluated),
+    genAtIdx: index("idx_signals_gen_at").on(table.generatedAt),
+  };
 });
 
 export const userPositions = pgTable("user_positions", {

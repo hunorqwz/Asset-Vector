@@ -18,7 +18,6 @@ import { AnalystTrendChart } from "@/components/organisms/AnalystTrendChart";
 import { OwnershipBar } from "@/components/organisms/OwnershipBar";
 import { FiftyTwoWeekBar } from "@/components/molecules/FiftyTwoWeekBar";
 import { AIIntelligencePanel } from "@/components/organisms/AIIntelligencePanel";
-import { SentimentForeman } from "@/components/organisms/SentimentForeman";
 import { DCFSandbox } from "@/components/organisms/DCFSandbox";
 import { MultiModelValuation } from "@/components/organisms/MultiModelValuation";
 import { MonteCarloSimulation } from "@/components/organisms/MonteCarloSimulation";
@@ -39,11 +38,14 @@ import { generateStrategicAnalysis, StrategicInsight } from "@/app/actions/ai";
 import { ConfluenceEngine } from "@/components/organisms/ConfluenceEngine";
 import { ContextEngine } from "@/components/organisms/ContextEngine";
 import { AIEarningsLab } from "@/components/organisms/AIEarningsLab";
+import { ExecutionPlanner } from "@/components/organisms/ExecutionPlanner";
+
+import { OptionsIntelligence } from '@/lib/options-pricing';
 
 const TABS = ['OVERVIEW', 'FUNDAMENTALS', 'VALUATION', 'GOVERNANCE'] as const;
 type TabType = typeof TABS[number];
 
-export function AssetDashboard({ ticker, signal }: { ticker: string, signal: MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails } }) {
+export function AssetDashboard({ ticker, signal }: { ticker: string, signal: MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails; optionsIntelligence?: OptionsIntelligence | null } }) {
   const [activeTab, setActiveTab] = useState<TabType>('OVERVIEW');
   const [isNeuralEngaged, setIsNeuralEngaged] = useState(false);
   const d = signal.stockDetails;
@@ -101,6 +103,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
           color={signal.trend === "BULLISH" ? "#22c55e" : "#ef4444"} 
           height={520} 
           lastTick={lastTick ? { price: lastTick.price, time: Math.floor(new Date(lastTick.timestamp).getTime() / 1000) } : null}
+          optionsIntelligence={signal.optionsIntelligence}
         />
       </section>
 
@@ -162,6 +165,8 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                  </div>
               )}
 
+              <ExecutionPlanner ticker={ticker} signal={signal} />
+
               <ConfluenceEngine 
                 details={d} 
                 tech={signal.tech} 
@@ -196,7 +201,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <NeuralDiagnostics history={signal.history} />
-                <SentimentDeepDive ticker={ticker} news={d.news} sentiment={signal.sentiment} globalTrigger={isNeuralEngaged} />
+                <SentimentDeepDive ticker={ticker} news={d.news} sentiment={signal.sentiment} divergence={signal.synthesis.sentimentPriceDivergence} globalTrigger={isNeuralEngaged} />
               </div>
 
               <section className="space-y-6">
@@ -251,12 +256,12 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
               </DataSection>
 
               <DataSection title="Summary Statistics" icon={<StatsIcon />}>
-                <DataRow label="EPS (Trailing)" value={`$${d.keyStats.trailingEps?.toFixed(2) || 'N/A'}`} />
-                <DataRow label="EPS (Forward)" value={`$${d.keyStats.forwardEps?.toFixed(2) || 'N/A'}`} />
+                <DataRow label="EPS (Trailing)" value={fmt(d.keyStats.trailingEps)} />
+                <DataRow label="EPS (Forward)" value={fmt(d.keyStats.forwardEps)} />
                 <DataRow label="Yearly Momentum" value={fmtPct(p.fiftyTwoWeekChangePercent)} colored />
               </DataSection>
 
-              <ContextEngine details={d} sentiment={signal.sentiment} />
+              <ContextEngine details={d} sentiment={signal.sentiment} divergence={signal.synthesis.sentimentPriceDivergence} />
             </div>
           </>
         )}
@@ -281,13 +286,13 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                    <AnalystTrendChart trends={d.analystTrend} />
                    {d.isETF ? (
                      <DataSection title="Holdings" icon={<StatsIcon />}>
-                       <div className="space-y-2">{d.etfHoldings.slice(0, 15).map((h, i) => (<div key={i} className="flex justify-between items-center text-[12px]"><span className="text-zinc-500">{h.symbol}</span><span className="text-zinc-400 truncate max-w-[200px]">{h.name}</span><span className="text-white font-medium">{(h.pct ? h.pct * 100 : 0).toFixed(2)}%</span></div>))}</div>
+                       <div className="space-y-2">{d.etfHoldings.slice(0, 15).map((h, i) => (<div key={i} className="flex justify-between items-center text-[12px]"><span className="text-zinc-500">{h.symbol}</span><span className="text-zinc-400 truncate max-w-[200px]">{h.name}</span><span className="text-white font-medium">{fmtPct(h.pct)}</span></div>))}</div>
                      </DataSection>
                    ) : (
                      <DataSection title="Dividends" icon={<DividendIcon />}>
                         <DataRow label="Yield" value={fmtPct(d.dividends.dividendYield)} highlight />
                         <DataRow label="Payout Ratio" value={fmtPct(d.dividends.payoutRatio)} />
-                        <DataRow label="Last Dividend" value={`$${d.dividends.lastDividendValue || 0}`} />
+                        <DataRow label="Last Dividend" value={fmt(d.dividends.lastDividendValue || 0)} />
                         <DataRow label="Ex-Dividend Date" value={d.dividends.exDividendDate || '—'} />
                      </DataSection>
                    )}

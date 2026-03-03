@@ -1,5 +1,5 @@
 "use server";
-import { fetchMarketData, fetchLiveQuote, MarketSignal, fetchHistoryWithInterval, RANGE_INTERVAL_MAP, OHLCV } from "@/lib/market-data";
+import { getPersistentSignal, fetchLiveQuote, MarketSignal, fetchHistoryWithInterval, RANGE_INTERVAL_MAP, OHLCV } from "@/lib/market-data";
 import { db } from "@/db";
 import { assets, userWatchlists, userPositions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { predictNextHorizon } from "@/lib/inference";
 import { fetchStockDetails } from "@/lib/stock-details";
 import { archiveSignal, evaluateOldSignals } from "@/app/actions/signals";
+import { fetchOptionsIntelligence } from "@/lib/options-pricing";
 
 import { fetchMarketPulse, MarketPulseData } from "@/lib/market-pulse";
 import { getAlpacaAccount, getAlpacaPositions, placeAlpacaOrder, getAlpacaQuote } from "@/lib/alpaca-client";
@@ -90,8 +91,7 @@ export async function getMarketSignals(): Promise<MarketSignal[]> {
 
   const results = await Promise.all(tickers.map(async (t) => {
     try {
-      const sig = await fetchMarketData(t, 100);
-      if (sig) await archiveSignal(sig);
+      const sig = await getPersistentSignal(t, 100);
       return sig;
     } catch {
       return null;
@@ -163,25 +163,27 @@ export async function removeAsset(ticker: string) {
 export async function getAssetDetails(ticker: string) {
   const sym = decodeURIComponent(ticker);
   const [signal, stockDetails] = await Promise.all([
-    fetchMarketData(sym, 2500),
+    getPersistentSignal(sym, 2500),
     fetchStockDetails(sym),
   ]);
+
+  const currentPrice = stockDetails.price.current;
+  const optionsIntelligence = await fetchOptionsIntelligence(sym, currentPrice);
   
-  const sequence = signal.history.slice(-50).map(h => [h.open, h.high, h.low, h.close, h.volume]);
+  const sequence = signal.history.slice(-50).map((h: any) => [h.open, h.high, h.low, h.close, h.volume]);
   const prediction = await predictNextHorizon(sequence, sym);
   
   if (signal) await archiveSignal(signal);
   await evaluateOldSignals().catch(() => {});
 
-  return { ...signal, prediction, stockDetails };
+  return { ...signal, prediction, stockDetails, optionsIntelligence };
 }
 
 export async function getMinimalAssetDetails(ticker: string) {
   const sym = decodeURIComponent(ticker);
-  // Fetch only 300 bars (sufficient for Regime/Kalman) instead of 2500
-  // Avoid fully running predictNextHorizon on the server for background tasks
+  // Fetch 300 bars from persistence/cache instead of full analytical run
   const [signal, stockDetails] = await Promise.all([
-    fetchMarketData(sym, 100),
+    getPersistentSignal(sym, 100),
     fetchStockDetails(sym), // This is heavily cached (1 hour)
   ]);
   

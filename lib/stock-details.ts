@@ -4,7 +4,7 @@ import { fetchHistoryWithInterval } from './market-data';
 import { calculateRiskEntropy } from './risk';
 import { NarrativeArticle } from './types';
 
-const yahooFinance = new YahooFinance();
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 export interface StockProfile { name: string; sector: string; industry: string; description: string; website: string; employees: number | null; country: string; city: string; exchange: string; currency: string; quoteType: string; }
 export interface PriceData { current: number; previousClose: number; open: number; dayHigh: number; dayLow: number; fiftyTwoWeekHigh: number; fiftyTwoWeekLow: number; fiftyDayAverage: number; twoHundredDayAverage: number; volume: number; averageVolume: number; averageVolume10Day: number; marketCap: number; dayChange: number; dayChangePercent: number; fiftyTwoWeekChangePercent: number; distanceFrom52wHigh: number; distanceFrom52wLow: number; }

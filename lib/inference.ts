@@ -1,4 +1,5 @@
 import { getFromCache, setInCache, CACHE_TTL } from "./cache";
+import { calculateReturns, calculateVariance } from "./math";
 
 export interface PredictionResult { p10: number; p50: number; p90: number; source: string; }
 
@@ -13,9 +14,10 @@ export async function predictNextHorizon(
 ): Promise<PredictionResult> {
   const lastPrice = inputSequence[inputSequence.length - 1][3];
   
-  // Quantize lastPrice to 0.1% increments to improve cache hit rate (v2.2)
-  const quantizedPrice = Math.round(lastPrice * 1000) / 1000;
-  const cacheKey = `pred_${ticker}_${quantizedPrice}_v22`;
+  // Quantize lastPrice to true 0.1% increments to improve cache hit rate (v2.2)
+  const step = Math.max(lastPrice * 0.001, 0.01); 
+  const quantizedPrice = Math.round(lastPrice / step) * step;
+  const cacheKey = `pred_${ticker}_${quantizedPrice.toFixed(3)}_v22`;
   
   const cached = getFromCache<PredictionResult>(cacheKey);
   if (cached) return cached;
@@ -65,8 +67,12 @@ export async function predictNextHorizon(
     } else {
       console.warn(`Inference Server Error [${res.status}]: ${await res.text()}`);
     }
-  } catch (error) {
-    console.error("Inference Engine Fault, reverting to PoT Fallback:", error);
+  } catch (error: any) {
+    if (error?.message?.includes('fetch failed') || error?.cause?.code === 'ECONNREFUSED' || error?.name === 'TypeError') {
+      console.warn(`[Inference Engine]: ML Server unavailable. Reverting to PoT Math Model.`);
+    } else {
+      console.error("Inference Engine Fault, reverting to PoT Fallback:", error);
+    }
   }
 
   return generateFallback(inputSequence);
@@ -80,16 +86,14 @@ function generateFallback(seq: number[][]): PredictionResult {
   if (seq.length < 20) return { p10: 0, p50: 0, p90: 0, source: "Incomplete Data" };
   
   const last = seq[seq.length - 1][3];
-  const returns = [];
-  for (let i = 1; i < seq.length; i++) returns.push(Math.log(seq[i][3] / seq[i-1][3]));
+  const returns = calculateReturns(seq.map(x => x[3]));
   
   // Calculate average log-return (drift) over 20 periods
   const recentReturns = returns.slice(-20);
   const drift = recentReturns.reduce((a, b) => a + b, 0) / recentReturns.length;
   
   // Calculate volatility (standard deviation of log-returns)
-  const mean = drift;
-  const variance = recentReturns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (recentReturns.length - 1);
+  const variance = calculateVariance(recentReturns);
   const vol = Math.sqrt(variance);
 
   // 5-period forecast using geometric Brownian motion principles

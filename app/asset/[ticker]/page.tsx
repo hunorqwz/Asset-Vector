@@ -11,6 +11,8 @@ import { LiveHeader } from "@/components/organisms/LiveHeader";
 import { AccuracyScorecard } from "@/components/organisms/AccuracyScorecard";
 import { getAccuracyScorecard } from "@/app/actions/signals";
 import { AlpacaTerminal } from "@/components/organisms/AlpacaTerminal";
+import { fetchOptionsIntelligence, OptionsIntelligence } from "@/lib/options-pricing";
+import { OptionsProbabilityPanel } from "@/components/organisms/OptionsProbabilityPanel";
 
 export const revalidate = 60;
 export const dynamic = 'force-dynamic';
@@ -27,9 +29,9 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
   const { ticker } = await params;
   if (!ticker) return notFound();
 
-  let signal: MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails };
+  let signal: MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails; optionsIntelligence?: OptionsIntelligence | null };
   try {
-    signal = await getAssetDetails(ticker) as MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails };
+    signal = await getAssetDetails(ticker) as any;
   } catch {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white p-4">
@@ -45,9 +47,11 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
   }
 
   const accuracyData = await getAccuracyScorecard(ticker);
-
+  
   const d = signal.stockDetails;
   const p = d.price;
+
+  const optionsData = signal.optionsIntelligence || await fetchOptionsIntelligence(ticker, p.current);
 
   return (
     <>
@@ -79,6 +83,7 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
           {/* Right Sidebar */}
           <div className="xl:col-span-3">
             <AccuracyScorecard data={accuracyData} ticker={ticker} />
+            <OptionsProbabilityPanel data={optionsData} />
             
              {/* Quick Metrics */}
              <div className="glass-card mt-10 p-6 border border-white/10 relative overflow-hidden group">

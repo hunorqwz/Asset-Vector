@@ -19,6 +19,9 @@ export function useAlpacaTape(ticker: string) {
   const apiSecret = process.env.NEXT_PUBLIC_ALPACA_API_SECRET;
 
   const connect = useCallback(() => {
+    // Purge any existing retry ghost threads
+    if (retryTimeout.current) clearTimeout(retryTimeout.current);
+
     // Silently skip — Alpaca integration is opt-in via environment variables
     if (!ticker || !apiKey || !apiSecret) return;
     if (intentionallyClosed.current) return;

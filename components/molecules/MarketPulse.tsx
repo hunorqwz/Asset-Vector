@@ -1,16 +1,44 @@
 "use client";
+import React from "react";
 import { SectorMetric, MarketPulseData } from "@/lib/market-pulse";
-import { fmtChange } from "@/lib/format";
+import { StealthTooltip } from "@/components/LiveTelemetry";
 
 interface MarketPulseProps {
   data: MarketPulseData;
 }
 
 export function MarketPulse({ data }: MarketPulseProps) {
-  const { breadthPercent, sectors, breadthAdvancing, breadthDeclining, macro } = data;
+  const { breadthPercent, sectors, breadthAdvancing, breadthDeclining, macro, regime } = data;
 
   return (
     <div className="space-y-6">
+      {/* GLOBAL REGIME RADAR */}
+      <div className="glass-card p-6 border border-white/10 relative overflow-hidden bg-gradient-to-br from-zinc-900/50 to-black/80">
+        <div className="flex items-center gap-2 mb-6">
+           <div className={`w-1.5 h-1.5 rounded-full ${regime.type === 'MOMENTUM' ? 'bg-bull' : regime.type === 'MEAN_REVERSION' ? 'bg-matrix' : 'bg-zinc-500'} animate-pulse`} />
+           <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase">Regime Radar</h2>
+        </div>
+        
+        <div className="mb-4">
+           <p className="text-[12px] font-black text-white uppercase tracking-wider mb-1">{regime.type.replace('_', ' ')}</p>
+           <div className="flex items-center justify-between">
+              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Predictability</span>
+              <span className="text-[11px] font-mono font-bold text-matrix">{Math.round(regime.predictability * 100)}%</span>
+           </div>
+        </div>
+
+        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+           <div 
+             className={`h-full transition-all duration-1000 ${regime.type === 'MOMENTUM' ? 'bg-bull shadow-[0_0_10px_rgba(34,197,94,0.5)]' : regime.type === 'MEAN_REVERSION' ? 'bg-matrix shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-zinc-700'}`}
+             style={{ width: `${regime.predictability * 100}%` }}
+           />
+        </div>
+        
+        <p className="mt-4 text-[9px] text-zinc-500 font-medium leading-relaxed uppercase tracking-tighter">
+           Hurst Index: <span className="text-zinc-300 font-mono">{regime.score.toFixed(3)}</span>. Market is currently <span className="text-white">{regime.type === 'RANDOM_WALK' ? 'stochastic/noisy' : regime.type === 'MOMENTUM' ? 'trending persistently' : 'reverting to mean'}</span>.
+        </p>
+      </div>
+
       {/* Macro Environment */}
       <div className="glass-card p-6 border border-white/10 relative overflow-hidden group">
         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -19,13 +47,11 @@ export function MarketPulse({ data }: MarketPulseProps) {
           Macro pulse
         </h2>
         <div className="flex flex-col gap-5">
-           <MacroPanelItem name="SPY" desc="S&P 500 ETF" value={macro.spy.value.toFixed(2)} change={macro.spy.change} />
-           <MacroPanelItem name="QQQ" desc="Nasdaq 100 ETF" value={macro.qqq.value.toFixed(2)} change={macro.qqq.change} />
+           <MacroPanelItem name="SPY" desc="S&P 500" value={macro.spy.value.toFixed(2)} change={macro.spy.change} />
+           <MacroPanelItem name="VIX" desc="Volatility" value={macro.vix.value.toFixed(2)} change={macro.vix.change} />
            <MacroPanelItem name="BTC" desc="Bitcoin" value={macro.btc.value.toFixed(2)} change={macro.btc.change} />
            <div className="h-px bg-white/5 w-full my-1" />
-           <MacroPanelItem name="VIX" desc="Volatility Index" value={macro.vix.value.toFixed(2)} change={macro.vix.change} />
-           <MacroPanelItem name="DXY" desc="US Dollar Index" value={macro.dxy.value.toFixed(2)} change={macro.dxy.change} />
-           <MacroPanelItem name="US10Y" desc="10Y Treasury" value={`${macro.us10y.value.toFixed(2)}%`} change={macro.us10y.change} />
+           <MacroPanelItem name="US10Y" desc="10Y Yield" value={`${macro.us10y.value.toFixed(2)}%`} change={macro.us10y.change} />
         </div>
       </div>
 
@@ -34,45 +60,23 @@ export function MarketPulse({ data }: MarketPulseProps) {
         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
           <span className={`w-1.5 h-1.5 rounded-full ${breadthPercent >= 50 ? 'bg-bull animate-pulse' : 'bg-bear'}`} />
-          Breadth Engine
+          Market Breadth
         </h2>
         
-        <div className="flex flex-col sm:flex-row items-baseline sm:justify-between mb-4 gap-2">
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-white tracking-tighter">{breadthPercent}%</span>
-            <span className="text-[9px] sm:text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Advancing</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-bold text-zinc-400">
-            <span className="flex items-center gap-0.5">{breadthAdvancing}<span className="text-bull text-[9px] sm:text-[10px]">▲</span></span>
+        <div className="flex items-baseline justify-between mb-4">
+          <span className="text-3xl font-bold font-mono text-white tracking-tighter">{breadthPercent}%</span>
+          <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-zinc-400">
+            <span className="flex items-center gap-0.5">{breadthAdvancing}<span className="text-bull text-[10px]">▲</span></span>
             <span className="opacity-30">/</span>
-            <span className="flex items-center gap-0.5">{breadthDeclining}<span className="text-bear text-[9px] sm:text-[10px]">▼</span></span>
+            <span className="flex items-center gap-0.5">{breadthDeclining}<span className="text-bear text-[10px]">▼</span></span>
           </div>
         </div>
 
         <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden flex gap-0.5">
           <div 
-            className="h-full bg-gradient-to-r from-matrix to-bull transition-all duration-1000 ease-out" 
+            className={`h-full transition-all duration-1000 ${breadthPercent > 50 ? 'bg-bull' : 'bg-bear'}`} 
             style={{ width: `${breadthPercent}%` }} 
           />
-          <div 
-            className="h-full bg-bear/40 transition-all duration-1000 ease-out" 
-            style={{ width: `${100 - breadthPercent}%` }} 
-          />
-        </div>
-
-        <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1.5 sm:gap-1 mt-4 text-[9px] sm:text-[8px] font-bold tracking-tight sm:tracking-widest uppercase text-zinc-600">
-          <div className="flex justify-between items-center sm:block">
-            <span className="text-left">Oversold</span>
-            <span className="sm:hidden text-[10px] text-zinc-800">0-30%</span>
-          </div>
-          <div className="flex justify-between items-center sm:block">
-            <span className="text-left sm:text-center">Balanced</span>
-            <span className="sm:hidden text-[10px] text-zinc-800">30-70%</span>
-          </div>
-          <div className="flex justify-between items-center sm:block">
-            <span className="text-left sm:text-right">Overbought</span>
-            <span className="sm:hidden text-[10px] text-zinc-800">70-100%</span>
-          </div>
         </div>
       </div>
 
@@ -80,19 +84,13 @@ export function MarketPulse({ data }: MarketPulseProps) {
       <div className="glass-card p-6 border border-white/10 relative overflow-hidden group">
         <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
-          Sector Momentum
+          Sector Health
         </h2>
 
-        <div className="grid grid-cols-1 gap-3">
-          {sectors.map((s) => (
+        <div className="grid grid-cols-1 gap-4">
+          {sectors.slice(0, 8).map((s) => (
             <SectorRow key={s.ticker} sector={s} />
           ))}
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-white/5">
-           <p className="text-[9px] text-zinc-600 font-medium leading-relaxed italic uppercase tracking-tighter">
-             Institutional participation proxy via SPDR sector ETFs. 
-           </p>
         </div>
       </div>
     </div>
@@ -130,17 +128,9 @@ function SectorRow({ sector }: { sector: SectorMetric }) {
           {sector.name}
         </span>
       </div>
-      <div className="flex items-center gap-4">
-         <span className={`text-[11px] font-mono font-bold ${isUp ? 'text-bull' : 'text-bear'}`}>
-           {isUp ? '+' : ''}{sector.changePercent.toFixed(2)}%
-         </span>
-         <div className="w-12 h-1 bg-white/5 rounded-full overflow-hidden">
-            <div 
-              className={`h-full ${isUp ? 'bg-bull' : 'bg-bear'} transition-all duration-500`}
-              style={{ width: `${Math.min(Math.abs(sector.changePercent) * 10, 100)}%` }}
-            />
-         </div>
-      </div>
+      <span className={`text-[11px] font-mono font-bold ${isUp ? 'text-bull' : 'text-bear'}`}>
+        {isUp ? '+' : ''}{sector.changePercent.toFixed(1)}%
+      </span>
     </div>
   );
 }

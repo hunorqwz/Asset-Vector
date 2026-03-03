@@ -13,8 +13,11 @@ import {
   calculateCorrelation, 
   calculateJensensAlpha 
 } from "./math";
+import { db } from "@/db";
+import { marketSignals } from "@/db/schema";
+import { desc, eq, and, gt } from "drizzle-orm";
 
-const yahooFinance = new YahooFinance();
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 import { OHLCV, ChartInterval, NarrativeArticle } from "./types";
 
@@ -123,7 +126,8 @@ async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
 let GLOBAL_BENCHMARK_DATA: { time: number; data: OHLCV[] } | null = null;
 
 export async function fetchMarketData(ticker: string, len: number = 2500): Promise<MarketSignal> {
-  const cached = getFromCache<MarketSignal>(ticker);
+  const cacheKey = `signal:${ticker}:${len}`;
+  const cached = getFromCache<MarketSignal>(cacheKey);
   if (cached) return cached;
   
   const history = await fetchHistoryWithInterval(ticker, '1d', 0).then(h => h.slice(-len));
@@ -216,7 +220,6 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     timeframe: "5D",
     probability: Number(calculateProbabilityOfTouch(currentPrice, l.price, realizedVol, 5).toFixed(4))
   }));
-
   const synthesis = generateSynthesis(
     technical,
     sentiment,
@@ -226,6 +229,20 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     benchmark,
     quality
   );
+
+  // 4. Sentiment-Price Divergence Logic (v2.5)
+  // Calculate price velocity over the last 5 days strictly
+  const velocityLookback = Math.min(5, history.length - 1);
+  const priceVelocity = velocityLookback > 0 ? (currentPrice - history[history.length - 1 - velocityLookback].close) / history[history.length - 1 - velocityLookback].close : 0;
+  const sentimentVelocity = sentiment.velocity;
+
+  if (priceVelocity < -0.02 && sentimentVelocity > 0.3) {
+    synthesis.sentimentPriceDivergence = "BULLISH_DIVERGENCE";
+  } else if (priceVelocity > 0.02 && sentimentVelocity < -0.3) {
+    synthesis.sentimentPriceDivergence = "BEARISH_DIVERGENCE";
+  } else {
+    synthesis.sentimentPriceDivergence = "NONE";
+  }
 
   const signal: MarketSignal = {
     ticker, price: Number(currentPrice.toFixed(2)), smoothPrice: Number(smooth.toFixed(2)),
@@ -237,15 +254,69 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     tech: technical,
     synthesis,
     news,
-    history: history.slice(-60), // Trim payload size drastically
+    history, // Removed aggressive truncation to retain full multi-year history
     benchmark,
     quality,
     sector,
     structuralProbability
   };
 
-  setInCache(ticker, signal, CACHE_TTL.MARKET_DATA);
+  // 5. Persist to DB for SPLR Architecture (v3.0)
+  try {
+    await db.insert(marketSignals).values({
+      ticker,
+      priceAtGeneration: currentPrice.toString(),
+      score: synthesis.score.toString(),
+      signalLabel: synthesis.signal,
+      direction: trend,
+      confidence: regimeInfo.predictability.toString(),
+      snr: kf.getSNR().toString(),
+      regime: regimeInfo.regime,
+      fullData: signal as any,
+      isEvaluated: false
+    });
+  } catch (err) {
+    console.error(`[SPLR] Failed to persist signal for ${ticker}:`, err);
+  }
+
+  setInCache(cacheKey, signal, CACHE_TTL.MARKET_DATA);
   return signal;
+}
+
+/**
+ * SPLR ARCHITECTURE: Get Persistent Signal
+ * Checks DB cache first. Returns stale data if within revalidation window.
+ */
+export async function getPersistentSignal(ticker: string, len: number = 2500): Promise<MarketSignal> {
+  const REFRESH_WINDOW_MS = 5 * 60 * 1000; // 5 Minutes
+  
+  try {
+    // 1. Check for a very recent signal in the DB
+    const latest = await db.query.marketSignals.findFirst({
+      where: eq(marketSignals.ticker, ticker),
+      orderBy: desc(marketSignals.generatedAt)
+    });
+
+    if (latest && latest.fullData) {
+      const age = Date.now() - new Date(latest.generatedAt!).getTime();
+      const signal = latest.fullData as unknown as MarketSignal;
+
+      // If extremely fresh (< 1 min), just return
+      if (age < 60000) return signal;
+
+      // If within refresh window (1-5 mins), return signal BUT trigger async refresh
+      if (age < REFRESH_WINDOW_MS) {
+        // We trigger the refresh but don't await it to keep the response fast (SPLR)
+        fetchMarketData(ticker, len).catch(e => console.error(`[SPLR Background Refresh] ${ticker} failed:`, e));
+        return signal;
+      }
+    }
+  } catch (error) {
+    console.error(`[SPLR Read] Error fetching ${ticker} from persistence:`, error);
+  }
+
+  // 2. Cache miss or too old: Perform full synchronous fetch
+  return fetchMarketData(ticker, len);
 }
 
 /**

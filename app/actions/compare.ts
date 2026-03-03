@@ -1,5 +1,5 @@
 "use server";
-import { fetchMarketData, MarketSignal } from "@/lib/market-data";
+import { getPersistentSignal, MarketSignal } from "@/lib/market-data";
 import { fetchStockDetails, StockDetails } from "@/lib/stock-details";
 
 export interface ComparisonAsset {
@@ -16,7 +16,7 @@ export async function fetchComparisonData(tickers: string[]): Promise<Comparison
   const results = await Promise.allSettled(
     capped.map(async (ticker) => {
       const [signal, details] = await Promise.all([
-        fetchMarketData(ticker, 500),
+        getPersistentSignal(ticker, 500),
         fetchStockDetails(ticker),
       ]);
       return { ticker, signal, details } as ComparisonAsset;

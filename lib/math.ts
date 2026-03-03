@@ -82,3 +82,69 @@ export function calculateJensensAlpha(
   // alpha = R_p - [R_f + Beta * (R_m - R_f)]
   return assetCumRet - (scaledRf + beta * (benchCumRet - scaledRf));
 }
+
+export interface ARIMAProjection {
+  forecast: number[];
+  standardError: number;
+  confidence95: { upper: number[]; lower: number[] };
+}
+
+/**
+ * Institutional ARIMA(1,1,0) Engine
+ * Integrated Auto-Regressive process for stationary price projection.
+ * Formula: Y_t = μ + ϕ(Y_{t-1} - μ) + ε_t
+ */
+export function runARIMAForecast(prices: number[], periods: number = 5): ARIMAProjection {
+  if (prices.length < 20) {
+    return { forecast: [], standardError: 0, confidence95: { upper: [], lower: [] } };
+  }
+
+  // 1. Difference for stationarity (I=1)
+  const returns = calculateReturns(prices);
+  
+  // 2. Estimate AR(1) coefficient (ϕ) using simple OLS or autocorrelation
+  // For a fast, stable client-side forecast, we use the lag-1 autocorrelation
+  const n = returns.length;
+  const meanRet = returns.reduce((a, b) => a + b, 0) / n;
+  
+  let num = 0, den = 0;
+  for (let i = 1; i < n; i++) {
+    num += (returns[i] - meanRet) * (returns[i-1] - meanRet);
+    den += Math.pow(returns[i-1] - meanRet, 2);
+  }
+  
+  const phi = den !== 0 ? num / den : 0;
+  const variance = calculateVariance(returns);
+  // Std error of residuals = sqrt(variance * (1 - phi^2))
+  const stdError = Math.sqrt(variance * (1 - Math.pow(phi, 2)));
+
+  // 3. Project future returns and reconstruct prices
+  const forecastPrices: number[] = [];
+  const upperPrices: number[] = [];
+  const lowerPrices: number[] = [];
+  
+  let lastPrice = prices[prices.length - 1];
+  let lastRet = returns[returns.length - 1];
+
+  for (let t = 1; t <= periods; t++) {
+    // Expected next return based on AR(1)
+    const nextRet = meanRet + phi * (lastRet - meanRet);
+    const nextPrice = lastPrice * Math.exp(nextRet);
+    
+    forecastPrices.push(nextPrice);
+    
+    // 95% Confidence Interval (1.96 * SE * sqrt(time))
+    const cumulativeError = stdError * Math.sqrt(t) * 1.96;
+    upperPrices.push(nextPrice * Math.exp(cumulativeError));
+    lowerPrices.push(nextPrice * Math.exp(-cumulativeError));
+
+    lastPrice = nextPrice;
+    lastRet = nextRet;
+  }
+
+  return {
+    forecast: forecastPrices,
+    standardError: stdError,
+    confidence95: { upper: upperPrices, lower: lowerPrices }
+  };
+}

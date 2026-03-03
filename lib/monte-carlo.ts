@@ -7,6 +7,8 @@
  * S_t = S_0 * exp((μ - (σ^2)/2) * t + σ * W_t)
  */
 
+import { calculateReturns, calculateVariance } from "./math";
+
 export interface MonteCarloParams {
   currentPrice: number;
   historicalPrices: number[]; // Array of past closing prices
@@ -29,14 +31,7 @@ export function runMonteCarloSimulation(params: MonteCarloParams): MonteCarloRes
   }
 
   // 1. Calculate Daily Log Returns
-  const logReturns: number[] = [];
-  for (let i = 1; i < params.historicalPrices.length; i++) {
-    const today = params.historicalPrices[i];
-    const yesterday = params.historicalPrices[i - 1];
-    if (yesterday > 0 && today > 0) {
-      logReturns.push(Math.log(today / yesterday));
-    }
-  }
+  const logReturns = calculateReturns(params.historicalPrices);
 
   if (logReturns.length === 0) {
      return { currentPrice: params.currentPrice, expectedPrice: 0, percentile5th: 0, percentile95th: 0, paths: [], isValid: false };
@@ -44,7 +39,7 @@ export function runMonteCarloSimulation(params: MonteCarloParams): MonteCarloRes
 
   // 2. Calculate Drift (μ) and Volatility (σ)
   const meanReturn = logReturns.reduce((sum, val) => sum + val, 0) / logReturns.length;
-  const variance = logReturns.reduce((sum, val) => sum + Math.pow(val - meanReturn, 2), 0) / logReturns.length;
+  const variance = calculateVariance(logReturns);
   const volatility = Math.sqrt(variance);
 
   // Daily Drift = μ - (σ^2)/2

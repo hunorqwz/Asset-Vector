@@ -10,6 +10,9 @@ import { getFromCache, setInCache } from "@/lib/cache";
  */
 export async function archiveSignal(signal: MarketSignal) {
   try {
+    const CACHE_KEY = `signal_archive_${signal.ticker}`;
+    if (getFromCache(CACHE_KEY)) return;
+
     const FOUR_HOURS_AGO = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
     const existing = await db.query.marketSignals.findFirst({
@@ -20,7 +23,12 @@ export async function archiveSignal(signal: MarketSignal) {
       orderBy: desc(marketSignals.generatedAt),
     });
 
-    if (existing) return;
+    if (existing) {
+      setInCache(CACHE_KEY, true, existing.generatedAt!.getTime() + (4 * 60 * 60 * 1000) - Date.now());
+      return;
+    }
+    
+    setInCache(CACHE_KEY, true, 4 * 60 * 60 * 1000); // 4 Hour Lock
 
     await db.insert(marketSignals).values({
       ticker: signal.ticker,

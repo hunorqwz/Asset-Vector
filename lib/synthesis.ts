@@ -9,6 +9,7 @@ export interface MarketSynthesis {
   signal: "STRONG BUY" | "BUY" | "ACCUMULATE" | "NEUTRAL" | "REDUCE" | "SELL" | "STRONG SELL";
   confidence: "Institutional" | "High" | "Moderate" | "Tactical Only" | "Low/Noise";
   primaryDriver: string;
+  sentimentPriceDivergence?: "BULLISH_DIVERGENCE" | "BEARISH_DIVERGENCE" | "NONE";
 }
 
 /**

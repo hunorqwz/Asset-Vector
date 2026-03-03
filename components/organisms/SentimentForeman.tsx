@@ -7,16 +7,24 @@ import { SECIcon, BullIcon, BearIcon } from '@/components/Icons';
 interface SentimentForemanProps {
   news: NarrativeArticle[];
   report: SentimentReport;
+  divergence?: string;
 }
 
-export const SentimentForeman = React.memo(function SentimentForeman({ news, report }: SentimentForemanProps) {
+export const SentimentForeman = React.memo(function SentimentForeman({ news, report, divergence }: SentimentForemanProps) {
   return (
     <section className="bg-[#0a0a0a] border border-white/10 overflow-hidden group">
       <div className="flex items-center justify-between p-4 border-b border-white/10 bg-transparent">
         <h3 className="text-[12px] font-bold text-zinc-300 tracking-[0.2em] uppercase">Intelligence Core</h3>
-        <span className={`text-[11px] font-bold px-3 py-1 border font-mono tracking-widest shadow-none ${report.label === 'BULLISH' ? 'border-bull/30 text-bull bg-bull/10' : report.label === 'BEARISH' ? 'border-bear/30 text-bear bg-bear/10' : 'border-white/20 text-zinc-400 bg-transparent'}`}>
-          {report.label}
-        </span>
+        <div className="flex items-center gap-3">
+          {report.velocity !== 0 && (
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 border ${report.velocity > 0 ? 'border-bull/20 text-bull' : 'border-bear/20 text-bear'}`}>
+              VEL: {report.velocity > 0 ? '+' : ''}{report.velocity}
+            </span>
+          )}
+          <span className={`text-[11px] font-bold px-3 py-1 border font-mono tracking-widest shadow-none ${report.label === 'BULLISH' ? 'border-bull/30 text-bull bg-bull/10' : report.label === 'BEARISH' ? 'border-bear/30 text-bear bg-bear/10' : 'border-white/20 text-zinc-400 bg-transparent'}`}>
+            {report.label}
+          </span>
+        </div>
       </div>
 
       <div className="p-4 space-y-6">
@@ -73,10 +81,17 @@ export const SentimentForeman = React.memo(function SentimentForeman({ news, rep
            <div className="shrink-0 pt-1.5">
              <div className={`w-2 h-2 rounded-full ${report.score > 0 ? 'bg-bull' : 'bg-bear'}`} />
            </div>
-           <div className="space-y-1.5">
-             <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Structural Projection</span>
-             <p className="text-[12px] text-zinc-400 leading-relaxed font-medium">Headlines analysis confirms local {report.label.toLowerCase()} momentum. Neural variance indicates high confidence in active frame trajectory.</p>
-           </div>
+            <div className="space-y-1.5 flex-1">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Structural Projection</span>
+                {divergence && divergence !== 'NONE' && (
+                  <span className={`text-[9px] font-bold px-2 py-0.5 border animate-pulse ${divergence === 'BULLISH_DIVERGENCE' ? 'border-bull/50 text-bull bg-bull/10' : 'border-bear/50 text-bear bg-bear/10'}`}>
+                    {divergence.replace('_', ' ')}
+                  </span>
+                )}
+              </div>
+              <p className="text-[12px] text-zinc-400 leading-relaxed font-medium">Headlines analysis confirms local {report.label.toLowerCase()} momentum. Neural variance indicates high confidence in active frame trajectory.</p>
+            </div>
         </div>
       </div>
     </section>

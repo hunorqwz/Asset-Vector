@@ -15,6 +15,10 @@ export async function recordAlphaPicks(picks: AlphaPick[]) {
   if (highConviction.length === 0) return;
 
   try {
+    const benchmarkPrice = await db.query.marketSignals.findFirst({
+        where: and(eq(marketSignals.ticker, "SPY"), sql`generated_at > now() - interval '5 minutes'`)
+    }).then((s: any) => s ? parseFloat(s.priceAtGeneration as string) : null) || await fetchLiveQuote("SPY");
+
     for (const pick of highConviction) {
       const existing = await db.query.marketSignals.findFirst({
         where: and(
@@ -32,6 +36,8 @@ export async function recordAlphaPicks(picks: AlphaPick[]) {
           signalLabel: "ALPHA_PICK",
           direction: pick.scanner.substring(0, 10), // Safeguard against DB length
           confidence: (pick.score / 100).toString(),
+          benchmarkPriceAtGeneration: benchmarkPrice.toString(),
+          betaAtGeneration: pick.beta?.toString() || "1.0",
         });
       }
     }
@@ -40,7 +46,7 @@ export async function recordAlphaPicks(picks: AlphaPick[]) {
   }
 }
 
-import { fetchMarketData } from "@/lib/market-data";
+import { fetchMarketData, fetchLiveQuote } from "@/lib/market-data";
 
 export async function evaluateAlphaPicks() {
   const pending = await db.query.marketSignals.findMany({
@@ -55,26 +61,42 @@ export async function evaluateAlphaPicks() {
   if (pending.length === 0) return { evaluated: 0 };
   console.log(`[BACKTEST] Auditing ${pending.length} pending picks...`);
 
+  // Optimized: Fetch current benchmark price once for the entire batch
+  const benchExit = await fetchLiveQuote("SPY");
+
   let evaluatedCount = 0;
 
   for (const signal of pending) {
     try {
-      // Fetch live 'audit' price
-      const market = await fetchMarketData(signal.ticker, 1);
-      if (!market) continue;
-
+      // Fetch live 'audit' price using lightweight endpoint
       const entry = parseFloat(signal.priceAtGeneration as string);
-      const exit = market.price;
+      const exit = await fetchLiveQuote(signal.ticker);
       
-      // Binary Accuracy (1 = Profitable, 0 = Loss)
-      // In a more complex institutional setup, this would be alpha-adjusted against SPY
-      const isCorrect = exit > entry;
-      const profitPct = ((exit - entry) / entry) * 100;
+      // Strict Guards: Prevent mathematical outliers (NaN/Infinity)
+      if (!exit || isNaN(exit) || !entry || isNaN(entry) || entry === 0) {
+        console.warn(`[BACKTEST] Skipping invalid data for ${signal.ticker}`);
+        continue;
+      }
+
+      const assetRet = (exit - entry) / entry;
+
+      // Handle Benchmark
+      const benchEntry = parseFloat(signal.benchmarkPriceAtGeneration as string || "0");
+      const benchRet = (benchEntry > 0 && benchExit > 0) ? (benchExit - benchEntry) / benchEntry : 0;
+      const beta = parseFloat(signal.betaAtGeneration as string || "1.0");
+
+      // True Alpha: Excess return over the expected return based on risk (beta)
+      const alpha = assetRet - (beta * benchRet);
+      
+      // Beta-Neutral Accuracy: Outperform the risk-adjusted benchmark
+      const isCorrect = !isNaN(alpha) && alpha > 0;
 
       await db.update(marketSignals)
         .set({
           isEvaluated: true,
           outcomePrice7D: exit.toString(),
+          benchmarkOutcomePrice: benchExit.toString(),
+          alphaPerformance: alpha.toString(),
           accuracy: (isCorrect ? 1.0 : 0.0).toString()
         })
         .where(eq(marketSignals.id, signal.id));
@@ -105,15 +127,13 @@ export async function getBacktestWinRate() {
   
   const winRate = evaluated.length > 0 ? (wins / evaluated.length) * 100 : 0;
   
-  // Calculate average performance of evaluated picks
-  let totalPerformance = 0;
+  // Calculate average alpha performance of evaluated picks
+  let totalAlpha = 0;
   evaluated.forEach((p: any) => {
-    const entry = parseFloat(p.priceAtGeneration);
-    const exit = parseFloat(p.outcomePrice7D);
-    totalPerformance += ((exit - entry) / entry) * 100;
+    totalAlpha += parseFloat(p.alphaPerformance || "0");
   });
   
-  const avgPerformance = evaluated.length > 0 ? totalPerformance / evaluated.length : 0;
+  const avgPerformance = evaluated.length > 0 ? (totalAlpha / evaluated.length) * 100 : 0;
 
   return {
     winRate,

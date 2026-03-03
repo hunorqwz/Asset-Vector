@@ -5,7 +5,9 @@ import { useMarketTechnicals, OpticMode } from '@/hooks/useMarketTechnicals';
 import { OHLCV } from '@/lib/market-data';
 import { fetchChartData } from '@/app/actions';
 import { CHART_COLORS } from '@/lib/chart-config';
+import { fmtCount } from '@/lib/format';
 import { GlassBoxTheory, THEORY_CONTENT } from './organisms/GlassBoxTheory';
+import { OptionsIntelligence } from '@/lib/options-pricing';
 
 interface VectorChartProps {
   data: OHLCV[];
@@ -16,6 +18,7 @@ interface VectorChartProps {
   prediction?: { p10: number; p50: number; p90: number };
   stochasticPaths?: { day: number; price: number }[][];
   lastTick?: { price: number; volume?: number; time: number } | null;
+  optionsIntelligence?: OptionsIntelligence | null;
 }
 
 interface TooltipState {
@@ -87,7 +90,11 @@ const GlassBoxLegendItem = ({
   );
 };
 
-export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', height = 400, initialMode = 'TACTICAL', prediction, stochasticPaths = [], lastTick }: VectorChartProps) => {
+export const VectorChart = ({ 
+  data: initialData, ticker, color = '#23d18b', height = 400, 
+  initialMode = 'TACTICAL', prediction, stochasticPaths = [], lastTick,
+  optionsIntelligence
+}: VectorChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [activeRange, setActiveRange] = useState<TimeRange>('ALL');
@@ -99,7 +106,8 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
   
   const [indicators, setIndicators] = useState({
     sma20: true, sma50: true, ema20: false, ema50: false, ema200: false,
-    bollinger: false, kalman: true, vwap: false, obv: false, volume: true, levels: false, trendlines: false
+    bollinger: false, kalman: true, vwap: false, obv: false, volume: true, levels: false, trendlines: false, vpNodes: false, arima: false,
+    expectedMove: true, shadows: true, fvgs: true
   });
 
   const [chartData, setChartData] = useState<OHLCV[]>(initialData);
@@ -213,7 +221,35 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
       if (indicators.ema20) { const s = addLine(technicals.ema20, CHART_COLORS.EMA_20); if (s) currentSeriesMap.set('ema20', s); }
       if (indicators.ema50) { const s = addLine(technicals.ema50, CHART_COLORS.EMA_50); if (s) currentSeriesMap.set('ema50', s); }
       if (indicators.ema200) { const s = addLine(technicals.ema200, CHART_COLORS.EMA_200); if (s) currentSeriesMap.set('ema200', s); }
-      if (indicators.kalman) { const s = addLine(technicals.kalman, CHART_COLORS.NEURAL_VECTOR, 2); if (s) currentSeriesMap.set('kalman', s); }
+      if (indicators.kalman) { 
+        const s = addLine(technicals.kalman, CHART_COLORS.NEURAL_VECTOR, 2); 
+        if (s) currentSeriesMap.set('kalman', s);
+
+        // Add Uncertainty Band (Gaussian Cloud)
+        if (technicals.kalmanUncertainty) {
+          const cloud = chart.addSeries(CandlestickSeries, {
+            upColor: `${CHART_COLORS.NEURAL_VECTOR}22`, 
+            downColor: `${CHART_COLORS.NEURAL_VECTOR}22`,
+            borderVisible: false,
+            wickVisible: false,
+            priceLineVisible: false,
+            lastValueVisible: false,
+          });
+
+          const cloudData = technicals.kalman.map((v, i) => {
+            const sigma = Math.sqrt(technicals.kalmanUncertainty[i] || 0);
+            return {
+              time: chartData[i]?.time as UTCTimestamp,
+              open: v - sigma, // Lower
+              high: v + sigma, // Upper
+              low: v - sigma,  // Lower
+              close: v + sigma // Upper
+            };
+          }).filter(d => Boolean(d.time));
+          
+          cloud.setData(cloudData);
+        }
+      }
       if (indicators.bollinger) { 
         addLine(technicals.bollinger.upper, CHART_COLORS.BOLLINGER_BANDS); 
         addLine(technicals.bollinger.lower, CHART_COLORS.BOLLINGER_BANDS); 
@@ -225,6 +261,17 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
           lineWidth: 1 as any, 
           lineStyle: LineStyle.Dashed 
         })); 
+      }
+      if (indicators.vpNodes && technicals.vpNodes) {
+        technicals.vpNodes.forEach(node => {
+          mainSeries.createPriceLine({
+            price: node.price,
+            color: '#38bdf880', // Cyan with opacity
+            lineWidth: Math.max(2, Math.min(4, node.strength)) as any,
+            lineStyle: LineStyle.Solid,
+            title: `HVN (${(node.volume / 1000).toFixed(0)}K)`
+          });
+        });
       }
       if (indicators.trendlines && technicals.trendlines) {
         technicals.trendlines.forEach(line => {
@@ -256,6 +303,22 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
         });
         chart.priceScale('obv').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 }, visible: false });
         obvSeries.setData(technicals.obv.map((v, i) => ({ time: chartData[i]?.time as UTCTimestamp, value: v })).filter(d => Boolean(d.time)));
+      }
+      if (indicators.arima && technicals.arima && !INTRADAY_RANGES.includes(activeRange)) {
+        const last = chartData[chartData.length - 1];
+        const forecast = technicals.arima.forecast;
+        const upper = technicals.arima.confidence95.upper;
+        const lower = technicals.arima.confidence95.lower;
+
+        const mainLine = chart.addSeries(LineSeries, { color: '#a855f7', lineWidth: 2 as any, lineStyle: LineStyle.Dashed, priceLineVisible: false });
+        const upperLine = chart.addSeries(LineSeries, { color: '#a855f744', lineWidth: 1 as any, lineStyle: LineStyle.Dotted, priceLineVisible: false });
+        const lowerLine = chart.addSeries(LineSeries, { color: '#a855f744', lineWidth: 1 as any, lineStyle: LineStyle.Dotted, priceLineVisible: false });
+
+        mainLine.setData([{ time: last.time as UTCTimestamp, value: last.close }, ...forecast.map((v, i) => ({ time: (last.time + 86400 * (i + 1)) as UTCTimestamp, value: v }))]);
+        upperLine.setData([{ time: last.time as UTCTimestamp, value: last.close }, ...upper.map((v, i) => ({ time: (last.time + 86400 * (i + 1)) as UTCTimestamp, value: v }))]);
+        lowerLine.setData([{ time: last.time as UTCTimestamp, value: last.close }, ...lower.map((v, i) => ({ time: (last.time + 86400 * (i + 1)) as UTCTimestamp, value: v }))]);
+        
+        currentSeriesMap.set('arima', mainLine);
       }
     }
 
@@ -323,6 +386,115 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
       });
     }
 
+    // RENDER OPTIONS EXPECTED MOVE PROBABILITY GAP
+    if (indicators.expectedMove && optionsIntelligence?.isValid && !INTRADAY_RANGES.includes(activeRange)) {
+      const last = chartData[chartData.length - 1];
+      const iv = optionsIntelligence.atmImpliedVolatility;
+      const price = last.close;
+      
+      const upperPoints = [{ time: last.time as UTCTimestamp, value: price }];
+      const lowerPoints = [{ time: last.time as UTCTimestamp, value: price }];
+      
+      // Project 30 days or up to expiration
+      const days = Math.min(30, optionsIntelligence.daysToExpiration || 30);
+      
+      for (let i = 1; i <= days; i++) {
+        const time = (last.time + 86400 * i) as UTCTimestamp;
+        const move = price * iv * Math.sqrt(i / 365);
+        upperPoints.push({ time, value: price + move });
+        lowerPoints.push({ time, value: Math.max(0, price - move) });
+      }
+
+      const upperLine = chart.addSeries(LineSeries, { 
+        color: '#34d399', 
+        lineWidth: 1 as any, 
+        lineStyle: LineStyle.Dashed, 
+        priceLineVisible: false, 
+        lastValueVisible: false,
+        title: 'EXPECTED UPPER'
+      });
+      const lowerLine = chart.addSeries(LineSeries, { 
+        color: '#f87171', 
+        lineWidth: 1 as any, 
+        lineStyle: LineStyle.Dashed, 
+        priceLineVisible: false, 
+        lastValueVisible: false,
+        title: 'EXPECTED LOWER'
+      });
+
+      upperLine.setData(upperPoints);
+      lowerLine.setData(lowerPoints);
+      
+      currentSeriesMap.set('expUpper', upperLine);
+      currentSeriesMap.set('expLower', lowerLine);
+    }
+
+    // RENDER INSTITUTIONAL FAIR VALUE GAPS (FVG)
+    if (indicators.fvgs && technicals?.fvgs) {
+      technicals.fvgs.forEach((fvg, idx) => {
+        const opacity = Math.max(0.02, 0.15 * (1 - fvg.mitigation));
+        const area = chart.addSeries(AreaSeries, {
+          topColor: fvg.type === 'BULLISH' ? `rgba(34, 197, 94, ${opacity})` : `rgba(239, 68, 68, ${opacity})`,
+          bottomColor: fvg.type === 'BULLISH' ? `rgba(34, 197, 94, ${opacity * 0.3})` : `rgba(239, 68, 68, ${opacity * 0.3})`,
+          lineVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+          crosshairMarkerVisible: false
+        });
+
+        const points = [];
+        // Draw from the FVG index to the end of the chart
+        for (let j = fvg.index; j < chartData.length; j++) {
+          points.push({
+            time: chartData[j].time as UTCTimestamp,
+            value: fvg.top,
+            bottomValue: fvg.bottom
+          });
+        }
+        area.setData(points as any);
+      });
+    }
+
+    // RENDER EXECUTION SHADOWS (TP/SL ZONES)
+    if (indicators.shadows && technicals?.executionBounds) {
+      const { tpTop, tpBottom, slTop, slBottom } = technicals.executionBounds;
+      
+      const tpArea = chart.addSeries(AreaSeries, {
+        topColor: 'rgba(34, 197, 94, 0.12)',
+        bottomColor: 'rgba(34, 197, 94, 0.02)',
+        lineVisible: false,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        crosshairMarkerVisible: false,
+        title: 'TP ZONE'
+      });
+
+      const slArea = chart.addSeries(AreaSeries, {
+        topColor: 'rgba(239, 68, 68, 0.12)',
+        bottomColor: 'rgba(239, 68, 68, 0.02)',
+        lineVisible: false,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        crosshairMarkerVisible: false,
+        title: 'SL ZONE'
+      });
+
+      const last = chartData[chartData.length - 1];
+      const futureTime = (last.time + 86400 * 14) as UTCTimestamp; // Project 2 weeks out
+
+      const tpPoints = [
+        { time: last.time as UTCTimestamp, value: tpTop, bottomValue: tpBottom },
+        { time: futureTime, value: tpTop, bottomValue: tpBottom }
+      ];
+      const slPoints = [
+        { time: last.time as UTCTimestamp, value: slTop, bottomValue: slBottom },
+        { time: futureTime, value: slTop, bottomValue: slBottom }
+      ];
+
+      tpArea.setData(tpPoints as any);
+      slArea.setData(slPoints as any);
+    }
+
 
     chart.subscribeCrosshairMove(param => {
       const container = chartContainerRef.current;
@@ -346,7 +518,7 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
           setHoveredData({
             time: new Date((param.time as number) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             price: val.toFixed(2), open: open.toFixed(2), high: (data.high ?? val).toFixed(2), low: (data.low ?? val).toFixed(2),
-            volume: m?.volume ? (m.volume > 1e6 ? (m.volume/1e6).toFixed(1) + 'M' : (m.volume/1e3).toFixed(1) + 'K') : '—',
+            volume: m?.volume ? fmtCount(m.volume) : '—',
             changePercent: open ? ((change/open)*100).toFixed(2) : '0.00', isPositive: change >= 0
           });
         }
@@ -385,6 +557,13 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
       }
     }
 
+    if (activeRange === 'ALL' || INTRADAY_RANGES.includes(activeRange)) {
+      chart.timeScale().fitContent();
+    } else {
+      const now = Math.floor(Date.now() / 1000);
+      chart.timeScale().setVisibleRange({ from: (now - RANGE_DAYS[activeRange] * 86400) as UTCTimestamp, to: (now + 172800) as UTCTimestamp });
+    }
+
     return () => { window.removeEventListener('resize', resize); chart.remove(); };
   }, [chartData, color, chartHeight, technicals, prediction, indicators, activeRange, lastTick]);
 
@@ -402,7 +581,7 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
               onClick={() => setShowAnalysisMenu(!showAnalysisMenu)} 
               className={`px-4 py-1.5 border text-[11px] font-bold tracking-widest uppercase transition-all flex items-center gap-2 ${showAnalysisMenu ? 'bg-white/10 border-white/20 text-white' : 'border-white/10 bg-transparent text-zinc-500 hover:text-zinc-300'}`}
             >
-              Analysis
+              STUDIES
             </button>
             {showAnalysisMenu && (
               <div className="absolute top-12 right-0 z-[60] w-56 bg-[#0a0a0a] border border-white/10 p-2 shadow-none animate-in fade-in slide-in-from-top-2">
@@ -416,7 +595,12 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
                 <MenuToggle active={indicators.obv} onClick={() => setIndicators(s => ({ ...s, obv: !s.obv }))} label="Inst. OBV" />
                 <MenuToggle active={indicators.volume} onClick={() => setIndicators(s => ({ ...s, volume: !s.volume }))} label="Volume" />
                 <MenuToggle active={indicators.levels} onClick={() => setIndicators(s => ({ ...s, levels: !s.levels }))} label="S/R Levels" />
+                <MenuToggle active={indicators.vpNodes} onClick={() => setIndicators(s => ({ ...s, vpNodes: !s.vpNodes }))} label="Vol. Profile HVNs" />
+                <MenuToggle active={indicators.arima} onClick={() => setIndicators(s => ({ ...s, arima: !s.arima }))} label="ARIMA Projection" />
                 <MenuToggle active={indicators.trendlines} onClick={() => setIndicators(s => ({ ...s, trendlines: !s.trendlines }))} label="Trendlines" />
+                <MenuToggle active={indicators.expectedMove} onClick={() => setIndicators(s => ({ ...s, expectedMove: !s.expectedMove }))} label="Expected Move (σ1)" />
+                <MenuToggle active={indicators.shadows} onClick={() => setIndicators(s => ({ ...s, shadows: !s.shadows }))} label="Execution Shadows" />
+                <MenuToggle active={indicators.fvgs} onClick={() => setIndicators(s => ({ ...s, fvgs: !s.fvgs }))} label="Liquidity FVGs" />
               </div>
             )}
           </div>
@@ -434,7 +618,7 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
               high: chartData[chartData.length-1].high.toFixed(2),
               low: chartData[chartData.length-1].low.toFixed(2),
               price: chartData[chartData.length-1].close.toFixed(2),
-              volume: chartData[chartData.length-1].volume > 1e6 ? (chartData[chartData.length-1].volume/1e6).toFixed(1) + 'M' : (chartData[chartData.length-1].volume/1e3).toFixed(1) + 'K',
+              volume: fmtCount(chartData[chartData.length-1].volume),
               changePercent: (((chartData[chartData.length-1].close - chartData[chartData.length-1].open) / chartData[chartData.length-1].open) * 100).toFixed(2),
               isPositive: chartData[chartData.length-1].close >= chartData[chartData.length-1].open
             } : null);
@@ -445,9 +629,12 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
               ema200: technicals?.ema200?.[technicals.ema200.length - 1],
               kalman: technicals?.kalman?.[technicals.kalman.length - 1],
               vwap: technicals?.vwap?.[technicals.vwap.length - 1],
+              arima: technicals?.arima?.forecast?.[0],
               p50: prediction?.p50,
               p90: prediction?.p90,
-              p10: prediction?.p10
+              p10: prediction?.p10,
+              expUpper: optionsIntelligence?.upperBound,
+              expLower: optionsIntelligence?.lowerBound
             };
 
             if (!display) return null;
@@ -471,6 +658,7 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
                   {indicators.vwap && <GlassBoxLegendItem label="VWAP" value={indDisplay.vwap?.toFixed(2)} color="#38bdf8" />}
                   {indicators.sma50 && <GlassBoxLegendItem label="SMA 50" value={indDisplay.sma50?.toFixed(2)} theoryKey="SMA" color={CHART_COLORS.SMA_50} />}
                   {indicators.ema200 && <GlassBoxLegendItem label="EMA 200" value={indDisplay.ema200?.toFixed(2)} theoryKey="EMA" color={CHART_COLORS.EMA_200} />}
+                  {indicators.arima && <GlassBoxLegendItem label="ARIMA" value={indDisplay.arima?.toFixed(2)} color="#a855f7" isDashed />}
                   {indicators.bollinger && <GlassBoxLegendItem label="BB" theoryKey="Bollinger" color={CHART_COLORS.BOLLINGER_BANDS_LEGEND} />}
                   {indicators.kalman && (
                     <>
@@ -481,9 +669,13 @@ export const VectorChart = ({ data: initialData, ticker, color = '#23d18b', heig
                         color={CHART_COLORS.NEURAL_VECTOR} 
                         isDashed 
                       />
+                      <GlassBoxLegendItem label="Gaussian Cloud" color={`${CHART_COLORS.NEURAL_VECTOR}66`} />
                       <GlassBoxLegendItem label="P90" value={indDisplay.p90?.toFixed(2)} color={CHART_COLORS.BULLISH} isDotted />
                       <GlassBoxLegendItem label="P10" value={indDisplay.p10?.toFixed(2)} color={CHART_COLORS.BEARISH} isDotted />
                     </>
+                  )}
+                  {indicators.expectedMove && optionsIntelligence && (
+                    <GlassBoxLegendItem label="σ1 Gap" value={`±$${optionsIntelligence.expectedMoveDollars.toFixed(2)}`} color="#34d399" isDashed />
                   )}
                 </div>
               </div>

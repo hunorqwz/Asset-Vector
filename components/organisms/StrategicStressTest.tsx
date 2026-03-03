@@ -31,18 +31,34 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
                 </span>
               </div>
               <p className="mt-3 text-[9px] text-zinc-500 font-bold uppercase leading-relaxed tracking-tight">
-                {Math.round(Math.abs(risk.portfolioBeta - 1) * 100)}% {risk.portfolioBeta > 1 ? 'more' : 'less'} volatile than S&P 500.
+                Benchmark: S&P 500 (SPY)
               </p>
             </div>
 
             <div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Realized Volatility</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Value at Risk (95% VaR)</p>
               <div className="flex items-baseline gap-3">
-                <span className="text-4xl font-bold font-mono text-white tracking-tighter">{risk.volatilityAnnualized}%</span>
+                <span className="text-4xl font-bold font-mono text-white tracking-tighter">{risk.var95}%</span>
               </div>
               <p className="mt-3 text-[9px] text-zinc-500 font-bold uppercase leading-relaxed tracking-tight">
-                Annualized standard deviation of Capital returns.
+                Institutional Confidence Interval
               </p>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Regime Alignment</p>
+              <div className="flex items-center gap-4 mb-2">
+                <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${risk.regimeAlignment > 70 ? 'bg-bull' : risk.regimeAlignment > 40 ? 'bg-matrix' : 'bg-bear'}`}
+                    style={{ width: `${risk.regimeAlignment}%` }}
+                  />
+                </div>
+                <span className="text-[14px] font-bold font-mono text-white">{risk.regimeAlignment}%</span>
+              </div>
+              <span className="text-[9px] font-bold text-matrix uppercase tracking-widest bg-matrix/10 px-2 py-0.5 rounded">
+                {risk.regimeLabel}
+              </span>
             </div>
 
             {risk.correlationAlerts.length > 0 && (
@@ -54,7 +70,7 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
                   Concentration Warnings
                 </p>
                 <div className="space-y-3">
-                  {risk.correlationAlerts.map((alert, i) => (
+                  {risk.correlationAlerts.slice(0, 2).map((alert, i) => (
                     <div key={i} className="text-[10px] text-zinc-400 font-medium leading-relaxed border-l-2 border-bear/30 pl-3">
                       {alert}
                     </div>
@@ -101,7 +117,7 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
           <div className="mt-10 p-4 border border-white/5 bg-white/[0.02] rounded flex items-center gap-4">
              <div className="text-[9px] bg-matrix/20 text-matrix px-1.5 py-0.5 rounded font-black tracking-widest uppercase shrink-0">BETA-0.12 ADAPTIVE</div>
              <p className="text-[10px] text-zinc-500 font-medium leading-relaxed uppercase tracking-tighter">
-               Risk Engine detected {risk.portfolioBeta > 1.5 ? 'Extreme' : 'Nominal'} sensitivity to systemic factor rotation. Recommendation: {risk.portfolioBeta > 1.2 ? 'Consider adding defensive hedges (Hedged/Cash).' : 'Portfolio maintains balanced exposure profile.'}
+               Macro Alignment: {risk.regimeAlignment}% in {risk.regimeLabel}. {risk.regimeAlignment > 70 ? 'Allocation optimally fits the current market structure.' : 'Structural mismatch detected: Consider rebalancing for better regime residency.'}
              </p>
           </div>
         </div>

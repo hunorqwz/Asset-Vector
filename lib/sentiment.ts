@@ -12,6 +12,7 @@ export interface SentimentReport {
   headlineCount: number;
   drivers: NarrativeDriver[];
   drift: "STABLE" | "ACCELERATING_BULL" | "ACCELERATING_BEAR" | "REVERSAL";
+  velocity: number; // Rate of change in sentiment (-2 to 2)
 }
 
 // Institutional Keyword Sets for High-Precision Heuristics
@@ -21,7 +22,7 @@ const NEGATIVE_KEYWORDS = new Set(["drop", "plunge", "fall", "crash", "miss", "w
 export class SentimentFallback {
   static analyze(heads: NarrativeArticle[]): SentimentReport {
     if (heads.length === 0) {
-      return { score: 0, label: "NEUTRAL", headlineCount: 0, drivers: [], drift: "STABLE" };
+      return { score: 0, label: "NEUTRAL", headlineCount: 0, drivers: [], drift: "STABLE", velocity: 0 };
     }
 
     let weightedScore = 0;
@@ -30,13 +31,10 @@ export class SentimentFallback {
     let bearCount = 0;
     const kwMap = new Map<string, number>();
 
-    const now = new Date().getTime();
-
+    // 1. Initial Scoring & Keyword Mapping
     heads.forEach(article => {
       let localScore = 0;
-      // Financial Lexical Tokenizer (v2.3): Preserves tickers (A-Z, dots, dashes) and prevents word fragmentation
       const tokens = article.title.toLowerCase().match(/[a-z0-9._-]+/g) || [];
-      
       tokens.forEach(w => {
         if (POSITIVE_KEYWORDS.has(w)) {
           localScore++;
@@ -47,26 +45,29 @@ export class SentimentFallback {
           kwMap.set(w, (kwMap.get(w) || 0) + 1);
         }
       });
+      (article as any)._localScore = localScore;
+    });
 
-      // 1. Time Decay (Recency Weighting)
-      const ageHours = (now - new Date(article.date).getTime()) / (1000 * 60 * 60);
-      const timeWeight = Math.max(0.1, 1 / (1 + ageHours / 24)); // Weight decays over 24h
-      
+    // 2. Velocity Calculation (Delta over the last 12h)
+    const recentHeads = heads.filter(h => ageInHours(h.date) <= 12);
+    const baselineHeads = heads.filter(h => ageInHours(h.date) > 12 && ageInHours(h.date) <= 48);
+    const recentAvg = recentHeads.length > 0 ? recentHeads.reduce((s, h) => s + ((h as any)._localScore || 0), 0) / recentHeads.length : 0;
+    const baselineAvg = baselineHeads.length > 0 ? baselineHeads.reduce((s, h) => s + ((h as any)._localScore || 0), 0) / baselineHeads.length : 0;
+    const velocity = Number((recentAvg - baselineAvg).toFixed(2));
+
+    // 3. Weighted Aggregation (Time-Decay)
+    heads.forEach(article => {
+      const localScore = (article as any)._localScore || 0;
+      const ageHours = ageInHours(article.date);
+      const timeWeight = Math.max(0.1, 1 / (1 + ageHours / 24));
       weightedScore += localScore * timeWeight;
       totalWeight += timeWeight;
-
       if (localScore > 0) bullCount++;
       else if (localScore < 0) bearCount++;
     });
 
-    // 2. Narrative Stability (Agreement Check)
-    // If news is conflicting (e.g. 50/50 bull/bear), the narrative is "unstable"
     const totalSentimentBars = bullCount + bearCount;
-    const agreement = totalSentimentBars > 0 
-      ? Math.abs(bullCount - bearCount) / totalSentimentBars 
-      : 1;
-
-    // Final Normalized Score (-1 to 1)
+    const agreement = totalSentimentBars > 0 ? Math.abs(bullCount - bearCount) / totalSentimentBars : 1;
     let score = totalWeight > 0 ? weightedScore / (totalWeight * 0.5 + 1) : 0;
     score = Math.max(-1, Math.min(1, score * agreement));
 
@@ -76,7 +77,6 @@ export class SentimentFallback {
       impact: POSITIVE_KEYWORDS.has(word) ? "BULLISH" : "BEARISH"
     })) as NarrativeDriver[];
 
-    // 3. Drift Detection
     let drift: SentimentReport['drift'] = "STABLE";
     if (agreement < 0.4 && totalSentimentBars >= 2) drift = "REVERSAL";
     else if (score > 0.4) drift = "ACCELERATING_BULL";
@@ -87,15 +87,20 @@ export class SentimentFallback {
       label: score > 0.2 ? "BULLISH" : (score < -0.2 ? "BEARISH" : "NEUTRAL"),
       headlineCount: heads.length,
       drivers: drivers.length > 0 ? drivers : [{ driver: "General Market Narrative", impact: "NEUTRAL" }],
-      drift
+      drift,
+      velocity
     };
   }
+}
+
+function ageInHours(date: string): number {
+  return (new Date().getTime() - new Date(date).getTime()) / (1000 * 60 * 60);
 }
 
 export class SentimentAnalyzer {
   static async analyzeAsync(ticker: string, heads: NarrativeArticle[]): Promise<SentimentReport> {
     if (!heads || heads.length === 0) {
-      return { score: 0, label: "NEUTRAL", headlineCount: 0, drivers: [], drift: "STABLE" };
+      return { score: 0, label: "NEUTRAL", headlineCount: 0, drivers: [], drift: "STABLE", velocity: 0 };
     }
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -142,7 +147,8 @@ Limit output to 3 primary drivers maximum. Make drivers sound extremely professi
         label: parsed.label || "NEUTRAL",
         headlineCount: heads.length,
         drivers: parsed.drivers || [],
-        drift: parsed.drift || "STABLE"
+        drift: parsed.drift || "STABLE",
+        velocity: SentimentFallback.analyze(heads).velocity // Use heuristic velocity for precision 
       };
 
     } catch (error) {

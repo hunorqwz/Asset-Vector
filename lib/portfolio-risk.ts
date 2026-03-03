@@ -6,6 +6,8 @@ import {
   calculateCorrelation, 
   calculateBeta 
 } from "./math";
+import { fetchMarketPulse, MarketPulseData } from "./market-pulse";
+import { RegimeDetector } from "./regime";
 
 export interface ScenarioResult {
   name: string;
@@ -25,6 +27,9 @@ export interface RiskIntelligence {
   scenarios: ScenarioResult[];
   volatilityAnnualized: number;
   correlationMatrix: CorrelationMatrix;
+  var95: number; // 95% Confidence Value at Risk (Daily)
+  regimeAlignment: number; // 0-100 indicating how well the portfolio fits the current macro regime
+  regimeLabel: string;
 }
 
 /**
@@ -38,6 +43,9 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
       correlationAlerts: [], 
       scenarios: [], 
       volatilityAnnualized: 0,
+      var95: 0,
+      regimeAlignment: 50,
+      regimeLabel: "N/A",
       correlationMatrix: { tickers: [], matrix: [] }
     };
   }
@@ -64,6 +72,9 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
        correlationAlerts: [], 
        scenarios: [], 
        volatilityAnnualized: 0,
+       var95: 0,
+       regimeAlignment: 50,
+       regimeLabel: "Insufficient History",
        correlationMatrix: { tickers: positions.map(p => p.ticker), matrix: [] }
     };
   }
@@ -117,43 +128,97 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
     }
   }
 
-  // 4. Calculate Portfolio Daily Returns & Volatility
+  // 4. Calculate Portfolio Daily Returns & Volatility (Time-Synced)
   const portfolioDailyReturns: number[] = [];
-  const days = spyReturns.length;
   
-  for (let d = 0; d < days; d++) {
+  // Use SPY as the time master
+  spyHistory.slice(1).forEach((bar, i) => {
+    const t = bar.time;
     let dayRet = 0;
+    let activeWeight = 0;
+
     positions.forEach(pos => {
-      const assetRets = assetReturnsMap[pos.ticker];
-      if (assetRets && assetRets[d] !== undefined) {
-        dayRet += assetRets[d] * pos.weight;
+      const assetHist = historyData.find(h => h.ticker === pos.ticker)?.history || [];
+      const match = assetHist.find(h => h.time === t);
+      const prevMatch = assetHist.find(h => h.time === spyHistory[i].time); // i is index of previous bar
+
+      if (match && prevMatch) {
+         const ret = (match.close - prevMatch.close) / prevMatch.close;
+         dayRet += ret * pos.weight;
+         activeWeight += pos.weight;
       }
     });
-    portfolioDailyReturns.push(dayRet);
-  }
+
+    // If we only have data for 50% of the portfolio, re-scale the return to 100%
+    if (activeWeight > 0) {
+      portfolioDailyReturns.push(dayRet / activeWeight);
+    }
+  });
 
   const portfolioVariance = calculateVariance(portfolioDailyReturns);
   const portfolioVolAnnual = Math.sqrt(portfolioVariance) * Math.sqrt(252);
 
-  // 5. Strategic Scenarios
+  // 5. Macro Regime Analysis (Surgical Integration)
+  const pulse = await fetchMarketPulse().catch(() => null);
+  let regimeAlignment = 50;
+  let regimeLabel = "Neutral / Transition";
+
+  if (pulse) {
+    const spyPrices = spyHistory.map(h => h.close);
+    const mktRegime = RegimeDetector.detect(spyPrices);
+    
+    // Detect Market Trend Direction
+    const lastPrice = spyPrices[spyPrices.length - 1];
+    const prevPrice = spyPrices[spyPrices.length - 21]; // 1 month ago
+    const mktTrend = lastPrice > prevPrice ? 'BULLISH' : 'BEARISH';
+
+    if (mktRegime.regime === "MOMENTUM") {
+      if (mktTrend === 'BULLISH') {
+        // Bullish Momentum: High Beta is aligned
+        regimeAlignment = totalPortfolioBeta > 1.1 ? 85 : (totalPortfolioBeta < 0.8 ? 40 : 65);
+      } else {
+        // Bearish Momentum: Low/Inverse Beta is aligned
+        regimeAlignment = totalPortfolioBeta < 0.8 ? 80 : (totalPortfolioBeta > 1.2 ? 20 : 45);
+      }
+      regimeLabel = `${mktTrend} Trend (${mktRegime.regime})`;
+    } else if (mktRegime.regime === "MEAN_REVERSION") {
+      // Mean Reversion: Rewards low-beta and tactical diversification
+      regimeAlignment = totalPortfolioBeta < 0.9 ? 80 : (totalPortfolioBeta > 1.2 ? 25 : 55);
+      regimeLabel = `Mean Reversion (${mktRegime.regime})`;
+    } else {
+      regimeAlignment = totalPortfolioBeta > 0.9 && totalPortfolioBeta < 1.1 ? 75 : 50;
+      regimeLabel = "Random Walk / Noise";
+    }
+
+    // Impact of Yields (US10Y)
+    if (pulse.macro.us10y.change > 2 && totalPortfolioBeta > 1.2) {
+      alerts.push("Yield Surge: High-Beta portfolio is extremely sensitive to rising rates. Expect valuation compression.");
+      regimeAlignment -= 15;
+    }
+  }
+
+  // 6. Value at Risk (VaR) 95% - Institutional Confidence
+  const var95 = 1.645 * Math.sqrt(portfolioVariance);
+
+  // 7. Dynamic Stress Scenarios (Advanced Calibration)
   const scenarios: ScenarioResult[] = [
     {
-      name: "Mild Tech Correction",
-      description: "S&P 500 drops 5% in a broad market rotation.",
-      projectedReturn: -5 * totalPortfolioBeta,
-      impactLevel: (Math.abs(-5 * totalPortfolioBeta) > 10) ? 'HIGH' : (Math.abs(-5 * totalPortfolioBeta) > 5) ? 'MEDIUM' : 'LOW'
+      name: "Global De-risking",
+      description: "Yield curve inversion triggers 7% S&P 500 liquidation.",
+      projectedReturn: -7 * totalPortfolioBeta,
+      impactLevel: (Math.abs(-7 * totalPortfolioBeta) > 10) ? 'HIGH' : 'MEDIUM'
     },
     {
-      name: "Systemic Crisis (2020 Style)",
-      description: "Volatility surge, S&P 500 crashes 20% in 10 days.",
-      projectedReturn: -20 * totalPortfolioBeta,
+      name: "Short Squeeze / Relief",
+      description: "Oversold bounce + Dovish Pivot rallies market 5%.",
+      projectedReturn: 5 * totalPortfolioBeta,
+      impactLevel: 'LOW'
+    },
+    {
+      name: "Black Swan (Fat Tail)",
+      description: "Tail risk event: VIX spikes to 40+, Market -15%.",
+      projectedReturn: -15 * totalPortfolioBeta,
       impactLevel: 'HIGH'
-    },
-    {
-      name: "Market Euphoria",
-      description: "S&P 500 rallies 10% on Dovish Fed pivot.",
-      projectedReturn: 10 * totalPortfolioBeta,
-      impactLevel: 'MEDIUM'
     }
   ];
 
@@ -162,10 +227,12 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
     correlationAlerts: alerts,
     scenarios,
     volatilityAnnualized: Number((portfolioVolAnnual * 100).toFixed(2)),
+    var95: Number((var95 * 100).toFixed(2)),
     correlationMatrix: {
       tickers: activeTickers,
       matrix
-    }
+    },
+    regimeAlignment: Math.max(0, Math.min(100, regimeAlignment)),
+    regimeLabel
   };
 }
-
