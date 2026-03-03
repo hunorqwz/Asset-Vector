@@ -1,4 +1,4 @@
-import { RSI, MACD, BollingerBands } from 'technicalindicators';
+import { RSI, MACD, BollingerBands, SMA, ATR } from 'technicalindicators';
 import { OHLCV } from './market-data';
 
 export interface PivotLevel {
@@ -50,6 +50,10 @@ export interface TechnicalIndicators {
     level100: number;
   } | null;
   orderBlocks: OrderBlock[];
+  volatilityCompression: {
+    isSqueezing: boolean;
+    compressionScore: number; // 0-100 scale
+  };
 }
 
 /**
@@ -75,7 +79,8 @@ export function generateTechnicalConfluence(
       bollingerBands: { upper: 0, middle: 0, lower: 0, percentB: 0.5 },
       predictivePivots: null,
       fibonacci: null,
-      orderBlocks: []
+      orderBlocks: [],
+      volatilityCompression: { isSqueezing: false, compressionScore: 0 }
     };
   }
 
@@ -96,6 +101,31 @@ export function generateTechnicalConfluence(
   const bbValues = BollingerBands.calculate({ period: 20, stdDev: 2, values: prices });
   const lastBB = bbValues[bbValues.length - 1] || { upper: 0, middle: 0, lower: 0 };
   const percentB = lastBB.upper !== lastBB.lower ? (lastPrice - lastBB.lower) / (lastBB.upper - lastBB.lower) : 0.5;
+
+  // 1.5. Keltner Channels (for Squeeze Detection)
+  const atrValues = ATR.calculate({
+    high: history.map(h => h.high),
+    low: history.map(h => h.low),
+    close: history.map(h => h.close),
+    period: 20
+  });
+  const sma20 = SMA.calculate({ period: 20, values: prices });
+  
+  const lastSMA = sma20[sma20.length - 1];
+  const lastATR = atrValues[atrValues.length - 1];
+  
+  // TTM Squeeze: Bollinger Bands (20, 2) vs Keltner Channels (20, 1.5)
+  // If BB is inside KC, it's a Squeeze
+  const kcUpper = lastSMA + (1.5 * lastATR);
+  const kcLower = lastSMA - (1.5 * lastATR);
+  
+  const isSqueezing = lastBB.upper < kcUpper && lastBB.lower > kcLower;
+  
+  // Compression Score: 0 (wide) to 100 (extreme squeeze)
+  // Measured by ratio of BB width to KC width
+  const bbWidth = lastBB.upper - lastBB.lower;
+  const kcWidth = kcUpper - kcLower;
+  const compressionScore = kcWidth > 0.00000001 ? Math.max(0, Math.min(100, (1 - (bbWidth / kcWidth)) * 200)) : 0;
 
   // 2. High-Precision Confluence Logic
   let score = 50;
@@ -121,8 +151,8 @@ export function generateTechnicalConfluence(
   }
 
   // C. ADAPTIVE RSI (Regime-Aware)
-  // In highly predictable trends (Hurst > 0.6), we don't sell overbought RSI
-  const isTrending = predictability > 0.2; 
+  // In highly predictable trends (Hurst > 0.55), we don't sell overbought RSI
+  const isTrending = predictability > 0.55; 
   if (isTrending) {
     if (rsi14 > 70) score += 10; // Strength confirmation
     else if (rsi14 < 30) score -= 10; // Extreme weakness
@@ -148,6 +178,11 @@ export function generateTechnicalConfluence(
   else if (score >= 60) signal = 'BUY';
   else if (score <= 25) signal = 'STRONG SELL';
   else if (score <= 40) signal = 'SELL';
+  
+  // Squeeze Factor (High energy consolidation)
+  if (isSqueezing) {
+    if (compressionScore > 50) score += 5; // Slight bias for high energy setups
+  }
 
   // 4. Structural Analysis (Static calculation)
   const lastBar = history[history.length - 1];
@@ -170,19 +205,31 @@ export function generateTechnicalConfluence(
   const orderBlocks: OrderBlock[] = [];
   const lookback = Math.min(history.length, 90);
   const recentHistory = history.slice(-lookback);
+  
   for (let i = 0; i < recentHistory.length - 2; i++) {
     const c1 = recentHistory[i], c2 = recentHistory[i + 1], c3 = recentHistory[i + 2];
+    
+    // Efficiency: Early break if future bars already surpassed these zones
     if (c3.low > c1.high && c2.close > c2.open) {
       const top = c3.low, bottom = c1.high;
-      let mitigated = false;
-      for (let j = i + 3; j < recentHistory.length; j++) { if (recentHistory[j].low <= top) { mitigated = true; break; } }
-      if (!mitigated) orderBlocks.push({ type: 'BULLISH', top, bottom, date: new Date(c2.time * 1000).toISOString().split('T')[0] });
+      const isMitigated = recentHistory.slice(i + 3).some(bar => bar.low <= top);
+      if (!isMitigated) {
+        orderBlocks.push({ 
+          type: 'BULLISH', top, bottom, 
+          date: new Date(c2.time * 1000).toISOString().split('T')[0] 
+        });
+      }
     }
+    
     if (c3.high < c1.low && c2.close < c2.open) {
       const top = c1.low, bottom = c3.high;
-      let mitigated = false;
-      for (let j = i + 3; j < recentHistory.length; j++) { if (recentHistory[j].high >= bottom) { mitigated = true; break; } }
-      if (!mitigated) orderBlocks.push({ type: 'BEARISH', top, bottom, date: new Date(c2.time * 1000).toISOString().split('T')[0] });
+      const isMitigated = recentHistory.slice(i + 3).some(bar => bar.high >= bottom);
+      if (!isMitigated) {
+        orderBlocks.push({ 
+          type: 'BEARISH', top, bottom, 
+          date: new Date(c2.time * 1000).toISOString().split('T')[0] 
+        });
+      }
     }
   }
 
@@ -193,7 +240,8 @@ export function generateTechnicalConfluence(
     rsi14: Math.round(rsi14),
     macd: { line: lastMacd.MACD || 0, signal: lastMacd.signal || 0, histogram: lastMacd.histogram || 0 },
     bollingerBands: { upper: lastBB.upper, middle: lastBB.middle, lower: lastBB.lower, percentB },
-    predictivePivots, fibonacci, orderBlocks: orderBlocks.reverse().slice(0, 3)
+    predictivePivots, fibonacci, orderBlocks: orderBlocks.reverse().slice(0, 3),
+    volatilityCompression: { isSqueezing, compressionScore: Math.round(compressionScore) }
   };
 }
 
@@ -238,9 +286,9 @@ export function detectSupportResistance(data: OHLCV[], sensitivity: number = 0.0
     // We use log-distance to ensure sensitivity is relative to price magnitude (v2.1)
     const existing = clusters.find(c => Math.abs(Math.log(c.price / p.price)) < sensitivity);
     if (existing) {
+      // Correcting Weighted Log-Averaging for precision centroids (v2.2)
+      existing.price = Math.exp(((Math.log(existing.price) * existing.touches) + Math.log(p.price)) / (existing.touches + 1));
       existing.touches++;
-      // Average the level in log-space for better geometric centering
-      existing.price = Math.exp((Math.log(existing.price) + Math.log(p.price)) / 2);
       existing.types.push(p.type);
     } else {
       clusters.push({ price: p.price, touches: 1, types: [p.type] });

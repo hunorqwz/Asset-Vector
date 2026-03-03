@@ -94,8 +94,8 @@ export default async function DiscoveryPage() {
 
 function ScannerInfoCard({ title, description, color }: { title: string, description: string, color: string }) {
   return (
-    <div className="glass-card p-6 border border-white/10 bg-gradient-to-br from-zinc-900/50 to-zinc-950/80 backdrop-blur-md relative overflow-hidden group hover:border-white/20 hover:-translate-y-1 transition-all duration-300 flex flex-col">
-      <div className={`absolute -top-4 -right-4 w-24 h-24 ${color} opacity-[0.03] blur-2xl group-hover:opacity-10 transition-opacity duration-300`} />
+    <div className="glass-card p-6 border border-white/10 bg-gradient-to-br from-zinc-900/50 to-zinc-950/80 backdrop-blur-md relative overflow-hidden transition-all duration-300 flex flex-col">
+      <div className={`absolute -top-4 -right-4 w-24 h-24 ${color} opacity-[0.03] blur-2xl`} />
       <div className="flex items-center gap-3 mb-3 relative z-10">
         <div className={`w-2 h-2 ${color} rounded-sm opacity-80`} />
         <h3 className="text-[12px] font-bold text-white uppercase tracking-[0.2em]">{title}</h3>
@@ -115,12 +115,12 @@ function DiscoveryCard({ pick }: { pick: AlphaPick }) {
   return (
     <Link 
       href={`/asset/${pick.ticker}`} 
-      className="glass-card flex flex-col h-full border border-white/10 hover:border-white/20 bg-gradient-to-br from-zinc-900/40 to-black/60 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 p-6 group"
+      className="glass-card flex flex-col h-full border border-white/10 bg-gradient-to-br from-zinc-900/40 to-black/60 backdrop-blur-sm transition-all duration-300 p-6 group"
     >
       <div className="flex justify-between items-start mb-6 gap-3">
-        <div className="flex-1 min-w-0 pr-2">
-          <span className="text-sm font-bold font-mono text-white block mb-1 uppercase tracking-wider">{pick.ticker}</span>
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em] truncate block w-full group-hover:text-zinc-400 transition-colors">{pick.name}</span>
+        <div className="flex-1 min-w-0 pr-2 pb-1 border-b border-white/5 mb-1">
+          <span className="text-sm font-bold font-mono text-white block mb-0.5 uppercase tracking-wider">{pick.ticker}</span>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em] block w-full whitespace-nowrap overflow-hidden group-hover:text-zinc-400 transition-colors">{pick.name}</span>
         </div>
         <div className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 border rounded uppercase tracking-tighter shadow-sm ${scannerColors[pick.scanner as keyof typeof scannerColors]}`}>
           {pick.scanner}

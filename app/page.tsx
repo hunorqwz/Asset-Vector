@@ -81,7 +81,7 @@ export default async function Home() {
               {signals.length > 0 ? (
                 <WatchlistGrid>
                   {signals.map((s, i) => {
-                    const isAlpha = detectSectorAlpha(s.ticker, ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100, pulseData);
+                    const isAlpha = detectSectorAlpha(s.ticker, ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100, pulseData, s.sector);
                     return (
                       <WatchlistItem 
                         key={i} 

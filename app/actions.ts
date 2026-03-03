@@ -98,8 +98,8 @@ export async function getMarketSignals(): Promise<MarketSignal[]> {
     }
   }));
 
-  // Fire and forget evaluation of old signals occasionally
-  evaluateOldSignals().catch(() => {});
+  // Await evaluation of old signals to ensure accuracy scores are processed
+  await evaluateOldSignals().catch(() => {});
 
   return results.filter((r): r is MarketSignal => r !== null);
 }
@@ -171,7 +171,7 @@ export async function getAssetDetails(ticker: string) {
   const prediction = await predictNextHorizon(sequence, sym);
   
   if (signal) await archiveSignal(signal);
-  evaluateOldSignals().catch(() => {});
+  await evaluateOldSignals().catch(() => {});
 
   return { ...signal, prediction, stockDetails };
 }
@@ -181,7 +181,7 @@ export async function getMinimalAssetDetails(ticker: string) {
   // Fetch only 300 bars (sufficient for Regime/Kalman) instead of 2500
   // Avoid fully running predictNextHorizon on the server for background tasks
   const [signal, stockDetails] = await Promise.all([
-    fetchMarketData(sym, 300),
+    fetchMarketData(sym, 100),
     fetchStockDetails(sym), // This is heavily cached (1 hour)
   ]);
   
@@ -207,6 +207,7 @@ export async function getWatchlistTickers(): Promise<string[]> {
 export async function addAllToWatchlist() {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "UNAUTHORIZED" };
+  const userId = session.user.id;
 
   try {
     const currentWatchlist = await db.query.userWatchlists.findMany({ 
@@ -230,21 +231,23 @@ export async function addAllToWatchlist() {
     const availableSlots = WATCHLIST_LIMIT - currentWatchlist.length;
     const finallyToAdd = toAdd.slice(0, availableSlots);
 
-    for (const pos of finallyToAdd as any[]) {
-        // Register asset globally if it doesn't exist
-        await db.insert(assets).values({ 
-            ticker: pos.ticker, 
-            name: pos.name.substring(0, 50), 
-            isActive: true, 
-             sector: "Unknown" 
-        }).onConflictDoUpdate({ target: assets.ticker, set: { isActive: true } });
+    // Batch upsert assets globally
+    const assetEntries = finallyToAdd.map((pos: any) => ({
+        ticker: pos.ticker,
+        name: pos.name.substring(0, 50),
+        isActive: true,
+        sector: "Unknown"
+    }));
+    await db.insert(assets).values(assetEntries)
+        .onConflictDoUpdate({ target: assets.ticker, set: { isActive: true } });
 
-        // Link to user's personal watchlist
-        await db.insert(userWatchlists).values({
-            userId: session.user.id,
-            ticker: pos.ticker
-        }).onConflictDoNothing();
-    }
+    // Batch insertion into user watchlist
+    const watchlistEntries = finallyToAdd.map((pos: any) => ({
+        userId,
+        ticker: pos.ticker
+    }));
+    await db.insert(userWatchlists).values(watchlistEntries)
+        .onConflictDoNothing();
 
     revalidatePath("/");
     revalidatePath("/portfolio");

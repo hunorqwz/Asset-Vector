@@ -1,4 +1,11 @@
 import { fetchHistoryWithInterval } from "./market-data";
+import { 
+  calculateArithmeticReturns as calculateReturns, 
+  calculateVariance, 
+  calculateCovariance, 
+  calculateCorrelation, 
+  calculateBeta 
+} from "./math";
 
 export interface ScenarioResult {
   name: string;
@@ -51,7 +58,7 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
   );
 
   const spyHistory = historyData.find(h => h.ticker === spyTicker)?.history || [];
-  if (spyHistory.length < 50) {
+  if (spyHistory.length < 252) {
      return { 
        portfolioBeta: 1, 
        correlationAlerts: [], 
@@ -70,7 +77,7 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
 
   positions.forEach(pos => {
     const assetHist = historyData.find(h => h.ticker === pos.ticker)?.history || [];
-    if (assetHist.length < 50) {
+    if (assetHist.length < 252) {
       totalPortfolioBeta += pos.weight * 1; // Default to market beta if data is missing
       return;
     }
@@ -78,8 +85,7 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
     const assetReturns = calculateReturns(assetHist.map(h => h.close));
     assetReturnsMap[pos.ticker] = assetReturns;
 
-    const cov = calculateCovariance(assetReturns, spyReturns);
-    const beta = spyVariance !== 0 ? cov / spyVariance : 1;
+    const beta = calculateBeta(assetReturns, spyReturns);
     totalPortfolioBeta += pos.weight * beta;
   });
 
@@ -163,45 +169,3 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
   };
 }
 
-// Math Helpers
-function calculateReturns(prices: number[]): number[] {
-  const returns: number[] = [];
-  for (let i = 1; i < prices.length; i++) {
-    if (prices[i-1] > 0) {
-      returns.push((prices[i] - prices[i-1]) / prices[i-1]);
-    }
-  }
-  return returns;
-}
-
-function calculateVariance(data: number[]): number {
-  const mean = data.reduce((a, b) => a + b, 0) / data.length;
-  return data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (data.length - 1);
-}
-
-function calculateCovariance(data1: number[], data2: number[]): number {
-  const minLen = Math.min(data1.length, data2.length);
-  const d1 = data1.slice(-minLen);
-  const d2 = data2.slice(-minLen);
-  const mean1 = d1.reduce((a, b) => a + b, 0) / minLen;
-  const mean2 = d2.reduce((a, b) => a + b, 0) / minLen;
-  
-  let cov = 0;
-  for (let i = 0; i < minLen; i++) {
-    cov += (d1[i] - mean1) * (d2[i] - mean2);
-  }
-  return cov / (minLen - 1);
-}
-
-function calculateCorrelation(data1: number[], data2: number[]): number {
-  const minLen = Math.min(data1.length, data2.length);
-  const d1 = data1.slice(-minLen);
-  const d2 = data2.slice(-minLen);
-  
-  const cov = calculateCovariance(d1, d2);
-  const var1 = calculateVariance(d1);
-  const var2 = calculateVariance(d2);
-  
-  if (var1 === 0 || var2 === 0) return 0;
-  return cov / (Math.sqrt(var1) * Math.sqrt(var2));
-}

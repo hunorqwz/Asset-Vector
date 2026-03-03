@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import Link from "next/link";
+import { resolveCanvasColor } from "@/lib/chart-config";
 
 // 1. SPARKLINE COMPONENT (Ultra-Minimalist)
 // 1. SPARKLINE COMPONENT (High-Fidelity)
@@ -31,14 +32,8 @@ const Sparkline = ({ data, color, height = 30 }: { data: number[]; color: string
         // DRAW GRADIENT FILL
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
         
-        // Canvas API cannot resolve CSS variables. Map the theme tokens to raw colors.
-        const resolveColor = (c: string) => {
-            if (c.includes('--bull')) return '142, 76%, 45%';
-            if (c.includes('--bear')) return '346, 84%, 61%';
-            return '250, 89%, 65%'; // Default matrix
-        };
-
-        const colorValues = color.includes('var(') ? resolveColor(color) : color;
+        // Unified color resolution from the centralized Design Tokens
+        const colorValues = color.includes('var(') ? resolveCanvasColor(color) : color;
         const isHSL = color.includes('var(');
 
         const baseColor = isHSL ? `hsla(${colorValues}, 0.2)` : `${color}20`;
@@ -127,14 +122,12 @@ export interface WatchlistItemProps {
 }
 
 export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
-  const [pulseClass, setPulseClass] = React.useState("");
   
   const change = signal.history.length >= 2 ? ((signal.price - signal.history[signal.history.length-2].close) / signal.history[signal.history.length-2].close) * 100 : 0;
   
   React.useEffect(() => {
-    setPulseClass("animate-pulse text-matrix");
-    const t = setTimeout(() => setPulseClass(""), 2000);
-    return () => clearTimeout(t);
+    // Pulse effect removed to ensure a stable, static interface as per institutional requirements.
+    // Price updates are now reflected purely via the numeric value and sparkline.
   }, [signal.price]);
 
   const fmt = (n: number) => new Intl.NumberFormat('en-US', {
@@ -154,14 +147,14 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
   const sentScore = signal.sentiment.score;
 
   return (
-      <Link 
-        href={`/asset/${signal.ticker}`} 
-        className="group relative flex items-center px-4 py-3 min-h-[5rem] hover:bg-white/[0.02] transition-colors"
+      <div 
+        className="group relative flex items-center px-4 py-3 min-h-[5rem] transition-colors hover:bg-white/[0.02]"
       >
           {/* ACTIVE INDICATOR */}
           <div className={`absolute left-0 top-0 bottom-0 w-[2px] opacity-0 transition-opacity group-hover:opacity-100 ${isBull ? 'bg-bull drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-bear drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} aria-hidden="true"></div>
           
-          {/* COL 1: IDENTITY */}
+          {/* MAIN CLICKABLE AREA */}
+          <Link href={`/asset/${signal.ticker}`} className="flex flex-1 items-center min-w-0 h-full">
           <div className="w-[100px] lg:w-[140px] flex flex-col shrink-0">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <span className="text-[14px] sm:text-[15px] font-bold text-white tracking-tight leading-none group-hover:text-zinc-300 transition-colors truncate">
@@ -204,7 +197,7 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
 
           {/* COL 2: PRICE */}
           <div className="w-[100px] lg:w-[160px] flex flex-col justify-center shrink-0 ml-2">
-               <div className={`font-mono text-[13px] sm:text-[14px] font-bold text-white tabular-nums ${pulseClass}`}>
+               <div className="font-mono text-[13px] sm:text-[14px] font-bold text-white tabular-nums">
                    {fmt(signal.price)}
                </div>
                <div className={`text-[10px] sm:text-[11px] font-bold font-mono tracking-wide tabular-nums ${isBull ? 'text-bull' : 'text-bear'}`}>
@@ -213,7 +206,7 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
           </div>
 
           {/* COL 3: SPARKLINE */}
-          <div className="flex-1 px-1 lg:px-6 min-w-[60px] h-9 border-l border-white/5 opacity-70 group-hover:opacity-100 transition-opacity flex items-center overflow-hidden" role="img">
+          <div className="flex-1 px-1 lg:px-6 min-w-[60px] h-9 border-l border-white/5 flex items-center overflow-hidden" role="img">
                <Sparkline data={signal.history.map(h => h.close)} color={color} height={36} />
           </div>
 
@@ -245,13 +238,20 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
                         ))}
                     </div>
                 )}
+                {signal.tech.volatilityCompression.isSqueezing && (
+                    <div className="mt-2.5 flex items-center gap-1.5 px-2 py-1 bg-amber-500/5 border border-amber-500/20 rounded-sm">
+                        <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                        <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest whitespace-nowrap">Volatility Squeeze</span>
+                    </div>
+                )}
            </div>
 
           {/* COL 5: NARRATIVE MOMENTUM */}
           <div className="w-[120px] shrink-0 hidden lg:flex flex-col justify-center border-l border-white/5 pl-4">
                <div className="flex items-center gap-1.5 mb-1">
                   <div className={`w-1.5 h-1.5 rounded-full ${
-                    signal.sentiment.drift.startsWith('ACCELERATING') ? 'bg-bull animate-pulse' : 
+                    signal.sentiment.drift === 'ACCELERATING_BULL' ? 'bg-bull animate-pulse' : 
+                    signal.sentiment.drift === 'ACCELERATING_BEAR' ? 'bg-bear animate-pulse' : 
                     signal.sentiment.drift === 'REVERSAL' ? 'bg-amber-500' : 'bg-zinc-500 opacity-50'
                   }`} />
                   <span className={`text-[10px] font-bold font-mono tracking-tight ${sentScore > 0 ? 'text-bull' : sentScore < 0 ? 'text-bear' : 'text-zinc-400'}`}>
@@ -296,8 +296,10 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
                </div>
           </div>
 
+          </Link>
+
           {/* COL 7: REMOVE */}
-          <div className="w-10 shrink-0 flex items-center justify-end">
+          <div className="w-10 shrink-0 flex items-center justify-end relative z-10">
               <button 
                  onClick={(e: React.MouseEvent) => {
                      e.preventDefault();
@@ -312,7 +314,7 @@ export function WatchlistItem({ signal, onRemove, alpha }: WatchlistItemProps) {
                   </svg>
               </button>
           </div>
-      </Link>
+      </div>
   );
 }
 

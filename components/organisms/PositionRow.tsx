@@ -168,7 +168,7 @@ export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, p
 
   // ─── Display mode ─────────────────────────────────────────────────────────
   return (
-    <div className="grid grid-cols-12 gap-2 px-6 py-5 border-b border-white/5 last:border-0 items-center hover:bg-white/[0.02] transition-colors group">
+    <div className="grid grid-cols-12 gap-2 px-6 py-5 border-b border-white/5 last:border-0 items-center transition-colors group">
       <div className="col-span-3">
         <Link href={`/asset/${ticker}`} className="hover:text-matrix transition-colors">
           <p className="text-[14px] font-bold font-mono text-white uppercase tracking-tight">{ticker}</p>

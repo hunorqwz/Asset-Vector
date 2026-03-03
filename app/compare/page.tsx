@@ -15,12 +15,12 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface ComparePageProps {
-  searchParams: Promise<{ t?: string }>;
+  searchParams: Promise<{ t?: string; tickers?: string }>;
 }
 
 export default async function ComparePage({ searchParams }: ComparePageProps) {
   const params = await searchParams;
-  const rawTickers = params.t ?? "";
+  const rawTickers = params.t ?? params.tickers ?? "";
   const tickers = rawTickers
     .split(",")
     .map(t => t.trim().toUpperCase())

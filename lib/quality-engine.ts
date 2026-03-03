@@ -40,12 +40,12 @@ export function calculateQualityScore(details: Partial<StockDetails>): QualitySc
   // 2. Solvency (Debt to Equity / Current Ratio)
   if (health) {
     const de = health.debtToEquity || 0;
-    if (de > 0 && de < 50) solvencyScore += 20; // Low debt
-    else if (de > 150) solvencyScore -= 20; // High leverage
+    if (de > 0 && de < 40) solvencyScore += 30; // Very clean balance sheet
+    else if (de > 120) solvencyScore -= 30; // Significant leverage
 
     const currentRatio = health.currentRatio || 1;
-    if (currentRatio > 1.5) solvencyScore += 10;
-    else if (currentRatio < 0.8) solvencyScore -= 15;
+    if (currentRatio > 2.0) solvencyScore += 20;
+    else if (currentRatio < 0.9) solvencyScore -= 20;
   }
 
   // 3. Growth Stability
@@ -56,8 +56,8 @@ export function calculateQualityScore(details: Partial<StockDetails>): QualitySc
     else if (revGrowth < -0.05) growthScore -= 10;
   }
 
-  // Weighted Average
-  const rawScore = (profitabilityScore * 0.5) + (solvencyScore * 0.3) + (growthScore * 0.2);
+  // Weighted Average — skewed towards elite capital efficiency
+  const rawScore = (profitabilityScore * 0.55) + (solvencyScore * 0.25) + (growthScore * 0.20);
   const finalScore = Math.max(0, Math.min(100, Math.round(rawScore)));
 
   let level: QualityScore['level'] = "AVERAGE";

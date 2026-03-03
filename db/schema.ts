@@ -80,7 +80,7 @@ export const userWatchlists = pgTable(
 );
 
 export const marketData = pgTable("market_data", {
-  ticker: varchar("ticker", { length: 10 }).references(() => assets.ticker),
+  ticker: varchar("ticker", { length: 10 }).notNull().references(() => assets.ticker),
   time: timestamp("time").notNull(),
   open: numeric("open", { precision: 18, scale: 8 }).notNull(),
   high: numeric("high", { precision: 18, scale: 8 }).notNull(),
@@ -89,6 +89,8 @@ export const marketData = pgTable("market_data", {
   volume: numeric("volume", { precision: 24, scale: 8 }).notNull(),
 }, (table) => {
   return {
+    tickerTimePk: primaryKey({ columns: [table.ticker, table.time] }),
+    tickerIdx: index("idx_market_data_ticker").on(table.ticker),
     timeIdx: index("idx_market_data_time").on(table.time),
   };
 });
@@ -115,7 +117,7 @@ export const userPositions = pgTable("user_positions", {
   userId: uuid("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  ticker: varchar("ticker", { length: 10 }).notNull(),
+  ticker: varchar("ticker", { length: 10 }).notNull().references(() => assets.ticker),
   name: text("name").notNull(),
   shares: numeric("shares", { precision: 18, scale: 8 }).notNull(),
   avgCost: numeric("avg_cost", { precision: 18, scale: 8 }).notNull(),
@@ -128,7 +130,7 @@ export const priceAlerts = pgTable("price_alerts", {
   userId: uuid("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  ticker: varchar("ticker", { length: 10 }).notNull(),
+  ticker: varchar("ticker", { length: 10 }).notNull().references(() => assets.ticker),
   targetPrice: numeric("target_price", { precision: 18, scale: 8 }).notNull(),
   // 'above' = alert when price crosses above target, 'below' = alert when price crosses below
   direction: varchar("direction", { length: 10 }).notNull().$type<"above" | "below">(),
@@ -137,4 +139,8 @@ export const priceAlerts = pgTable("price_alerts", {
   triggeredAt: timestamp("triggered_at"),
   triggeredPrice: numeric("triggered_price", { precision: 18, scale: 8 }),
   createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    userIdIdx: index("idx_price_alerts_user_id").on(table.userId),
+  };
 });

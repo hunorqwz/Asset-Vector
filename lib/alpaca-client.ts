@@ -3,9 +3,9 @@
  * Built using high-performance fetch for low-latency Next.js Server Actions.
  */
 
-const API_KEY = process.env.NEXT_PUBLIC_ALPACA_API_KEY;
-const SECRET_KEY = process.env.NEXT_PUBLIC_ALPACA_API_SECRET;
-const BASE_URL = "https://paper-api.alpaca.markets/v2";
+const API_KEY = process.env.ALPACA_API_KEY;
+const SECRET_KEY = process.env.ALPACA_API_SECRET;
+const BASE_URL = process.env.ALPACA_BASE_URL || "https://paper-api.alpaca.markets/v2";
 
 export interface AlpacaAccount {
   id: string;
@@ -26,12 +26,12 @@ export interface AlpacaPosition {
   current_price: string;
 }
 
-async function alpacaFetch(endpoint: string, options: RequestInit = {}) {
+async function alpacaFetch<T>(endpoint: string, options: RequestInit = {}, retries = 3, baseUrl = BASE_URL): Promise<T> {
   if (!API_KEY || !SECRET_KEY) {
     throw new Error("Alpaca API keys are missing. Integration inactive.");
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  const response = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers: {
       "APCA-API-KEY-ID": API_KEY,
@@ -42,12 +42,18 @@ async function alpacaFetch(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
+    if (response.status === 429 && retries > 0) {
+       // Automatic Retry on Rate Limit (1s delay)
+       await new Promise(r => setTimeout(r, 1000));
+       return alpacaFetch(endpoint, options, retries - 1, baseUrl);
+    }
     const errorBody = await response.text();
     throw new Error(`Alpaca API Error [${response.status}]: ${errorBody}`);
   }
 
   return response.json();
 }
+
 
 /**
  * Fetches current account status and buying power.
@@ -99,14 +105,11 @@ export async function placeAlpacaOrder(
  */
 export async function getAlpacaQuote(symbol: string) {
   const DATA_URL = "https://data.alpaca.markets/v2";
-  const res = await fetch(`${DATA_URL}/stocks/${symbol}/quotes/latest`, {
-    headers: {
-      "APCA-API-KEY-ID": API_KEY!,
-      "APCA-API-SECRET-KEY": SECRET_KEY!,
-    }
-  });
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.quote; // { ap: ask_price, as: ask_size, bp: bid_price, bs: bid_size, t: timestamp }
+  try {
+    const data: any = await alpacaFetch(`/stocks/${symbol}/quotes/latest`, {}, 3, DATA_URL);
+    return data.quote; // { ap: ask_price, as: ask_size, bp: bid_price, bs: bid_size, t: timestamp }
+  } catch (err) {
+    console.error(`Failed to fetch Alpaca quote for ${symbol}:`, err);
+    return null;
+  }
 }

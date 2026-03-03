@@ -29,22 +29,23 @@ describe('Valuation Models', () => {
 
   describe('Peter Lynch Fair Value', () => {
     it('calculates the correct Lynch Fair Value for normal growth', () => {
-      // EPS = 2, Growth = 0.15 (15%)
-      // 2 * 15 = 30
+      // EPS = 2, Growth = 0.15 (15% decimal)
+      // Multiple = 0.15 * 100 = 15
+      // Value = 2 * 15 = 30
       const result = calculatePeterLynchFairValue(2, 0.15);
       expect(result.isValid).toBe(true);
       expect(result.value).toBe(30);
     });
 
     it('caps growth rate at 40% (0.4)', () => {
-      // EPS = 2, Growth = 0.80 (80%) -> capped at 40%
+      // EPS = 2, Growth = 0.80 (80% decimal) -> multiple capped at 40
       // 2 * 40 = 80
       const result = calculatePeterLynchFairValue(2, 0.80);
       expect(result.value).toBe(80);
     });
 
     it('floors growth rate at 5% (0.05)', () => {
-      // EPS = 2, Growth = 0.02 (2%) -> floored at 5%
+      // EPS = 2, Growth = 0.02 (2% decimal) -> multiple floored at 5
       // 2 * 5 = 10
       const result = calculatePeterLynchFairValue(2, 0.02);
       expect(result.value).toBe(10);

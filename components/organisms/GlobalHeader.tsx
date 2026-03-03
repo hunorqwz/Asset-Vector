@@ -84,7 +84,7 @@ export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
            {/* Mobile Menu Toggle */}
            <button 
              onClick={() => setIsMenuOpen(!isMenuOpen)}
-             className="xl:hidden w-9 h-9 flex items-center justify-center border border-white/10 text-zinc-400 hover:text-white transition-all active:scale-90"
+             className="xl:hidden w-9 h-9 flex items-center justify-center border border-white/10 text-zinc-400 hover:text-white transition-opacity"
              aria-label="Toggle Navigation Menu"
            >
              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -112,8 +112,8 @@ export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
                   key={link.name}
                   href={link.href}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`text-lg font-bold uppercase tracking-[0.25em] transition-all hover:pl-2 ${
-                    pathname === link.href ? "text-matrix" : "text-zinc-300"
+                  className={`text-lg font-bold uppercase tracking-[0.25em] transition-colors ${
+                    pathname === link.href ? "text-matrix" : "text-zinc-300 hover:text-white"
                   }`}
                 >
                   {link.name}

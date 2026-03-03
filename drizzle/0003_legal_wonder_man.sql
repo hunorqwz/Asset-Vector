@@ -1,0 +1,1 @@
+CREATE INDEX "idx_market_data_ticker" ON "market_data" USING btree ("ticker");

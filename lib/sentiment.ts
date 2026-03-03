@@ -34,7 +34,8 @@ export class SentimentFallback {
 
     heads.forEach(article => {
       let localScore = 0;
-      const tokens = article.title.toLowerCase().split(/\W+/);
+      // Financial Lexical Tokenizer (v2.3): Preserves tickers (A-Z, dots, dashes) and prevents word fragmentation
+      const tokens = article.title.toLowerCase().match(/[a-z0-9._-]+/g) || [];
       
       tokens.forEach(w => {
         if (POSITIVE_KEYWORDS.has(w)) {
@@ -105,7 +106,7 @@ export class SentimentAnalyzer {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         systemInstruction: "You are an institutional Quant Sentiment API. Respond with strict JSON matching the requested schema. No markdown wrapping. Just pure JSON."
       });
 

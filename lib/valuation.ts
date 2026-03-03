@@ -124,25 +124,25 @@ export function calculateGrahamNumber(eps: number | null, bvps: number | null): 
  * a "Fairly Valued" company trades at a P/E multiple equal to its growth rate (PEG ratio of 1).
  * Excellent for valuing high-growth tech stocks where DCF requires speculative 10-year assumptions.
  * 
- * Formula: (Earnings Growth Rate × EPS)
- * Note: Growth rate is a whole number (e.g., 15% = 15). We floor the growth rate to 5% and cap it at 40% 
- * to prevent absurd tech valuations.
+ * Formula: (Earnings Growth Rate % as integer × EPS)
+ * Note: Growth rate is expected as a decimal (e.g., 0.15 for 15%). We floor the effective 
+ * growth multiple to 5 and cap it at 40 to prevent extreme valuations.
  */
 export function calculatePeterLynchFairValue(eps: number | null, growthRatePct: number | null): { value: number, isValid: boolean } {
   if (eps === null || growthRatePct === null || eps <= 0) {
     return { value: 0, isValid: false };
   }
 
-  // Convert decimal to percentage for the Lynch formula (0.15 -> 15)
-  let growth = growthRatePct * 100;
+  // Convert decimal to percentage integer for the Lynch formula (0.15 -> 15)
+  let growthMultiple = growthRatePct * 100;
 
-  // Peter Lynch bounds: 
-  // - Growth under 5% is practically dead money, we'll assign a baseline multiple of 5
-  // - Infinite extrapolation of >40% growth is dangerous, cap the multiple at 40
-  if (growth < 5) growth = 5;
-  if (growth > 40) growth = 40;
+  // Peter Lynch bounds (Multiples): 
+  // - Growth under 5% (0.05) is practically dead money, assign a baseline multiple of 5
+  // - Infinite extrapolation of >40% (0.40) growth is dangerous, cap the multiple at 40
+  if (growthMultiple < 5) growthMultiple = 5;
+  if (growthMultiple > 40) growthMultiple = 40;
 
-  const value = eps * growth;
+  const value = eps * growthMultiple;
 
   return {
     value: Number.isFinite(value) ? value : 0,

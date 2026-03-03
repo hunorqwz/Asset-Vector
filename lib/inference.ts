@@ -12,7 +12,11 @@ export async function predictNextHorizon(
   realizedVol: number = 0.2 // Adaptive scaling
 ): Promise<PredictionResult> {
   const lastPrice = inputSequence[inputSequence.length - 1][3];
-  const cacheKey = `pred_${ticker}_${lastPrice}_v21`;
+  
+  // Quantize lastPrice to 0.1% increments to improve cache hit rate (v2.2)
+  const quantizedPrice = Math.round(lastPrice * 1000) / 1000;
+  const cacheKey = `pred_${ticker}_${quantizedPrice}_v22`;
+  
   const cached = getFromCache<PredictionResult>(cacheKey);
   if (cached) return cached;
 
@@ -41,9 +45,10 @@ export async function predictNextHorizon(
     };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 500);
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
 
-    const res = await fetch("http://127.0.0.1:5000/predict", {
+    const INFERENCE_URL = process.env.ML_INFERENCE_URL || "http://127.0.0.1:5000/predict";
+    const res = await fetch(INFERENCE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -57,8 +62,12 @@ export async function predictNextHorizon(
       const result: PredictionResult = { p10: data.p10, p50: data.p50, p90: data.p90, source: "TFT-v2.1 (Z-Score)" };
       setInCache(cacheKey, result, CACHE_TTL.PREDICTION);
       return result;
+    } else {
+      console.warn(`Inference Server Error [${res.status}]: ${await res.text()}`);
     }
-  } catch {}
+  } catch (error) {
+    console.error("Inference Engine Fault, reverting to PoT Fallback:", error);
+  }
 
   return generateFallback(inputSequence);
 }

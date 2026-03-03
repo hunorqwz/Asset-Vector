@@ -109,8 +109,8 @@ export async function fetchMarketPulse(): Promise<MarketPulseData> {
   return result;
 }
 
-export function detectSectorAlpha(ticker: string, tickerChange: number, sectorData: MarketPulseData): boolean {
-  // Simplistic mapping for top names to demonstrate Alpha discovery
+export function detectSectorAlpha(ticker: string, tickerChange: number, sectorData: MarketPulseData, sectorOverride?: string): boolean {
+  // Sector mapping fallback
   const tickerSectorMap: Record<string, string> = {
     "AAPL": "Technology", "NVDA": "Technology", "MSFT": "Technology", "GOOGL": "Comms", "META": "Comms",
     "JPM": "Financials", "GS": "Financials", "V": "Financials",
@@ -118,7 +118,7 @@ export function detectSectorAlpha(ticker: string, tickerChange: number, sectorDa
     "JNJ": "Healthcare", "LLY": "Healthcare",
   };
 
-  const sectorName = tickerSectorMap[ticker];
+  const sectorName = sectorOverride || tickerSectorMap[ticker];
   if (!sectorName) return false;
 
   const sector = sectorData.sectors.find(s => s.name === sectorName);

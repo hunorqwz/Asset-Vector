@@ -62,7 +62,7 @@ export const InteractiveEarnings = React.memo(function InteractiveEarnings({ rep
                   onClick={() => setActiveIdx(reports.findIndex(r => r.date === q.date))}
                   className="flex-1 group relative flex flex-col justify-end h-full outline-none"
                 >
-                  <div className={`absolute inset-0 border border-white/5 transition-all z-0 ${isSelected ? 'bg-white/[0.03] border-white/20' : 'group-hover:bg-white/[0.01]'}`} />
+                  <div className={`absolute inset-0 border border-white/5 transition-all z-0 ${isSelected ? 'bg-white/[0.03] border-white/20' : ''}`} />
                   
                   {/* Price Reaction Marker (Earnings Beta) */}
                   {q.priceReactionPct !== null && (
@@ -87,7 +87,7 @@ export const InteractiveEarnings = React.memo(function InteractiveEarnings({ rep
                        style={{ height: `${Math.max(actualH, 2)}%` }} 
                      />
                   </div>
-                  <div className={`text-center py-2 text-[10px] font-bold tracking-widest uppercase border-t z-10 transition-all ${isSelected ? 'text-white border-white/20' : 'text-zinc-500 border-white/5 group-hover:text-zinc-300'}`}>
+                  <div className={`text-center py-2 text-[10px] font-bold tracking-widest uppercase border-t z-10 transition-all ${isSelected ? 'text-white border-white/20' : 'text-zinc-500 border-white/5'}`}>
                     {q.fiscalQuarter || q.date.substring(0, 7)}
                   </div>
                 </button>

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { marketSignals } from "@/db/schema";
 import { MarketSignal, fetchHistoryWithInterval } from "@/lib/market-data";
 import { eq, and, desc, sql, gt, lt } from "drizzle-orm";
+import { getFromCache, setInCache } from "@/lib/cache";
 
 /**
  * Periodically archives generated signals to track historical accuracy.
@@ -42,7 +43,11 @@ export async function archiveSignal(signal: MarketSignal) {
  * Uses actual price movement to determine accuracy.
  */
 export async function evaluateOldSignals() {
+  const LOCK_KEY = "global_signals_evaluation_lock";
+  if (getFromCache(LOCK_KEY)) return;
+
   try {
+    setInCache(LOCK_KEY, true, 3600000); // 1 Hour TTL
     const SEVEN_DAYS_AGO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
     // Find up to 20 unevaluated signals older than 7 days

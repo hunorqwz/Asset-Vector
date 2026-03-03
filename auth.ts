@@ -53,17 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     },
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnDashboard = nextUrl.pathname === "/";
-      const isOnAssetPage = nextUrl.pathname.startsWith("/asset/");
-      
-      if (isOnDashboard || isOnAssetPage) {
-        if (isLoggedIn) return true;
-        return false; // Redirect unauthenticated users to login page
-      } else if (isLoggedIn && nextUrl.pathname === "/login") {
-        return Response.redirect(new URL("/", nextUrl));
-      }
+    authorized() {
       return true;
     },
   },

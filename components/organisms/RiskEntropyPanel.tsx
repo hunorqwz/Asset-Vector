@@ -42,7 +42,7 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
         
         {/* 1. SHARPE RATIO */}
-        <div className="space-y-4 p-5 bg-[#111111] border border-white/10 group hover:border-white/20 transition-all">
+        <div className="space-y-4 p-5 bg-[#111111] border border-white/10 transition-all">
           <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
             <span>Sharpe Ratio</span>
             <span className={sharpe.color}>{sharpe.label}</span>
@@ -65,7 +65,7 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
         </div>
 
         {/* 2. SORTINO RATIO */}
-        <div className="space-y-4 p-5 bg-[#111111] border border-white/10 group hover:border-white/20 transition-all">
+        <div className="space-y-4 p-5 bg-[#111111] border border-white/10 transition-all">
           <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
             <span>Sortino Ratio</span>
             <span className={sortino.color}>{sortino.label}</span>
@@ -88,7 +88,7 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
         </div>
 
         {/* 3. VOLATILITY MATRIX */}
-        <div className="space-y-4 p-5 bg-[#111111] border border-white/10 group hover:border-white/20 transition-all">
+        <div className="space-y-4 p-5 bg-[#111111] border border-white/10 transition-all">
           <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block">Variance Decomposition</span>
           <div className="space-y-4">
              <div className="flex justify-between items-end border-b border-white/5 pb-2">
@@ -103,7 +103,7 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
         </div>
 
         {/* 4. TAIL RISK (MAX DD) */}
-        <div className="space-y-4 p-5 bg-[#111111] border border-white/10 group hover:border-white/20 transition-all">
+        <div className="space-y-4 p-5 bg-[#111111] border border-white/10 transition-all">
           <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block">Critical Tail Risk</span>
           <div className="flex flex-col gap-1">
              <span className="text-3xl font-mono font-bold text-bear tabular-nums">{fmtPct(metrics.maxDrawdown1Y)}</span>

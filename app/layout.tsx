@@ -18,8 +18,8 @@ const pixelFont = VT323({
   weight: "400",
   subsets: ["latin"],
 });
-
 export const metadata: Metadata = {
+  metadataBase: new URL('https://vector.surgical'),
   title: {
     default: "Asset Vector | Surgical Market Intelligence",
     template: "%s | Asset Vector"

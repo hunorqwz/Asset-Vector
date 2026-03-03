@@ -28,17 +28,8 @@ export interface BenchmarkPerformance { assetReturn1Y: number; benchmarkReturn1Y
 export interface ETFHolding { symbol: string; name: string; pct: number | null; }
 export interface InsiderTransaction { filerName: string; filerRelation: string; transactionText: string; shares: number | null; value: number | null; startDate: string | null; }
 export interface Holder { name: string; pctHeld: number | null; value: number | null; pctChange: number | null; }
-export interface QuarterlyReport { date: string; fiscalQuarter: string; revenue: number | null; netIncome: number | null; epsActual: number | null; epsEstimate: number | null; epsSurprise: number | null; epsSurprisePercent: number | null; reportedDate: string | null; priceReaction: number | null; priceReactionPct: number | null; }
 
-const safeNum = (v: any) => (v === null || v === undefined || isNaN(v) ? null : Number(v));
-const safeStr = (v: any, f = "") => v ?? f;
-const safeDate = (v: any) => {
-  if (!v) return null;
-  try {
-    const d = v instanceof Date ? v : (typeof v === 'number' ? new Date(v * 1000) : new Date(v));
-    return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
-  } catch { return null; }
-};
+import { safeNum, safeStr, safeDate } from './utils';
 
 export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
   const cacheKey = `stock_details:${ticker}`;

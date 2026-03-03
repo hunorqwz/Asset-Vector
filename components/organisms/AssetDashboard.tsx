@@ -128,7 +128,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
             className={`flex-1 py-3 px-6 text-[10.5px] font-bold tracking-[0.2em] transition-all uppercase rounded-lg whitespace-nowrap block text-center ${
               activeTab === tab 
                 ? 'bg-matrix/10 text-matrix shadow-[0_0_12px_rgba(59,130,246,0.15)] glow-matrix' 
-                : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
+                : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
             {tab}
@@ -154,7 +154,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                     </div>
                     <button 
                       onClick={() => setIsNeuralEngaged(true)} 
-                      className="whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-white text-black text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-colors"
+                      className="whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-white text-black text-[11px] font-bold uppercase tracking-widest transition-opacity active:opacity-80"
                     >
                       <div className="w-2 h-2 bg-black rounded-full" />
                       Enable AI Analysis
@@ -332,7 +332,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                 <DataSection title="Regulatory Filings" icon={<SECIcon />}>
                   <div className="space-y-4">
                     {d.secFilings.slice(0, 8).map((f, i) => (
-                      <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="block group/sec hover:bg-[#111111] p-4 -m-1 transition-all border border-transparent hover:border-white/10">
+                      <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="block group/sec p-4 -m-1 transition-all border border-transparent">
                         <div className="flex justify-between items-center mb-2"><span className="text-[11px] font-bold text-zinc-500 group-hover:text-white uppercase tracking-widest transition-colors">{f.type}</span><span className="text-[11px] font-bold font-mono text-zinc-500">{f.date}</span></div>
                         <p className="text-[13px] font-bold text-zinc-400 group-hover:text-white transition-colors leading-snug">{f.title}</p>
                       </a>

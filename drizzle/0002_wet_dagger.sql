@@ -1,0 +1,2 @@
+ALTER TABLE "price_alerts" ADD CONSTRAINT "price_alerts_ticker_assets_ticker_fk" FOREIGN KEY ("ticker") REFERENCES "public"."assets"("ticker") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_positions" ADD CONSTRAINT "user_positions_ticker_assets_ticker_fk" FOREIGN KEY ("ticker") REFERENCES "public"."assets"("ticker") ON DELETE no action ON UPDATE no action;

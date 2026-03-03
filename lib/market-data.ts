@@ -6,6 +6,13 @@ import { RegimeDetector, MarketRegime } from "./regime";
 import { SentimentAnalyzer, SentimentReport, SentimentFallback } from "./sentiment";
 import { generateTechnicalConfluence, TechnicalIndicators } from "./technical-analysis";
 import { generateSynthesis, MarketSynthesis } from "./synthesis";
+import { 
+  calculateReturns, 
+  calculateVariance, 
+  calculateBeta, 
+  calculateCorrelation, 
+  calculateJensensAlpha 
+} from "./math";
 
 const yahooFinance = new YahooFinance();
 
@@ -35,6 +42,7 @@ export type MarketSignal = {
   synthesis: MarketSynthesis;
   benchmark?: RollingCorrelation;
   quality?: QualityScore;
+  sector?: string;
   structuralProbability?: LevelTouchProbability[];
 };
 
@@ -103,15 +111,6 @@ export async function fetchLiveQuote(ticker: string): Promise<number> {
   return price;
 }
 
-async function fetchHistory(ticker: string, len: number): Promise<OHLCV[]> {
-  const result = await yahooFinance.chart(ticker, { period1: 0, interval: '1d' }, { validateResult: false }) as any;
-  if (!result?.quotes?.length) throw new Error('HISTORY_FETCH_FAILED');
-  return result.quotes.filter((q: any) => q.close && q.open).map((q: any) => ({
-    time: Math.floor(new Date(q.date).getTime() / 1000),
-    open: q.open, high: q.high, low: q.low, close: q.close, volume: q.volume || 0
-  })).slice(-len);
-}
-
 async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
   const sym = ticker.split('-')[0];
   const res = await yahooFinance.search(sym, { newsCount: 5 }, { validateResult: false }) as any;
@@ -127,15 +126,14 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   const cached = getFromCache<MarketSignal>(ticker);
   if (cached) return cached;
   
-  const history = await fetchHistory(ticker, len);
+  const history = await fetchHistoryWithInterval(ticker, '1d', 0).then(h => h.slice(-len));
   const currentPrice = history[history.length - 1].close;
   const isCrypto = ticker.includes("-USD") || ticker === "BTC";
   
-  // 1. Calculate Realized Volatility for Adaptive Filtering
+  // 1. Calculate Realized Volatility using centralized Math logic
   const prices = history.map(h => h.close);
-  const returns = [];
-  for (let i = 1; i < prices.length; i++) returns.push(Math.log(prices[i] / prices[i-1]));
-  const variance = returns.reduce((a, b) => a + Math.pow(b, 2), 0) / returns.length;
+  const returns = calculateReturns(prices);
+  const variance = calculateVariance(returns);
   const realizedVol = Math.sqrt(variance * 252); // Annualized
 
   // 2. Adaptive Kalman Smoothing (v2.0)
@@ -153,14 +151,14 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   // Benchmark Singleton Logic
   if (!GLOBAL_BENCHMARK_DATA || Date.now() - GLOBAL_BENCHMARK_DATA.time > 3600000) {
-      const bHistory = await fetchHistory("SPY", 2500).catch(() => []);
+      const bHistory = await fetchHistoryWithInterval("SPY", "1d", 0).catch(() => []);
       GLOBAL_BENCHMARK_DATA = { time: Date.now(), data: bHistory };
   }
 
   const [ai, news, fundamentals, tnxQuote] = await Promise.all([
     predictNextHorizon(history.map(t => [t.open, t.high, t.low, t.close, t.volume]), ticker, realizedVol),
     fetchHeadlines(ticker),
-    !isCrypto ? yahooFinance.quoteSummary(ticker, { modules: ['summaryDetail', 'financialData', 'defaultKeyStatistics'] }).catch(() => null) : Promise.resolve(null),
+    !isCrypto ? yahooFinance.quoteSummary(ticker, { modules: ['summaryDetail', 'financialData', 'defaultKeyStatistics', 'assetProfile'] }).catch(() => null) : Promise.resolve(null),
     yahooFinance.quote("^TNX").catch(() => null) 
   ]);
 
@@ -172,8 +170,10 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   }
 
   let quality: QualityScore | undefined = undefined;
+  let sector: string | undefined = undefined;
   if (fundamentals) {
     const f = fundamentals as any;
+    sector = f.assetProfile?.sector;
     quality = calculateQualityScore({
         profitability: {
             operatingMargins: f.financialData?.operatingMargins,
@@ -240,6 +240,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     history: history.slice(-60), // Trim payload size drastically
     benchmark,
     quality,
+    sector,
     structuralProbability
   };
 
@@ -276,30 +277,9 @@ function calculateCorrelationMetrics(
     const assetRets = window.map(w => w.asset);
     const benchRets = window.map(w => w.bench);
 
-    const assetMean = assetRets.reduce((a, b) => a + b, 0) / assetRets.length;
-    const benchMean = benchRets.reduce((a, b) => a + b, 0) / benchRets.length;
-
-    let covar = 0;
-    let varBench = 0;
-    let varAsset = 0;
-
-    for (let i = 0; i < window.length; i++) {
-        const aDiff = assetRets[i] - assetMean;
-        const bDiff = benchRets[i] - benchMean;
-        covar += aDiff * bDiff;
-        varBench += bDiff * bDiff;
-        varAsset += aDiff * aDiff;
-    }
-
-    const beta = varBench !== 0 ? covar / varBench : 1;
-    const correlation = (varBench !== 0 && varAsset !== 0) ? covar / Math.sqrt(varBench * varAsset) : 0;
-    
-    // Jensen's Alpha Calculation (v2.1)
-    // alpha = R_p - [R_f + Beta * (R_m - R_f)]
-    const assetCumRet = assetData[assetData.length - 1].close / assetData[assetData.length - Math.min(assetData.length, 252)].close - 1;
-    const benchCumRet = benchmarkData[benchmarkData.length - 1].close / benchmarkData[benchmarkData.length - Math.min(benchmarkData.length, 252)].close - 1;
-    
-    const jensensAlpha = assetCumRet - (riskFreeRate + beta * (benchCumRet - riskFreeRate));
+    const beta = calculateBeta(assetRets, benchRets);
+    const correlation = calculateCorrelation(assetRets, benchRets);
+    const jensensAlpha = calculateJensensAlpha(assetData, benchmarkData, beta, riskFreeRate);
 
     return {
         ticker: benchmarkTicker,

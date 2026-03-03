@@ -445,9 +445,7 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
               {assets.map((a, ai) => {
                 const isLeader = wins[ai] === maxWins && wins[ai] > 0;
                 return (
-                  <th key={a.ticker} className="px-6 py-5 text-left min-w-[200px] hover:bg-white/[0.02] transition-colors relative group">
-                    {/* Column highlight decoration */}
-                    <div className="absolute inset-y-0 left-0 w-[1px] bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <th key={a.ticker} className="px-6 py-5 text-left min-w-[200px] transition-colors relative group">
                     <div className="flex flex-col gap-2.5 relative z-10">
                       {/* Win badge */}
                       <div className="flex items-center gap-2">
@@ -526,7 +524,7 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
                   return (
                     <tr
                       key={row.label}
-                      className={`border-b border-white/[0.04] hover:bg-white/[0.04] transition-colors relative group/row ${
+                      className={`border-b border-white/[0.04] transition-colors relative group/row ${
                         ri % 2 === 1 ? "bg-white/[0.01]" : ""
                       }`}
                       title={row.tooltip}
