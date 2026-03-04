@@ -27,7 +27,7 @@ export type { OHLCV, ChartInterval, NarrativeArticle };
 
 import { QualityScore, calculateQualityScore } from "./quality-engine";
 import { LevelTouchProbability, calculateProbabilityOfTouch } from "./probability";
-import { detectSupportResistance } from "./technical-analysis";
+import { detectSupportResistance, detectOrderBlocks, detectDarkPoolBlocks } from "./technical-analysis";
 
 export type RollingCorrelation = {
   ticker: string;
@@ -49,6 +49,8 @@ export type MarketSignal = {
   quality?: QualityScore;
   sector?: string;
   structuralProbability?: LevelTouchProbability[];
+  orderBlocks?: { price: number; type: 'BULLISH' | 'BEARISH'; strength: number }[];
+  darkPoolBlocks?: { price: number; volume: number }[];
 };
 
 export const RANGE_INTERVAL_MAP: Record<string, { interval: ChartInterval; lookbackSeconds: number }> = {
@@ -75,13 +77,22 @@ export async function fetchHistoryWithInterval(
   const start = lookbackSeconds === 0 ? 0 : Math.floor(Date.now() / 1000) - lookbackSeconds;
   
   try {
-    const result = await yahooFinance.chart(ticker, { period1: start, interval, includePrePost: false }, { validateResult: false }) as any;
+    const result = await Promise.race([
+      yahooFinance.chart(ticker, { period1: start, interval, includePrePost: false }, { validateResult: false }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 8000)) // 8s timeout for long history
+    ]).catch(err => {
+      console.warn(`[Market Data] Chart fetch failed or timed out for ${ticker}:`, err.message);
+      return { quotes: [] };
+    }) as any;
     
     if (!result?.quotes?.length) {
       // Ticker Correction: Try appending -USD for crypto if not present
       if (!ticker.includes('-') && ticker.length <= 5) {
         const altTicker = `${ticker}-USD`;
-        const altResult = await yahooFinance.chart(altTicker, { period1: start, interval, includePrePost: false }, { validateResult: false }).catch(() => null) as any;
+        const altResult = await Promise.race([
+          yahooFinance.chart(altTicker, { period1: start, interval, includePrePost: false }, { validateResult: false }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000))
+        ]).catch(() => null) as any;
         if (altResult?.quotes?.length) return fetchHistoryWithInterval(altTicker, interval, lookbackSeconds);
       }
       return [];
@@ -130,7 +141,14 @@ export async function fetchLiveQuote(ticker: string): Promise<number> {
 
   try {
     // 1. Fetch primary from Yahoo
-    const quote = await yahooFinance.quote(ticker, {}, { validateResult: false }) as any;
+    const quote = await Promise.race([
+      yahooFinance.quote(ticker, {}, { validateResult: false }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 4000))
+    ]).catch(err => {
+      console.warn(`[Market Data] Global Quote fetch failed or timed out for ${ticker}:`, err.message);
+      return null;
+    }) as any;
+    
     let price = quote?.regularMarketPrice as number;
 
     // 2. Cross-Check Verification: Verify against Alpaca SIP Feed for Equities (Priority Path)
@@ -171,42 +189,66 @@ export async function fetchMultiLiveQuotes(tickers: string[]): Promise<Record<st
   const results: Record<string, { price: number; changePercent: number }> = {};
   
   try {
-    // 1. Bulk Fetch from Yahoo (Primary)
-    const quotesRaw = await yahooFinance.quote(tickers, {}, { validateResult: false });
-    const quotes = Array.isArray(quotesRaw) ? quotesRaw : [quotesRaw];
+    // 1. Bulk Fetch from Yahoo (Primary) with a 10s timeout safety
+    const quotesRaw = await Promise.race([
+      yahooFinance.quote(tickers, {}, { validateResult: false }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 10000))
+    ]).catch(err => {
+      console.warn(`[Market Data] Yahoo batch quote fetch failed for ${tickers.length} symbols:`, err.message);
+      return [];
+    });
+
+    const quotes = Array.isArray(quotesRaw) ? quotesRaw : (quotesRaw ? [quotesRaw] : []);
     
     // Map results to tickers
     for (const q of quotes) {
       if (q && q.symbol) {
-        results[q.symbol] = {
-          price: q.regularMarketPrice || 0,
+        // Ensure we match regardless of case if Yahoo fluctuates
+        const symbol = q.symbol.toUpperCase();
+        results[symbol] = {
+          price: q.regularMarketPrice || q.postMarketPrice || q.preMarketPrice || 0,
           changePercent: q.regularMarketChangePercent || 0
         };
       }
     }
 
+    // Fill in blanks for tickers that didn't return (to prevent UI 'fetch failed' crashes)
+    tickers.forEach(t => {
+      const upperT = t.toUpperCase();
+      if (!results[t] && results[upperT]) {
+        results[t] = results[upperT];
+      } else if (!results[t]) {
+        results[t] = { price: 0, changePercent: 0 };
+      }
+    });
+
     // 2. SIP Cross-Validation for high-confidence equities
-    // We only cross-check the first 3 to avoid Alpaca rate limits in batch scans
     const crossCheckLimit = tickers.filter(t => !t.includes("-") && !t.includes("^")).slice(0, 3);
     
     await Promise.all(crossCheckLimit.map(async (ticker) => {
-      const alpaca = await getAlpacaQuote(ticker).catch(() => null);
-      if (alpaca?.ap && results[ticker]) {
-        const alpacaPrice = Number(alpaca.ap);
-        const yahooPrice = results[ticker].price;
-        
-        // Trust SIP feed if divergence > 1%
-        if (yahooPrice > 0 && Math.abs(yahooPrice - alpacaPrice) / yahooPrice > 0.01) {
-          console.warn(`[Batch Integrity] Divergence for ${ticker}. Syncing to Alpaca SIP.`);
-          results[ticker].price = alpacaPrice;
+      try {
+        const alpaca = await getAlpacaQuote(ticker);
+        if (alpaca?.ap) {
+          const alpacaPrice = Number(alpaca.ap);
+          const current = results[ticker];
+          
+          if (current && (current.price === 0 || Math.abs(current.price - alpacaPrice) / alpacaPrice > 0.01)) {
+             results[ticker] = { 
+               price: alpacaPrice, 
+               changePercent: current?.changePercent || 0 
+             };
+          }
         }
-      }
+      } catch { /* Silent fail for backup provider */ }
     }));
 
     return results;
   } catch (error) {
-    console.error("[Market Data] Batch quote fetch failed:", error);
-    return {};
+    console.error("[Market Data] Critical failure in batch quote engine:", error);
+    // Return empty results instead of throwing to prevent top-level crashes
+    const fallback: Record<string, { price: number; changePercent: number }> = {};
+    tickers.forEach(t => fallback[t] = { price: 0, changePercent: 0 });
+    return fallback;
   }
 }
 
@@ -365,6 +407,9 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   const sentiment = await SentimentAnalyzer.analyzeAsync(ticker, news);
   const technical = generateTechnicalConfluence(history, smooth, regimeInfo.predictability);
   const levels = detectSupportResistance(history);
+  const orderBlocks = detectOrderBlocks(history);
+  const darkPoolBlocks = detectDarkPoolBlocks(history);
+  
   const structuralProbability: LevelTouchProbability[] = levels.map(l => ({
     price: l.price,
     type: l.type,
@@ -410,7 +455,9 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     benchmark,
     quality,
     sector,
-    structuralProbability
+    structuralProbability,
+    orderBlocks,
+    darkPoolBlocks
   };
 
   // 5. Persist to DB for SPLR Architecture (v3.0)

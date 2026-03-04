@@ -332,3 +332,133 @@ export function detectSupportResistance(data: OHLCV[], sensitivity: number = 0.0
   return [...supports, ...resistances].sort((a, b) => b.price - a.price);
 }
 
+/**
+ * Detects Significant Volume Nodes (HVP/LVP) for institutional order flow analysis.
+ */
+export function detectVolumeProfileNodes(data: OHLCV[], bins: number = 30): VolumeNode[] {
+  if (data.length === 0) return [];
+  
+  const prices = data.map(d => d.close);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min;
+  const binSize = range / bins;
+  
+  const profile = new Array(bins).fill(0).map((_, i) => ({
+    price: min + (i * binSize) + (binSize / 2),
+    volume: 0
+  }));
+  
+  data.forEach(d => {
+    const binIdx = Math.min(bins - 1, Math.floor((d.close - min) / binSize));
+    if (binIdx >= 0) {
+      profile[binIdx].volume += (d.volume || 0);
+    }
+  });
+  
+  // Find local maxima (HVN) and minima (LVN)
+  const nodes: VolumeNode[] = [];
+  for (let i = 1; i < bins - 1; i++) {
+    const prev = profile[i - 1].volume;
+    const curr = profile[i].volume;
+    const next = profile[i + 1].volume;
+    
+    if (curr > prev && curr > next) {
+      nodes.push({
+        price: Number(profile[i].price.toFixed(2)),
+        volume: curr,
+        type: 'HVN',
+        strength: 0 // Will calculate relative to max
+      });
+    } else if (curr < prev && curr < next && curr > 0) {
+      nodes.push({
+        price: Number(profile[i].price.toFixed(2)),
+        volume: curr,
+        type: 'LVN',
+        strength: 0
+      });
+    }
+  }
+  
+  const maxVol = Math.max(...nodes.map(n => n.volume), 1);
+  nodes.forEach(n => {
+    n.strength = Math.round((n.volume / maxVol) * 5);
+  });
+  
+  return nodes.sort((a, b) => b.volume - a.volume).slice(0, 10);
+}
+
+/**
+ * Detects Institutional Order Blocks through high-volume price consolidation and violent breaks.
+ */
+export function detectOrderBlocks(data: OHLCV[]): { price: number; type: 'BULLISH' | 'BEARISH'; strength: number }[] {
+  if (data.length < 10) return [];
+  
+  const blocks: { price: number; type: 'BULLISH' | 'BEARISH'; strength: number }[] = [];
+  
+  // Look for "Imbalance" candles preceded by consolidation
+  for (let i = 5; i < data.length - 1; i++) {
+    const prev = data[i - 1];
+    const curr = data[i];
+    
+    const bodySize = Math.abs(curr.close - curr.open);
+    const avgBodySize = data.slice(i - 5, i).reduce((acc, d) => acc + Math.abs(d.close - d.open), 0) / 5;
+    const avgVol = data.slice(i - 5, i).reduce((acc, d) => acc + (d.volume || 0), 0) / 5;
+    
+    // An "Imbalance" is a candle significantly larger than previous ones with high volume
+    if (bodySize > avgBodySize * 2.5 && (curr.volume || 0) > avgVol * 1.5) {
+      const isBullishImbalance = curr.close > curr.open;
+      const type = isBullishImbalance ? 'BULLISH' : 'BEARISH';
+      
+      // The "Block" is the last contrary candle before the imbalance
+      const blockPrice = isBullishImbalance ? prev.low : prev.high;
+      
+      // Filter duplicates by checking proximity
+      if (!blocks.find(b => Math.abs(b.price - blockPrice) / blockPrice < 0.005)) {
+        blocks.push({
+          price: Number(blockPrice.toFixed(2)),
+          type,
+          strength: Math.min(5, Math.floor(bodySize / avgBodySize))
+        });
+      }
+    }
+  }
+  
+  return blocks.sort((a, b) => b.strength - a.strength).slice(0, 4);
+}
+
+/**
+ * Approximates Dark Pool (Shadow Liquidity) blocks by finding extreme volume anomalies
+ * with disproportionately small price action (indicates off-exchange absorption).
+ */
+export function detectDarkPoolBlocks(data: OHLCV[]): { price: number; volume: number }[] {
+  if (data.length < 20) return [];
+  
+  const shadowBlocks: { price: number; volume: number }[] = [];
+  
+  for (let i = 20; i < data.length; i++) {
+    const curr = data[i];
+    if (!curr.volume) continue;
+    
+    // Calculate 20-period average volume and ATR (Average True Range)
+    const avgVol = data.slice(i - 20, i).reduce((acc, d) => acc + (d.volume || 0), 0) / 20;
+    const avgRange = data.slice(i - 20, i).reduce((acc, d) => acc + (d.high - d.low), 0) / 20;
+    
+    const currRange = curr.high - curr.low;
+    
+    // Anomaly: Volume is > 4x normal, BUT price range is < 1.5x normal
+    // This implies massive shares changed hands without moving the market (classic Dark Pool print signature)
+    if (curr.volume > avgVol * 4 && currRange < avgRange * 1.5) {
+      // The price point of interest is the VWAP of that candle (approximated by (H+L+C)/3)
+      const executionPrice = (curr.high + curr.low + curr.close) / 3;
+      
+      shadowBlocks.push({
+        price: Number(executionPrice.toFixed(2)),
+        volume: curr.volume
+      });
+    }
+  }
+  
+  // Return the top 3 largest shadow liquidity nodes
+  return shadowBlocks.sort((a, b) => b.volume - a.volume).slice(0, 3);
+}

@@ -40,13 +40,17 @@ import { ContextEngine } from "@/components/organisms/ContextEngine";
 import { AIEarningsLab } from "@/components/organisms/AIEarningsLab";
 import { ExecutionPlanner } from "@/components/organisms/ExecutionPlanner";
 import { OptionsSurfaceVisualizer } from "@/components/organisms/OptionsSurfaceVisualizer";
+import { calculateWhaleIntelligence } from "@/lib/whale-radar";
+import { WhaleRadarPanel } from "@/components/organisms/WhaleRadarPanel";
 
 import { OptionsIntelligence } from '@/lib/options-pricing';
+import { MacroSnapshot } from '@/lib/macro-analysis';
+import { MacroOverlay } from '@/components/organisms/MacroOverlay';
 
 const TABS = ['OVERVIEW', 'FUNDAMENTALS', 'VALUATION', 'GOVERNANCE'] as const;
 type TabType = typeof TABS[number];
 
-export function AssetDashboard({ ticker, signal }: { ticker: string, signal: MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails; optionsIntelligence?: OptionsIntelligence | null } }) {
+export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: string, signal: MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails; optionsIntelligence?: OptionsIntelligence | null }, macroSnapshot: MacroSnapshot }) {
   const [activeTab, setActiveTab] = useState<TabType>('OVERVIEW');
   const [isNeuralEngaged, setIsNeuralEngaged] = useState(false);
   const d = signal.stockDetails;
@@ -179,6 +183,22 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
               <section className="space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="w-1 h-3.5 bg-white shadow-none" />
+                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">Macro Framework</h2>
+                </div>
+                <MacroOverlay snapshot={macroSnapshot} />
+
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="w-1 h-3.5 bg-white shadow-none" />
+                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">Intelligent Intent</h2>
+                </div>
+                <WhaleRadarPanel 
+                  intelligence={calculateWhaleIntelligence(d)} 
+                  heldPercentInsiders={d.keyStats.heldPercentInsiders} 
+                  heldPercentInstitutions={d.keyStats.heldPercentInstitutions} 
+                />
+
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="w-1 h-3.5 bg-white shadow-none" />
                   <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">AI Analysis</h2>
                 </div>
                 <StrategicOracle 
@@ -198,7 +218,7 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
               <AlgorithmicTargetsPanel tech={signal.tech} />
               <InstitutionalFlowPanel tech={signal.tech} optionsFlow={d.optionsFlow} currentPrice={p.current} />
               <RiskEntropyPanel metrics={d.riskMetrics} />
-              <AIEarningsLab details={d} />
+              <AIEarningsLab details={d} globalTrigger={isNeuralEngaged} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <NeuralDiagnostics history={signal.history} />

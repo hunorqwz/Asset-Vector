@@ -111,7 +111,7 @@ export class SentimentAnalyzer {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.0-flash",
+        model: "gemini-1.5-flash",
         systemInstruction: "You are an institutional Quant Sentiment API. Respond with strict JSON matching the requested schema. No markdown wrapping. Just pure JSON."
       });
 

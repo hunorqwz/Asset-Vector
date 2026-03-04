@@ -13,6 +13,8 @@ import { getAccuracyScorecard } from "@/app/actions/signals";
 import { AlpacaTerminal } from "@/components/organisms/AlpacaTerminal";
 import { fetchOptionsIntelligence, OptionsIntelligence } from "@/lib/options-pricing";
 import { OptionsProbabilityPanel } from "@/components/organisms/OptionsProbabilityPanel";
+import { getMacroIntelligence } from "@/app/actions/macro";
+import { MacroSnapshot } from "@/lib/macro-analysis";
 
 export const revalidate = 60;
 export const dynamic = 'force-dynamic';
@@ -46,12 +48,20 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
     );
   }
 
-  const accuracyData = await getAccuracyScorecard(ticker);
+  // Fetch secondary analysis data with independent safety guards
+  const [accuracyData, macroSnapshot] = await Promise.all([
+    getAccuracyScorecard(ticker).catch(() => null),
+    getMacroIntelligence().catch(() => null)
+  ]);
   
   const d = signal.stockDetails;
   const p = d.price;
 
-  const optionsData = signal.optionsIntelligence || await fetchOptionsIntelligence(ticker, p.current);
+  // Use pre-fetched options if available, otherwise fetch with safety
+  const optionsData = (signal.optionsIntelligence || await fetchOptionsIntelligence(ticker, p.current).catch(() => null)) as OptionsIntelligence;
+  
+  // Ensure we have a valid snapshot even on failure
+  const safeMacro = macroSnapshot as MacroSnapshot;
 
   return (
     <>
@@ -77,7 +87,7 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
           
           {/* Main Content Area */}
           <div className="xl:col-span-9">
-            <AssetDashboard ticker={ticker} signal={signal} />
+            <AssetDashboard ticker={ticker} signal={signal} macroSnapshot={safeMacro} />
           </div>
 
           {/* Right Sidebar */}

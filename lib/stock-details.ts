@@ -41,19 +41,37 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
   const benchmark = isCrypto ? 'BTC-USD' : 'SPY';
 
   const [resRaw, history, search, benchHistory, peers, optsRaw] = await Promise.all([
-    yahooFinance.quoteSummary(sym, { modules: ['price', 'summaryDetail', 'financialData', 'defaultKeyStatistics', 'earningsHistory', 'earnings', 'institutionOwnership', 'insiderTransactions', 'topHoldings', 'recommendationTrend', 'calendarEvents', 'secFilings', 'assetProfile'] }, { validateResult: false }),
+    Promise.race([
+      yahooFinance.quoteSummary(sym, { modules: ['price', 'summaryDetail', 'financialData', 'defaultKeyStatistics', 'earningsHistory', 'earnings', 'institutionOwnership', 'insiderTransactions', 'topHoldings', 'recommendationTrend', 'calendarEvents', 'secFilings', 'assetProfile'] }, { validateResult: false }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 10000))
+    ]).catch(err => {
+      console.warn(`[Stock Details] QuoteSummary failed or timed out for ${sym}:`, err.message);
+      return null;
+    }),
     fetchHistoryWithInterval(sym, '1d', 730 * 86400).catch(() => []),
-    yahooFinance.search(sym, { newsCount: 5 }, { validateResult: false }),
+    Promise.race([
+      yahooFinance.search(sym, { newsCount: 5 }, { validateResult: false }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000))
+    ]).catch(() => null),
     fetchHistoryWithInterval(benchmark, '1d', 365 * 86400).catch(() => []),
     yahooFinance.recommendationsBySymbol(sym).then(r => r?.recommendedSymbols?.[0]?.symbol).then(s => s ? yahooFinance.quoteSummary(s, { modules: ['price', 'defaultKeyStatistics', 'financialData'] }, { validateResult: false }).then(q => ({ symbol: s, summary: q as any })) : null).catch(() => null),
-    yahooFinance.options(sym).catch(() => null)
+    Promise.race([
+       yahooFinance.options(sym),
+       new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000))
+    ]).catch(() => null)
   ]);
 
   if (!resRaw) {
     if (!sym.includes("-") && sym.length <= 5) {
-      return fetchStockDetails(`${sym}-USD`);
+      try {
+        return await fetchStockDetails(`${sym}-USD`);
+      } catch {
+        // Fallback if the recursive call fails too
+      }
     }
-    throw new Error("FETCH_FAILED");
+    // Return a minimal Zero-State instead of throwing to prevent page crash
+    console.warn(`[Stock Details] Returning zero-state for ${sym}`);
+    return generateZeroStateDetails(sym, isCrypto);
   }
   const res = resRaw as any;
 
@@ -65,8 +83,9 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
   const l52 = safeNum(res.summaryDetail?.fiftyTwoWeekLow) ?? cur;
 
   let optionsFlow: OptionsFlow | null = null;
-  if (!isCrypto && optsRaw && optsRaw.options && optsRaw.options.length > 0) {
-    const nearest = optsRaw.options[0];
+  const oRaw = optsRaw as any;
+  if (!isCrypto && oRaw && oRaw.options && oRaw.options.length > 0) {
+    const nearest = oRaw.options[0];
     let callsVol = 0, callsOi = 0, putsVol = 0, putsOi = 0;
     let avgIv = 0, ivCount = 0;
     
@@ -198,9 +217,83 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
   };
 
   calibrateMetrics(details);
-
   await setInCache(cacheKey, details, CACHE_TTL.STOCK_DETAILS);
   return details;
+}
+
+function generateZeroStateDetails(ticker: string, isCrypto: boolean): StockDetails {
+  return {
+    ticker,
+    fetchedAt: Date.now(),
+    isCrypto,
+    isETF: false,
+    optionsFlow: null,
+    profile: {
+      name: ticker,
+      sector: "Unknown",
+      industry: "Unknown",
+      description: "Data temporarily unavailable.",
+      website: "",
+      employees: null,
+      country: "",
+      city: "",
+      exchange: "",
+      currency: "USD",
+      quoteType: "EQUITY"
+    },
+    price: {
+      current: 0, previousClose: 0, open: 0, dayHigh: 0, dayLow: 0,
+      fiftyTwoWeekHigh: 0, fiftyTwoWeekLow: 0, fiftyDayAverage: 0, twoHundredDayAverage: 0,
+      volume: 0, averageVolume: 0, averageVolume10Day: 0, marketCap: 0,
+      dayChange: 0, dayChangePercent: 0, fiftyTwoWeekChangePercent: 0,
+      distanceFrom52wHigh: 0, distanceFrom52wLow: 0
+    },
+    valuation: {
+      trailingPE: null, forwardPE: null, pegRatio: null, priceToBook: null,
+      priceToSales: null, enterpriseValue: null, enterpriseToRevenue: null,
+      enterpriseToEbitda: null, bookValue: null
+    },
+    profitability: {
+      grossMargins: null, operatingMargins: null, profitMargins: null,
+      returnOnAssets: null, returnOnEquity: null, revenueGrowth: null, earningsGrowth: null
+    },
+    financialHealth: {
+      totalCash: null, totalCashPerShare: null, totalDebt: null, debtToEquity: null,
+      currentRatio: null, quickRatio: null, totalRevenue: null, revenuePerShare: null,
+      ebitda: null, freeCashflow: null, operatingCashflow: null, grossProfits: null
+    },
+    dividends: {
+      dividendRate: null, dividendYield: null, exDividendDate: null, payoutRatio: null,
+      fiveYearAvgDividendYield: null, lastDividendValue: null, lastDividendDate: null,
+      hasDividend: false
+    },
+    analyst: {
+      targetLow: null, targetMean: null, targetMedian: null, targetHigh: null,
+      numberOfAnalysts: 0, recommendationKey: "NEUTRAL", recommendationMean: null
+    },
+    keyStats: {
+      beta: null, sharesOutstanding: null, floatShares: null, sharesShort: null,
+      shortRatio: null, shortPercentOfFloat: null, heldPercentInsiders: null,
+      heldPercentInstitutions: null, trailingEps: null, forwardEps: null,
+      earningsQuarterlyGrowth: null, mostRecentQuarter: null, lastSplitFactor: null, lastSplitDate: null
+    },
+    earningsHistory: [],
+    quarterlyReports: [],
+    topHolders: [],
+    news: [],
+    insiderTransactions: [],
+    etfHoldings: [],
+    sectorExposure: [],
+    alphaIntelligence: null,
+    analystTrend: [],
+    riskMetrics: null,
+    upcomingCatalysts: {
+      earningsDate: null, isEarningsEstimate: true, revenueAverage: null,
+      earningsAverage: null, exDividendDate: null, dividendDate: null
+    },
+    secFilings: [],
+    peerBenchmark: null
+  };
 }
 
 function calibrateMetrics(d: StockDetails) {

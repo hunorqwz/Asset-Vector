@@ -1,8 +1,9 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { MarketSignal } from "@/lib/market-data";
 import { StockDetails } from "@/lib/stock-details";
 import { getTouchImpact } from "@/lib/probability";
+import { executeTrade } from "@/app/actions/execute";
 
 interface ExecutionPlannerProps {
   ticker: string;
@@ -11,6 +12,24 @@ interface ExecutionPlannerProps {
 
 export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
   const { structuralProbability, price, smoothPrice, tech, trend } = signal;
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [tradeStatus, setTradeStatus] = useState<{ status: 'idle' | 'success' | 'error', message?: string }>({ status: 'idle' });
+
+  const handleExecute = async (side: "buy" | "sell") => {
+    setIsExecuting(true);
+    setTradeStatus({ status: 'idle' });
+    
+    // Defaulting to a simulated $1000 notional block for the institutional planner wrapper.
+    const notionalValue = 1000;
+    
+    const res = await executeTrade(ticker, side, notionalValue, price);
+    if (res.success) {
+      setTradeStatus({ status: 'success', message: `Execution Filled: ${res.status.toUpperCase()} (${res.filledQty} shares @ $${res.filledAvgPrice})` });
+    } else {
+      setTradeStatus({ status: 'error', message: res.error || "Execution failed due to liquidity/routing." });
+    }
+    setIsExecuting(false);
+  };
 
   // Identify primary support and resistance based on PoT
   const resistance = (signal.structuralProbability || [])
@@ -50,9 +69,16 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
               <span className="text-3xl font-bold font-mono text-bull tracking-tighter">${takeProfit.toFixed(2)}</span>
               <span className="text-[11px] font-bold text-bull/60">({(((takeProfit/price)-1)*100).toFixed(1)}%)</span>
             </div>
-            <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">
-              {resistance ? `Structural Resistance: ${getTouchImpact(resistance.probability)}` : 'Projected technical extension target.'}
-            </p>
+            {signal.orderBlocks && signal.orderBlocks.filter(b => b.type === 'BEARISH' && b.price > price).length > 0 ? (
+              <div className="flex items-center gap-2 mt-1">
+                 <div className="w-1 h-3 bg-bear" />
+                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Bearish Supply Level (${signal.orderBlocks.find(b => b.type === 'BEARISH')?.price.toFixed(2)})</span>
+              </div>
+            ) : (
+              <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">
+                {resistance ? `Structural Resistance: ${getTouchImpact(resistance.probability)}` : 'Projected technical extension target.'}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5 pt-4 border-t border-white/5">
@@ -61,9 +87,16 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
               <span className="text-3xl font-bold font-mono text-bear tracking-tighter">${stopLoss.toFixed(2)}</span>
               <span className="text-[11px] font-bold text-bear/60">({(((stopLoss/price)-1)*100).toFixed(1)}%)</span>
             </div>
-            <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">
-              Hard exit below {support ? `Liquid Support cluster (${support.price.toFixed(2)})` : 'ATR-based volatility band.'}
-            </p>
+            {signal.orderBlocks && signal.orderBlocks.filter(b => b.type === 'BULLISH' && b.price < price).length > 0 ? (
+              <div className="flex items-center gap-2 mt-1">
+                 <div className="w-1 h-3 bg-bull" />
+                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Institutional Order Block Detected (${signal.orderBlocks.find(b => b.type === 'BULLISH')?.price.toFixed(2)})</span>
+              </div>
+            ) : (
+              <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">
+                Hard exit below {support ? `Liquid Support cluster (${support.price.toFixed(2)})` : 'ATR-based volatility band.'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -97,6 +130,15 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
                     <span className="text-zinc-500 uppercase tracking-tight font-medium">Confluence Score</span>
                     <span className="font-mono text-matrix font-bold">{tech.confluenceScore.toFixed(0)}/100</span>
                  </div>
+                 {signal.darkPoolBlocks && signal.darkPoolBlocks.length > 0 && (
+                   <div className="flex justify-between items-center text-[11px] mt-2 pt-2 border-t border-white/5">
+                      <span className="text-purple-400 uppercase tracking-tight font-bold flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-ping" />
+                        Shadow Liquidity
+                      </span>
+                      <span className="font-mono text-white font-bold">${signal.darkPoolBlocks[0].price.toFixed(2)}</span>
+                   </div>
+                 )}
               </div>
            </div>
         </div>
@@ -109,6 +151,31 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
         <p className="text-[10px] text-zinc-400 font-medium leading-relaxed uppercase tracking-tighter">
           Advisory: This plan is derived from <span className="text-white">Factor Beta & Gaussian Probability</span>. No stop loss is guaranteed.
         </p>
+      </div>
+
+      <div className="mt-6 border-t border-white/10 pt-6">
+         <h4 className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest mb-4">Direct Execution (Alpaca Testnet)</h4>
+         <div className="flex items-center gap-4">
+            <button 
+               onClick={() => handleExecute("buy")}
+               disabled={isExecuting}
+               className="flex-1 bg-bull/20 hover:bg-bull/30 text-bull border border-bull/30 disabled:opacity-50 py-3 uppercase tracking-widest font-bold text-[11px] rounded transition-colors"
+            >
+               {isExecuting ? "Routing..." : `Transact LONG ($1000)`}
+            </button>
+            <button 
+               onClick={() => handleExecute("sell")}
+               disabled={isExecuting}
+               className="flex-1 bg-bear/20 hover:bg-bear/30 text-bear border border-bear/30 disabled:opacity-50 py-3 uppercase tracking-widest font-bold text-[11px] rounded transition-colors"
+            >
+               {isExecuting ? "Routing..." : `Transact SHORT ($1000)`}
+            </button>
+         </div>
+         {tradeStatus.status !== 'idle' && (
+           <div className={`mt-4 p-3 rounded text-[10px] uppercase font-bold tracking-widest border ${tradeStatus.status === 'success' ? 'bg-bull/10 text-bull border-bull/20' : 'bg-bear/10 text-bear border-bear/20'}`}>
+              {tradeStatus.message}
+           </div>
+         )}
       </div>
     </div>
   );

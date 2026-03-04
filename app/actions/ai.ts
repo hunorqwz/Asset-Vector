@@ -5,10 +5,12 @@ import { db } from "@/db";
 import { systemKv } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { SentimentAnalyzer, SentimentReport, SentimentFallback } from "@/lib/sentiment";
+import { ForensicEarningsReport } from "@/lib/types";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
 const activeRequests = new Map<string, Promise<StrategicInsight | null>>();
 const activeSentimentRequests = new Map<string, Promise<SentimentReport>>();
+const activeEarningsRequests = new Map<string, Promise<ForensicEarningsReport | null>>();
 
 async function getGlobalCache<T>(key: string): Promise<T | null> {
   try {
@@ -133,4 +135,67 @@ export async function extractSentimentNarrative(ticker: string, headlines: Narra
 
   activeSentimentRequests.set(ticker, promise);
   try { return await promise; } finally { activeSentimentRequests.delete(ticker); }
+}
+
+export async function generateForensicEarningsAnalysis(ticker: string, news: NarrativeArticle[]): Promise<ForensicEarningsReport | null> {
+  const cacheKey = `ai_earnings_${ticker}`;
+  const cached = await getGlobalCache<ForensicEarningsReport | string>(cacheKey);
+  if (cached) return cached === "COOLDOWN" ? null : cached as ForensicEarningsReport;
+
+  if (activeEarningsRequests.has(ticker)) return activeEarningsRequests.get(ticker)!;
+
+  const promise = (async (): Promise<ForensicEarningsReport | null> => {
+    try {
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash", 
+        systemInstruction: "Forensic Equity Analyst. You analyze earnings narrative for subtle 'tells', management confidence, and hidden risks. Output strictly valid JSON." 
+      });
+
+      const responseSchema = {
+        type: SchemaType.OBJECT,
+        properties: {
+          sentimentShift: { 
+            type: SchemaType.OBJECT, 
+            properties: { 
+              direction: { type: SchemaType.STRING, enum: ["IMPROVING", "DETERIORATING", "STABLE"] },
+              rationale: { type: SchemaType.STRING }
+            },
+            required: ["direction", "rationale"]
+          },
+          guidanceQuality: {
+            type: SchemaType.OBJECT,
+            properties: {
+              score: { type: SchemaType.NUMBER },
+              tone: { type: SchemaType.STRING },
+              skepticism: { type: SchemaType.STRING }
+            },
+            required: ["score", "tone", "skepticism"]
+          },
+          hiddenRisks: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          keyAlphaDrivers: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          managementConfidence: { type: SchemaType.NUMBER }
+        },
+        required: ["sentimentShift", "guidanceQuality", "hiddenRisks", "keyAlphaDrivers", "managementConfidence"]
+      } as any;
+
+      const prompt = `Perform forensic earnings analysis for ${ticker} based on recent headlines and analyst summaries: ${news.slice(0, 8).map(n => n.title).join(" | ")}. Search for subtle shifts in guidance tone and under-the-radar obstacles.`;
+      
+      const res = await model.generateContent({
+         contents: [{ role: "user", parts: [{ text: prompt }] }],
+         generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema }
+      });
+      
+      const parsed = JSON.parse(res.response.text()) as ForensicEarningsReport;
+      await setGlobalCache(cacheKey, parsed, 86400000); // 24 HOURS
+      return parsed;
+    } catch (err: any) {
+      console.error("generateForensicEarningsAnalysis error:", err);
+      // Fallback to cooldown if rate limited
+      if (err?.status === 429) await setGlobalCache(cacheKey, "COOLDOWN", 60000);
+      return null;
+    }
+  })();
+
+  activeEarningsRequests.set(ticker, promise);
+  try { return await promise; } finally { activeEarningsRequests.delete(ticker); }
 }

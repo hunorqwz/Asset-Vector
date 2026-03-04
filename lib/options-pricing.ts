@@ -11,6 +11,9 @@ export interface OptionStrike {
   putVol: number;
   callIV: number;
   putIV: number;
+  callGamma: number;
+  putGamma: number;
+  netGamma: number;
 }
 
 export interface OptionsIntelligence {
@@ -24,6 +27,9 @@ export interface OptionsIntelligence {
   expirationDate: string;
   putCallRatio: number;
   strikes: OptionStrike[];
+  zeroGammaLevel: number;
+  gravityWells: number[];
+  totalGEX: number;
   isValid: boolean;
 }
 
@@ -33,6 +39,14 @@ export function normalCDF(x: number): number {
   const d = 0.3989423 * Math.exp((-x * x) / 2);
   const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
   return x > 0 ? 1 - p : p;
+}
+
+// Black-Scholes Gamma (same for Call and Put)
+export function calculateGamma(S: number, K: number, T: number, sigma: number, r: number = 0.04): number {
+  if (T <= 0 || sigma <= 0) return 0;
+  const d1 = (Math.log(S / K) + (r + (sigma * sigma) / 2) * T) / (sigma * Math.sqrt(T));
+  const npDF = (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * d1 * d1);
+  return npDF / (S * sigma * Math.sqrt(T));
 }
 
 export async function fetchOptionsIntelligence(ticker: string, currentPrice: number): Promise<OptionsIntelligence> {
@@ -51,6 +65,9 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
     expirationDate: "",
     putCallRatio: 0,
     strikes: [],
+    zeroGammaLevel: 0,
+    gravityWells: [],
+    totalGEX: 0,
     isValid: false
   };
 
@@ -113,33 +130,52 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
 
     // Build strikes map
     const strikesMap = new Map<number, OptionStrike>();
+    const T = daysToExpiration / 365;
+
     targetOption.calls.forEach((c: any) => {
+      const iv = c.impliedVolatility || 0;
+      const gamma = calculateGamma(currentPrice, c.strike, T, iv);
+      const callOI = c.openInterest || 0;
+      
       strikesMap.set(c.strike, {
         strike: c.strike,
-        callOI: c.openInterest || 0,
+        callOI,
         putOI: 0,
         callVol: c.volume || 0,
         putVol: 0,
-        callIV: c.impliedVolatility || 0,
-        putIV: 0
+        callIV: iv,
+        putIV: 0,
+        callGamma: gamma,
+        putGamma: 0,
+        netGamma: gamma * callOI * 100 // Approximation of Dealer Call GEX (usually assumed long call -> short dealer -> positive gamma exposure)
       });
     });
     
     targetOption.puts?.forEach((p: any) => {
       const existing = strikesMap.get(p.strike);
+      const iv = p.impliedVolatility || 0;
+      const gamma = calculateGamma(currentPrice, p.strike, T, iv);
+      const putOI = p.openInterest || 0;
+      const putGEX = -gamma * putOI * 100; // Dealer short put -> long dealer -> negative gamma exposure
+
       if (existing) {
-        existing.putOI = p.openInterest || 0;
+        existing.putOI = putOI;
         existing.putVol = p.volume || 0;
-        existing.putIV = p.impliedVolatility || 0;
+        existing.putIV = iv;
+        existing.putGamma = gamma;
+        existing.netGamma += putGEX;
       } else {
         strikesMap.set(p.strike, {
           strike: p.strike,
           callOI: 0,
-          putOI: p.openInterest || 0,
+          putOI,
           callVol: 0,
           putVol: p.volume || 0,
           callIV: 0,
-          putIV: p.impliedVolatility || 0
+          putIV: iv,
+          callGamma: 0,
+          putGamma: gamma,
+          netGamma: putGEX
         });
       }
     });
@@ -148,6 +184,28 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
     const strikes = Array.from(strikesMap.values())
       .filter(s => s.strike > currentPrice * 0.75 && s.strike < currentPrice * 1.25)
       .sort((a, b) => a.strike - b.strike);
+
+    let totalGEX = 0;
+    strikes.forEach(s => totalGEX += s.netGamma);
+
+    // Find Gravity Wells (Highest absolute netGamma)
+    const gravityWells = [...strikes]
+      .sort((a, b) => Math.abs(b.netGamma) - Math.abs(a.netGamma))
+      .slice(0, 2)
+      .map(s => s.strike);
+
+    // Calculate Zero Gamma Level (Approximate point where Call GEX + Put GEX = 0)
+    // A simple approximation is the strike where netGamma flips from positive to negative, 
+    // or the strike with netGamma closest to 0 if we're interpolating.
+    // For simplicity, we find the cumulative GEX and the flip point.
+    let zeroGammaLevel = currentPrice;
+    let minGammaAbs = Infinity;
+    strikes.forEach(s => {
+      if (Math.abs(s.netGamma) < minGammaAbs && s.callOI > 0 && s.putOI > 0) {
+        minGammaAbs = Math.abs(s.netGamma);
+        zeroGammaLevel = s.strike;
+      }
+    });
 
     const result: OptionsIntelligence = {
       currentPrice,
@@ -160,6 +218,9 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
       expirationDate: expirationDate.toISOString(),
       putCallRatio,
       strikes,
+      zeroGammaLevel,
+      gravityWells,
+      totalGEX,
       isValid: true
     };
 

@@ -2,14 +2,19 @@
 import React, { useMemo } from 'react';
 import { StockDetails, EarningsQuarter } from "@/lib/stock-details";
 import { fmt, fmtPct, fmtBigNum } from "@/lib/format";
-import { EarningsIcon, CalendarIcon, StatsIcon } from "@/components/Icons";
+import { EarningsIcon, CalendarIcon, StatsIcon, AIIcon } from "@/components/Icons";
+import { ForensicEarningsReport } from "@/lib/types";
+import { generateForensicEarningsAnalysis } from "@/app/actions/ai";
 
 interface AIEarningsLabProps {
   details: StockDetails;
+  globalTrigger?: boolean;
 }
 
-export function AIEarningsLab({ details }: AIEarningsLabProps) {
-  const { earningsHistory, upcomingCatalysts, optionsFlow, price } = details;
+export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
+  const [insight, setInsight] = React.useState<ForensicEarningsReport | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { earningsHistory, upcomingCatalysts, optionsFlow, price, news, ticker } = details;
 
   const analysis = useMemo(() => {
     if (!earningsHistory || earningsHistory.length === 0) return null;
@@ -38,6 +43,23 @@ export function AIEarningsLab({ details }: AIEarningsLabProps) {
     };
   }, [earningsHistory, optionsFlow]);
 
+  const handleExtraction = React.useCallback(async () => {
+    if (isLoading || insight) return;
+    setIsLoading(true);
+    try {
+      const res = await generateForensicEarningsAnalysis(ticker, news);
+      setInsight(res);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [ticker, news, isLoading, insight]);
+
+  React.useEffect(() => {
+    if (globalTrigger && !insight && !isLoading) {
+      handleExtraction();
+    }
+  }, [globalTrigger, insight, isLoading, handleExtraction]);
+
   if (!upcomingCatalysts?.earningsDate) return null;
 
   return (
@@ -54,10 +76,25 @@ export function AIEarningsLab({ details }: AIEarningsLabProps) {
             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Catalyst & Volatility Projections</p>
           </div>
         </div>
-        <div className="text-right">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Next Release</span>
-          <span className="text-[13px] font-mono font-bold text-white uppercase">{upcomingCatalysts.earningsDate}</span>
-        </div>
+        {!insight && !isLoading ? (
+          <button 
+            onClick={handleExtraction}
+            className="flex items-center gap-2 px-4 py-2 bg-matrix/5 border border-matrix/20 hover:bg-matrix/10 text-matrix rounded-lg transition-all"
+          >
+            <AIIcon />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Neural Deep Dive</span>
+          </button>
+        ) : isLoading ? (
+          <div className="flex items-center gap-2 px-4 py-2 text-zinc-500">
+             <div className="w-3 h-3 border-2 border-matrix/40 border-t-matrix rounded-full animate-spin" />
+             <span className="text-[10px] font-bold uppercase tracking-widest">Analyzing Transcripts...</span>
+          </div>
+        ) : (
+          <div className="text-right">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Next Release</span>
+            <span className="text-[13px] font-mono font-bold text-white uppercase">{upcomingCatalysts.earningsDate}</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/5">
@@ -129,6 +166,68 @@ export function AIEarningsLab({ details }: AIEarningsLabProps) {
           </div>
         </div>
       </div>
+
+      {/* Forensic Deep Dive (Active if insight exists) */}
+      {insight && (
+        <div className="p-8 bg-matrix/[0.02] border-t border-white/5 grid grid-cols-1 lg:grid-cols-2 gap-10 translate-y-0 opacity-100 transition-all duration-700">
+           <div className="space-y-8">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-1.5 h-4 ${insight.sentimentShift.direction === 'IMPROVING' ? 'bg-bull' : 'bg-bear'}`} />
+                  <h3 className="text-[11px] font-bold text-white uppercase tracking-[0.2em]">Forensic Sentiment Shift</h3>
+                </div>
+                <p className="text-[13px] text-zinc-400 leading-relaxed font-medium">
+                  <span className={insight.sentimentShift.direction === 'IMPROVING' ? 'text-bull' : 'text-bear'}>
+                    [{insight.sentimentShift.direction}]
+                  </span> {insight.sentimentShift.rationale}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                 <div>
+                    <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-2">Guidance Quality</span>
+                    <div className="flex items-center gap-3">
+                       <span className="text-xl font-mono font-bold text-white">{insight.guidanceQuality.score}/10</span>
+                       <span className="text-[10px] text-zinc-500 font-bold uppercase">{insight.guidanceQuality.tone}</span>
+                    </div>
+                 </div>
+                 <div>
+                    <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-2">Mgmt Confidence</span>
+                    <div className="flex items-center gap-3">
+                       <span className="text-xl font-mono font-bold text-white">{insight.managementConfidence}%</span>
+                       <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-full bg-matrix" style={{ width: `${insight.managementConfidence}%` }} />
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
+
+           <div className="space-y-6">
+              <div>
+                <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-4">Detected Obstacles (Non-Financial)</span>
+                <div className="space-y-2">
+                  {insight.hiddenRisks.map((risk, i) => (
+                    <div key={i} className="flex gap-3 items-start group/risk">
+                      <div className="w-1 h-1 rounded-full bg-bear mt-1.5 opacity-40 group-hover/risk:opacity-100" />
+                      <p className="text-[12px] text-zinc-400 group-hover/risk:text-zinc-300 transition-colors">{risk}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-4">Under-the-Radar Dry Powder</span>
+                <div className="flex flex-wrap gap-2">
+                  {insight.keyAlphaDrivers.map((driver, i) => (
+                    <span key={i} className="px-2 py-1 bg-white/5 border border-white/10 text-[10px] text-zinc-400 font-bold uppercase tracking-wide rounded">
+                      {driver}
+                    </span>
+                  ))}
+                </div>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* Historical Surprise Grid */}
       <div className="px-8 py-5 bg-black/40 border-t border-white/5 flex items-center justify-between">

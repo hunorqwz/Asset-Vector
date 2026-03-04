@@ -6,3 +6,11 @@ export type NarrativeArticle = {
   date: string; // ISO String
   publisher?: string;
 };
+
+export interface ForensicEarningsReport {
+  sentimentShift: { direction: "IMPROVING" | "DETERIORATING" | "STABLE"; rationale: string };
+  guidanceQuality: { score: number; tone: string; skepticism: string };
+  hiddenRisks: string[];
+  keyAlphaDrivers: string[];
+  managementConfidence: number; // 0-100
+}
