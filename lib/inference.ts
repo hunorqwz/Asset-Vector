@@ -35,19 +35,24 @@ export async function predictNextHorizon(
     }
   }
 
+  // 2. Circuit Breaker: Prevent cascading latency during server outages (v2.5)
+  if (getFromCache("ml_circuit_tripped")) {
+    return generateFallback(inputSequence);
+  }
+
   try {
     const payload = {
       ticker,
       lastPrice,
       volatility: realizedVol,
-      returns: stationarySequence.slice(-50), // Z-Score normalized
+      returns: stationarySequence.slice(-50),
       history: inputSequence.map(x => ({ 
         open: x[0], high: x[1], low: x[2], close: x[3], volume: x[4] 
       }))
     };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // Tighter 2s timeout for critical path
 
     const INFERENCE_URL = process.env.ML_INFERENCE_URL || "http://127.0.0.1:5000/predict";
     const res = await fetch(INFERENCE_URL, {
@@ -60,18 +65,29 @@ export async function predictNextHorizon(
     clearTimeout(timeoutId);
 
     if (res.ok) {
+      // Success: Reset failure count
+      setInCache("ml_failure_count", 0, 3600000);
       const data = await res.json() as { p10: number; p50: number; p90: number };
       const result: PredictionResult = { p10: data.p10, p50: data.p50, p90: data.p90, source: "TFT-v2.1 (Z-Score)" };
       setInCache(cacheKey, result, CACHE_TTL.PREDICTION);
       return result;
     } else {
-      console.warn(`Inference Server Error [${res.status}]: ${await res.text()}`);
+      throw new Error(`SERVER_ERROR_${res.status}`);
     }
   } catch (error: any) {
-    if (error?.message?.includes('fetch failed') || error?.cause?.code === 'ECONNREFUSED' || error?.name === 'TypeError') {
-      console.warn(`[Inference Engine]: ML Server unavailable. Reverting to PoT Math Model.`);
+    // Failure Logic
+    const failures = (getFromCache<number>("ml_failure_count") || 0) + 1;
+    setInCache("ml_failure_count", failures, 3600000);
+
+    if (failures >= 3) {
+      console.warn(`[Circuit Breaker] Tripping ML Circuit. ${failures} failures detected. Skipped for 5 mins.`);
+      setInCache("ml_circuit_tripped", true, 300000); // 5 Minute Downtime
+    }
+
+    if (error?.name === 'AbortError') {
+      console.warn(`[Inference Engine] Timeout for ${ticker}. Using fallback.`);
     } else {
-      console.error("Inference Engine Fault, reverting to PoT Fallback:", error);
+      console.warn(`[Inference Engine] ML Server unavailable. Handled Failures: ${failures}`);
     }
   }
 

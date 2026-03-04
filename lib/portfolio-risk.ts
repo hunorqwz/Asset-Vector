@@ -4,9 +4,10 @@ import {
   calculateVariance, 
   calculateCovariance, 
   calculateCorrelation, 
-  calculateBeta 
+  calculateBeta,
+  calculateJensensAlpha
 } from "./math";
-import { fetchMarketPulse, MarketPulseData } from "./market-pulse";
+import { fetchMarketPulse } from "./market-pulse";
 import { RegimeDetector } from "./regime";
 
 export interface ScenarioResult {
@@ -28,6 +29,7 @@ export interface RiskIntelligence {
   volatilityAnnualized: number;
   correlationMatrix: CorrelationMatrix;
   var95: number; // 95% Confidence Value at Risk (Daily)
+  jensensAlpha: number; // Risk-adjusted outperformance
   regimeAlignment: number; // 0-100 indicating how well the portfolio fits the current macro regime
   regimeLabel: string;
 }
@@ -44,6 +46,7 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
       scenarios: [], 
       volatilityAnnualized: 0,
       var95: 0,
+      jensensAlpha: 0,
       regimeAlignment: 50,
       regimeLabel: "N/A",
       correlationMatrix: { tickers: [], matrix: [] }
@@ -73,6 +76,7 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
        scenarios: [], 
        volatilityAnnualized: 0,
        var95: 0,
+       jensensAlpha: 0,
        regimeAlignment: 50,
        regimeLabel: "Insufficient History",
        correlationMatrix: { tickers: positions.map(p => p.ticker), matrix: [] }
@@ -131,19 +135,30 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
   // 4. Calculate Portfolio Daily Returns & Volatility (Time-Synced)
   const portfolioDailyReturns: number[] = [];
   
+  // PERFORMANCE FIX: Pre-compute maps for O(1) lookups instead of O(N^2) Array.find
+  const assetHistoryMaps: Record<string, Map<number, number>> = {};
+  positions.forEach(pos => {
+    const assetHist = historyData.find(h => h.ticker === pos.ticker)?.history || [];
+    const map = new Map<number, number>();
+    assetHist.forEach(h => map.set(h.time, h.close));
+    assetHistoryMaps[pos.ticker] = map;
+  });
+
   // Use SPY as the time master
   spyHistory.slice(1).forEach((bar, i) => {
     const t = bar.time;
+    const prevT = spyHistory[i].time; // i is index of previous bar
     let dayRet = 0;
     let activeWeight = 0;
 
     positions.forEach(pos => {
-      const assetHist = historyData.find(h => h.ticker === pos.ticker)?.history || [];
-      const match = assetHist.find(h => h.time === t);
-      const prevMatch = assetHist.find(h => h.time === spyHistory[i].time); // i is index of previous bar
+      const map = assetHistoryMaps[pos.ticker];
+      const matchClose = map.get(t);
+      const prevMatchClose = map.get(prevT);
 
-      if (match && prevMatch) {
-         const ret = (match.close - prevMatch.close) / prevMatch.close;
+      // Guard: Ensure prevMatchClose is defined and strictly greater than 0
+      if (matchClose !== undefined && prevMatchClose !== undefined && prevMatchClose > 0) {
+         const ret = (matchClose - prevMatchClose) / prevMatchClose;
          dayRet += ret * pos.weight;
          activeWeight += pos.weight;
       }
@@ -152,11 +167,13 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
     // If we only have data for 50% of the portfolio, re-scale the return to 100%
     if (activeWeight > 0) {
       portfolioDailyReturns.push(dayRet / activeWeight);
+    } else {
+      portfolioDailyReturns.push(0); // Maintain array length synchronicity
     }
   });
 
   const portfolioVariance = calculateVariance(portfolioDailyReturns);
-  const portfolioVolAnnual = Math.sqrt(portfolioVariance) * Math.sqrt(252);
+  const portfolioVolAnnual = Math.sqrt(Math.max(0, portfolioVariance)) * Math.sqrt(252);
 
   // 5. Macro Regime Analysis (Surgical Integration)
   const pulse = await fetchMarketPulse().catch(() => null);
@@ -199,6 +216,15 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
 
   // 6. Value at Risk (VaR) 95% - Institutional Confidence
   const var95 = 1.645 * Math.sqrt(portfolioVariance);
+  
+  // 6.5 Calculate Jensen's Alpha for the Portfolio
+  // Reconstruct a synthetic price history from daily returns to use the standard math engine
+  const syntheticHistory = [{ close: 100 }];
+  portfolioDailyReturns.forEach((ret, i) => {
+    syntheticHistory.push({ close: syntheticHistory[i].close * (1 + ret) });
+  });
+
+  const jensensAlpha = calculateJensensAlpha(syntheticHistory, spyHistory, totalPortfolioBeta);
 
   // 7. Dynamic Stress Scenarios (Advanced Calibration)
   const scenarios: ScenarioResult[] = [
@@ -228,6 +254,7 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
     scenarios,
     volatilityAnnualized: Number((portfolioVolAnnual * 100).toFixed(2)),
     var95: Number((var95 * 100).toFixed(2)),
+    jensensAlpha: Number((jensensAlpha * 100).toFixed(2)),
     correlationMatrix: {
       tickers: activeTickers,
       matrix

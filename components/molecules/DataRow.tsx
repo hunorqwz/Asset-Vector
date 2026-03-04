@@ -14,12 +14,15 @@ export function DataRow({ label, value, highlight, colored, insightId }: { label
   }
 
   return (
-    <div className="flex justify-between items-center py-1.5 group/row relative border-b border-white/10 last:border-0 hover:bg-[#111111] px-2 transition-colors">
+    <div className="flex justify-between items-center py-2 group/row relative border-b border-white/5 last:border-0 hover:bg-white/[0.02] px-3 transition-all">
+      {/* Precision Indicator Dot */}
+      <div className="absolute left-0 w-[2px] h-3 bg-white/20 opacity-0 group-hover/row:opacity-100 transition-opacity" />
+      
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-zinc-500 group-hover/row:text-zinc-300 transition-colors uppercase tracking-[0.1em] font-bold">{label}</span>
+        <span className="text-[10px] text-zinc-500 group-hover/row:text-zinc-300 transition-colors uppercase tracking-[0.15em] font-bold">{label}</span>
         {insight && <InsightTooltip insight={insight} />}
       </div>
-      <span className={`text-[12px] font-mono font-bold tabular-nums tracking-tight ${valueColor}`}>{value}</span>
+      <span className={`text-[12px] font-mono font-bold tabular-nums tracking-tight transition-all group-hover/row:translate-x-[-2px] ${valueColor}`}>{value}</span>
     </div>
   );
 }

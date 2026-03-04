@@ -8,8 +8,9 @@ import { PortfolioAnalyticsPanel } from "@/components/organisms/PortfolioAnalyti
 import { computePortfolioAnalytics } from "@/lib/portfolio-analytics";
 import { StrategicStressTest } from "@/components/organisms/StrategicStressTest";
 import { GlobalCorrelationLab } from "@/components/organisms/GlobalCorrelationLab";
+import { RegimeRadar } from "@/components/organisms/RegimeRadar";
 import { AlertManager } from "@/components/organisms/AlertManager";
-import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
+import { getAlerts, checkAndTriggerAlerts, getRegimeBreakout } from "@/app/actions/alerts";
 import { auth } from "@/auth";
 import { GlobalHeader } from "@/components/organisms/GlobalHeader";
 
@@ -29,10 +30,11 @@ function fmtCurrency(n: number) {
 }
 
 export default async function PortfolioPage() {
-  const [positions, watchlist, riskData] = await Promise.all([
+  const [positions, watchlist, riskData, regimeData] = await Promise.all([
     getPositions(),
     getWatchlistTickers(),
-    getPortfolioRiskIntelligence()
+    getPortfolioRiskIntelligence(),
+    getRegimeBreakout(),
   ]);
 
   // Fetch live prices directly for all portfolio tickers — independent of watchlist
@@ -65,7 +67,7 @@ export default async function PortfolioPage() {
 
   return (
     <>
-      <GlobalHeader alerts={alerts} insights={insights} />
+      <GlobalHeader alerts={alerts} insights={insights} regimeBreakout={regimeData} />
 
       <main className="overflow-y-auto scrollbar-hide px-8 py-10">
         <div className="max-w-[1400px] mx-auto">
@@ -91,9 +93,16 @@ export default async function PortfolioPage() {
             </div>
           )}
 
+          {/* Regime Breakout Radar */}
+          {regimeData && (
+            <div className="mb-12">
+              <RegimeRadar data={regimeData} />
+            </div>
+          )}
+
           {/* Summary Stats */}
           {positions.length > 0 && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
               {[
                 { label: "Total Invested", value: fmtCurrency(totalInvested), color: "text-white" },
                 { label: "Current Value", value: fmtCurrency(totalValue), color: "text-white" },
@@ -103,9 +112,14 @@ export default async function PortfolioPage() {
                   color: totalPnl >= 0 ? "text-bull" : "text-bear",
                 },
                 {
-                  label: "Return",
+                  label: "Portfolio Return",
                   value: `${totalPnlPct >= 0 ? "+" : ""}${fmt(totalPnlPct)}%`,
                   color: totalPnlPct >= 0 ? "text-bull" : "text-bear",
+                },
+                {
+                  label: "Jensen's Alpha",
+                  value: riskData ? `${riskData.jensensAlpha > 0 ? "+" : ""}${riskData.jensensAlpha}%` : "---",
+                  color: riskData ? (riskData.jensensAlpha >= 0 ? "text-matrix" : "text-bear") : "text-zinc-500",
                 },
               ].map((stat) => (
                 <div key={stat.label} className="glass-card p-6 border border-white/10 relative overflow-hidden">

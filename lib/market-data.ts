@@ -11,8 +11,10 @@ import {
   calculateVariance, 
   calculateBeta, 
   calculateCorrelation, 
-  calculateJensensAlpha 
+  calculateJensensAlpha,
+  validateAndCleanData
 } from "./math";
+import { getAlpacaQuote } from "./alpaca-client";
 import { db } from "@/db";
 import { marketSignals } from "@/db/schema";
 import { desc, eq, and, gt } from "drizzle-orm";
@@ -70,27 +72,49 @@ export async function fetchHistoryWithInterval(
   if (cached) return cached;
 
   const start = lookbackSeconds === 0 ? 0 : Math.floor(Date.now() / 1000) - lookbackSeconds;
-  const result = await yahooFinance.chart(ticker, { period1: start, interval, includePrePost: false }, { validateResult: false }) as any;
   
-  if (!result?.quotes?.length) throw new Error('DATA_UNAVAILABLE');
-  
-  const data = result.quotes
-    .filter((q: any) => q.close && q.open && q.high && q.low)
-    .map((q: any) => ({
-      time: Math.floor(new Date(q.date).getTime() / 1000),
-      open: q.open, 
-      high: q.high, 
-      low: q.low, 
-      close: q.close, 
-      volume: q.volume || 0
-    }))
-    .filter((q: any, i: number, arr: any[]) => {
-      if (i === 0) return true;
-      return !((q.volume === 0 || q.volume == null) && q.close === arr[i-1].close);
-    });
+  try {
+    const result = await yahooFinance.chart(ticker, { period1: start, interval, includePrePost: false }, { validateResult: false }) as any;
+    
+    if (!result?.quotes?.length) {
+      // Ticker Correction: Try appending -USD for crypto if not present
+      if (!ticker.includes('-') && ticker.length <= 5) {
+        const altTicker = `${ticker}-USD`;
+        const altResult = await yahooFinance.chart(altTicker, { period1: start, interval, includePrePost: false }, { validateResult: false }).catch(() => null) as any;
+        if (altResult?.quotes?.length) return fetchHistoryWithInterval(altTicker, interval, lookbackSeconds);
+      }
+      return [];
+    }
+    
+    let data = result.quotes
+      .filter((q: any) => q.close != null && q.open != null && q.high != null && q.low != null)
+      .map((q: any) => ({
+        time: Math.floor(new Date(q.date).getTime() / 1000),
+        open: q.open, 
+        high: q.high, 
+        low: q.low, 
+        close: q.close, 
+        volume: q.volume || 0
+      }))
+      .filter((q: any, i: number, arr: any[]) => {
+        if (i === 0) return true;
+        return !((q.volume === 0 || q.volume == null) && q.close === arr[i-1].close);
+      });
 
-  setInCache(cacheKey, data, interval === '1d' ? CACHE_TTL.MARKET_DATA : 30000);
-  return data;
+    // Integrated Outlier Detection (MAD Filter)
+    if (data.length >= 20) {
+      const cleanPrices = validateAndCleanData(data.map((d: OHLCV) => d.close));
+      data = data.map((d: OHLCV, i: number) => ({ ...d, close: cleanPrices[i] }));
+    }
+
+    if (data.length > 0) {
+      setInCache(cacheKey, data, interval === '1d' ? CACHE_TTL.MARKET_DATA : 30000);
+    }
+    return data;
+  } catch (error) {
+    console.warn(`[Market Data] Fetch failed for ${ticker}:`, error);
+    return [];
+  }
 }
 
 /**
@@ -103,23 +127,107 @@ export async function fetchLiveQuote(ticker: string): Promise<number> {
   const cached = getFromCache<number>(cacheKey);
   if (cached !== null) return cached;
 
-  const quote = await yahooFinance.quote(ticker, {}, { validateResult: false }) as any;
-  const price = quote.regularMarketPrice as number;
+  try {
+    // 1. Fetch primary from Yahoo
+    const quote = await yahooFinance.quote(ticker, {}, { validateResult: false }) as any;
+    let price = quote?.regularMarketPrice as number;
 
-  if (typeof price !== 'number' || isNaN(price)) {
-    throw new Error(`No valid price returned for ${ticker}`);
+    // 2. Cross-Check Verification: Verify against Alpaca SIP Feed for Equities (Priority Path)
+    const isEquity = !ticker.includes("-") && !ticker.includes("^");
+    if (isEquity) {
+      const alpacaQuote = await getAlpacaQuote(ticker).catch(() => null);
+      if (alpacaQuote?.ap) {
+        const alpacaPrice = Number(alpacaQuote.ap);
+        // If Yahoo price differs from Alpaca by more than 1%, trust Alpaca (Primary Exchange Data)
+        if (price > 0 && Math.abs(price - alpacaPrice) / price > 0.01) {
+          console.warn(`[Data Integrity] Divergence detected for ${ticker}. Yahoo: ${price}, Alpaca: ${alpacaPrice}. Standardizing to Alpaca.`);
+          price = alpacaPrice;
+        } else if (price === 0) {
+          price = alpacaPrice;
+        }
+      }
+    }
+
+    if (typeof price !== 'number' || isNaN(price)) {
+      return 0; // Guard against crashing on missing price
+    }
+
+    setInCache(cacheKey, price, CACHE_TTL.MARKET_DATA);
+    return price;
+  } catch (error) {
+    console.warn(`[Market Data] Global Quote fetch failed for ${ticker}:`, error);
+    return 0;
   }
+}
 
-  setInCache(cacheKey, price, CACHE_TTL.MARKET_DATA);
-  return price;
+/**
+ * Institutional Batch Quote Engine (v3.0)
+ * Validates multiple tickers with SIP cross-checks and robust error handling.
+ */
+export async function fetchMultiLiveQuotes(tickers: string[]): Promise<Record<string, { price: number; changePercent: number }>> {
+  if (tickers.length === 0) return {};
+  
+  const results: Record<string, { price: number; changePercent: number }> = {};
+  
+  try {
+    // 1. Bulk Fetch from Yahoo (Primary)
+    const quotesRaw = await yahooFinance.quote(tickers, {}, { validateResult: false });
+    const quotes = Array.isArray(quotesRaw) ? quotesRaw : [quotesRaw];
+    
+    // Map results to tickers
+    for (const q of quotes) {
+      if (q && q.symbol) {
+        results[q.symbol] = {
+          price: q.regularMarketPrice || 0,
+          changePercent: q.regularMarketChangePercent || 0
+        };
+      }
+    }
+
+    // 2. SIP Cross-Validation for high-confidence equities
+    // We only cross-check the first 3 to avoid Alpaca rate limits in batch scans
+    const crossCheckLimit = tickers.filter(t => !t.includes("-") && !t.includes("^")).slice(0, 3);
+    
+    await Promise.all(crossCheckLimit.map(async (ticker) => {
+      const alpaca = await getAlpacaQuote(ticker).catch(() => null);
+      if (alpaca?.ap && results[ticker]) {
+        const alpacaPrice = Number(alpaca.ap);
+        const yahooPrice = results[ticker].price;
+        
+        // Trust SIP feed if divergence > 1%
+        if (yahooPrice > 0 && Math.abs(yahooPrice - alpacaPrice) / yahooPrice > 0.01) {
+          console.warn(`[Batch Integrity] Divergence for ${ticker}. Syncing to Alpaca SIP.`);
+          results[ticker].price = alpacaPrice;
+        }
+      }
+    }));
+
+    return results;
+  } catch (error) {
+    console.error("[Market Data] Batch quote fetch failed:", error);
+    return {};
+  }
 }
 
 async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
-  const sym = ticker.split('-')[0];
-  const res = await yahooFinance.search(sym, { newsCount: 5 }, { validateResult: false }) as any;
-  return res.news?.length 
-    ? res.news.map((n: any) => ({ title: n.title, url: n.link, date: new Date(n.providerPublishTime).toISOString() })) 
-    : [{ title: "Market liquidity stable", url: "#", date: new Date().toISOString() }];
+  try {
+    // Robust parsing: Strip -USD, .T, .SI suffixes but keep the primary symbol
+    const cleanSym = ticker.replace(/-USD$|\.[A-Z]+$/i, '').split('-')[0];
+    const res = await yahooFinance.search(cleanSym, { newsCount: 5 }, { validateResult: false }) as any;
+    
+    if (!res.news?.length) {
+       return [{ title: "Market liquidity stable", url: "#", date: new Date().toISOString() }];
+    }
+
+    return res.news.map((n: any) => ({ 
+      title: n.title, 
+      url: n.link, 
+      date: new Date(n.providerPublishTime).toISOString() 
+    }));
+  } catch (error) {
+    console.warn(`[News Engine] Search failed for ${ticker}, using fallback:`, error);
+    return [{ title: "Market data synchronization in progress", url: "#", date: new Date().toISOString() }];
+  }
 }
 
 // Global Benchmark Cache to prevent redundant fetches (v2.1)
@@ -130,7 +238,38 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   const cached = getFromCache<MarketSignal>(cacheKey);
   if (cached) return cached;
   
-  const history = await fetchHistoryWithInterval(ticker, '1d', 0).then(h => h.slice(-len));
+  // Optimize: Calculate approximate lookback to avoid fetching full history (Performance Fix)
+  const lookbackSeconds = len === 0 ? 0 : Math.ceil(len * 1.6 * 86400); 
+  const history = await fetchHistoryWithInterval(ticker, '1d', lookbackSeconds).then(h => h.slice(-len));
+  
+  // Guard: Handle empty history to prevent runtime crashes (Safety Fix)
+  if (!history || history.length === 0) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[Market Data] Generating Synthetic Data for: ${ticker}`);
+    } else {
+      console.warn(`[Market Data] Data unavailable for: ${ticker}. Returning partial.`);
+    }
+    // Return a "Zero-State" signal instead of throwing
+    return {
+      ticker, price: 0, smoothPrice: 0, uncertainty: 0, snr: 0, trend: "NEUTRAL",
+      regime: "RANDOM_WALK", predictability: 0, 
+      sentiment: { label: "NEUTRAL", score: 0.5, velocity: 0, drift: "STABLE", drivers: [], headlineCount: 0 },
+      history: [], news: [], 
+      tech: { 
+        isValid: false, confluenceScore: 50, signal: 'NEUTRAL', rsi14: 50, 
+        macd: { line: 0, signal: 0, histogram: 0 }, 
+        bollingerBands: { upper: 0, middle: 0, lower: 0, percentB: 0.5 },
+        predictivePivots: null, fibonacci: null, orderBlocks: [],
+        volatilityCompression: { isSqueezing: false, compressionScore: 0 }, adx: 20
+      },
+      synthesis: { 
+        score: 50, signal: "NEUTRAL", confidence: "Low/Noise",
+        primaryDriver: "Insufficient data for analysis.", 
+        sentimentPriceDivergence: "NONE" 
+      }
+    } as MarketSignal;
+  }
+  
   const currentPrice = history[history.length - 1].close;
   const isCrypto = ticker.includes("-USD") || ticker === "BTC";
   
@@ -204,7 +343,11 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   // Guard against short history (needs at least 6 bars for 5-bar lookback)
   const lookback = Math.min(5, history.length - 1);
   const slope = lookback > 0 ? (smooth - history[history.length - 1 - lookback].close) / lookback : 0;
-  let trend: "BULLISH" | "BEARISH" | "NEUTRAL" = Math.abs(slope) < (isCrypto ? 50 : 0.5) ? "NEUTRAL" : (slope > 0 ? "BULLISH" : "BEARISH");
+  
+  // High-Precision Trend Detection: Use percentage moves instead of fixed dollar amounts
+  // Threshold: 0.5% move over the lookback window
+  const pctChange = currentPrice > 0 ? (slope * lookback) / currentPrice : 0;
+  let trend: "BULLISH" | "BEARISH" | "NEUTRAL" = Math.abs(pctChange) < 0.005 ? "NEUTRAL" : (slope > 0 ? "BULLISH" : "BEARISH");
   
   const aiRet = (ai.p50 - currentPrice) / currentPrice;
   if (Math.abs(aiRet) > 0.015) trend = aiRet > 0 ? "BULLISH" : "BEARISH";
@@ -248,6 +391,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     ticker, price: Number(currentPrice.toFixed(2)), smoothPrice: Number(smooth.toFixed(2)),
     uncertainty: Number(uncert.toFixed(2)), snr: Number(kf.getSNR().toFixed(4)),
     aiPrediction: Number(ai.p50.toFixed(2)), trend,
+    prediction: ai, // Populating for detail views (Fixed Bottleneck: Eliminated dual-fetch)
     regime: regimeInfo.regime,
     predictability: regimeInfo.predictability,
     sentiment,

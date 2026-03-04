@@ -4,12 +4,12 @@ import { StrategicInsight } from '@/app/actions/ai';
 import { GlassBoxTheory } from '@/components/organisms/GlassBoxTheory';
 import { OHLCV } from '@/lib/market-data';
 
-import { NewsArticle } from '@/lib/stock-details';
+import { NarrativeArticle } from '@/lib/types';
 
 interface StrategicOracleProps {
   ticker: string;
   history: OHLCV[];
-  news: NewsArticle[];
+  news: NarrativeArticle[];
   insight: StrategicInsight | null;
   isExtracting: boolean;
   error: string | null;

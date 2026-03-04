@@ -237,3 +237,10 @@ export async function checkAndTriggerAlerts(
 
   return { triggered, insights };
 }
+
+import { detectRegimeBreakout, RegimeBreakout } from "@/lib/regime-radar";
+
+export async function getRegimeBreakout(): Promise<RegimeBreakout | null> {
+  // Cached internally — safe to call on every page load
+  return detectRegimeBreakout();
+}

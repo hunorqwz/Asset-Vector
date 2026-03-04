@@ -1,9 +1,7 @@
-import YahooFinance from 'yahoo-finance2';
+
 import { getFromCache, setInCache } from './cache';
 import { RegimeDetector, MarketRegime } from './regime';
-import { fetchHistoryWithInterval } from './market-data';
-
-const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+import { fetchHistoryWithInterval, fetchMultiLiveQuotes } from './market-data';
 
 export interface SectorMetric {
   name: string;
@@ -60,11 +58,10 @@ export async function fetchMarketPulse(): Promise<MarketPulseData> {
   if (cached) return cached;
 
   const sectorTickers = Object.values(SECTOR_ETFS);
-  const macroTickers = Object.values(MACRO_TICKERS);
+  const macroTickersSet = Object.values(MACRO_TICKERS);
   
-  const [sectorQuotes, macroQuotes, spyHistory] = await Promise.all([
-    Promise.all(sectorTickers.map(t => yahooFinance.quoteCombine(t).catch(() => null))),
-    Promise.all(macroTickers.map(t => yahooFinance.quoteCombine(t).catch(() => null))),
+  const [quoteMap, spyHistory] = await Promise.all([
+    fetchMultiLiveQuotes([...sectorTickers, ...macroTickersSet]),
     fetchHistoryWithInterval("SPY", "1d", 252 * 86400).catch(() => [])
   ]);
 
@@ -72,56 +69,56 @@ export async function fetchMarketPulse(): Promise<MarketPulseData> {
   let advancing = 0;
   let declining = 0;
 
-  sectorQuotes.forEach((q: any, i: number) => {
+  sectorTickers.forEach((ticker, i) => {
+    const q = quoteMap[ticker];
     if (!q) return;
-    const tickerName = Object.keys(SECTOR_ETFS)[i];
-    const change = q.regularMarketChangePercent || 0;
+    const sectorLabel = Object.keys(SECTOR_ETFS)[i];
     
     sectors.push({
-      name: tickerName,
-      ticker: sectorTickers[i],
-      changePercent: change
+      name: sectorLabel,
+      ticker: ticker,
+      changePercent: q.changePercent
     });
 
-    if (change > 0) advancing++;
-    else if (change < 0) declining++;
+    if (q.changePercent > 0) advancing++;
+    else if (q.changePercent < 0) declining++;
   });
 
   const total = advancing + declining;
   const breadthPercent = total > 0 ? (advancing / total) * 100 : 50;
 
-  const m = (idx: number) => {
-    const q: any = macroQuotes[idx];
+  const getMacro = (ticker: string) => {
+    const q = quoteMap[ticker];
     return { 
-      value: q?.regularMarketPrice || 0, 
-      change: q?.regularMarketChangePercent || 0 
+      value: q?.price || 0, 
+      change: q?.changePercent || 0 
     };
   };
 
   // Regime Detection
-  const regimeInfo = RegimeDetector.detect(spyHistory.map(h => h.close));
+  const regimeInfo = RegimeDetector.detect(spyHistory.map((h: any) => h.close));
 
   const result: MarketPulseData = {
     breadthAdvancing: advancing,
     breadthDeclining: declining,
     breadthPercent: Number(breadthPercent.toFixed(0)),
-    sectors: sectors.sort((a, b) => b.changePercent - a.changePercent),
+    sectors: sectors.sort((a: any, b: any) => b.changePercent - a.changePercent),
     regime: {
       type: regimeInfo.regime,
       score: regimeInfo.score,
       predictability: regimeInfo.predictability
     },
     macro: {
-      vix: m(0),
-      dxy: m(1),
-      us10y: m(2),
-      spy: m(3),
-      qqq: m(4),
-      btc: m(5)
+      vix: getMacro(MACRO_TICKERS.vix),
+      dxy: getMacro(MACRO_TICKERS.dxy),
+      us10y: getMacro(MACRO_TICKERS.us10y),
+      spy: getMacro(MACRO_TICKERS.spy),
+      qqq: getMacro(MACRO_TICKERS.qqq),
+      btc: getMacro(MACRO_TICKERS.btc)
     }
   };
 
-  setInCache(CACHE_KEY, result, 120 * 1000); // 2 Minute cache for macro
+  setInCache(CACHE_KEY, result, 120 * 1000); 
   return result;
 }
 

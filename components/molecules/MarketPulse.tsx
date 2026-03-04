@@ -121,15 +121,15 @@ function SectorRow({ sector }: { sector: SectorMetric }) {
   const isUp = sector.changePercent > 0;
   
   return (
-    <div className="flex items-center justify-between group/row">
+    <div className="flex items-center justify-between group/row p-2 -mx-2 hover:bg-white/[0.02] transition-all rounded-md">
       <div className="flex items-center gap-3">
-        <div className={`w-1 h-3 rounded-full transition-all duration-300 ${isUp ? 'bg-bull' : 'bg-bear/40'}`} />
-        <span className="text-[11px] font-bold text-zinc-400 group-hover/row:text-white transition-colors uppercase tracking-tight">
+        <div className={`w-[2px] h-3 transition-all duration-300 ${isUp ? 'bg-bull shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-bear/30'}`} />
+        <span className="text-[11px] font-bold text-zinc-500 group-hover/row:text-zinc-300 transition-colors uppercase tracking-[0.1em]">
           {sector.name}
         </span>
       </div>
       <span className={`text-[11px] font-mono font-bold ${isUp ? 'text-bull' : 'text-bear'}`}>
-        {isUp ? '+' : ''}{sector.changePercent.toFixed(1)}%
+        {isUp ? '▲' : '▼'} {Math.abs(sector.changePercent).toFixed(1)}%
       </span>
     </div>
   );

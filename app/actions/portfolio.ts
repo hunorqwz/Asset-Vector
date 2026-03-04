@@ -181,3 +181,40 @@ export async function getPortfolioRiskIntelligence(): Promise<RiskIntelligence |
     return null;
   }
 }
+
+export async function simulateHedge(simTicker: string, amountUsd: number): Promise<RiskIntelligence | null> {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  try {
+    const rawPositions = await getPositions();
+    const tickers = [...new Set([...rawPositions.map(p => p.ticker), simTicker])];
+    const prices = await getPortfolioPrices(tickers);
+
+    const enriched = rawPositions.map(p => ({
+      ...p,
+      currentValue: (prices[p.ticker] || p.avgCost) * p.shares
+    }));
+
+    const totalValue = enriched.reduce((s, p) => s + p.currentValue, 0) + amountUsd;
+    if (totalValue === 0) return null;
+
+    const tickerWeightsMap: Record<string, number> = {};
+    enriched.forEach(p => {
+      tickerWeightsMap[p.ticker] = (tickerWeightsMap[p.ticker] || 0) + (p.currentValue / totalValue);
+    });
+
+    // Add simulated position
+    tickerWeightsMap[simTicker.toUpperCase()] = (tickerWeightsMap[simTicker.toUpperCase()] || 0) + (amountUsd / totalValue);
+
+    const positionsForRisk = Object.entries(tickerWeightsMap).map(([ticker, weight]) => ({
+      ticker,
+      weight
+    }));
+
+    return await computePortfolioRisk(positionsForRisk);
+  } catch (err) {
+    console.error("Simulation error:", err);
+    return null;
+  }
+}

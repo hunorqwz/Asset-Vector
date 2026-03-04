@@ -55,11 +55,12 @@ export function ContextEngine({ details, sentiment, divergence }: ContextEngineP
           {headlines.length > 0 ? (
             <div className="divide-y divide-white/5">
               {headlines.map((item, i) => (
-                <a key={i} href={item.url || '#'} target="_blank" rel="noreferrer" className="block p-5 hover:bg-[#111111] transition-colors group">
-                  <span className="block text-[10px] text-zinc-500 font-bold uppercase tracking-[0.15em] mb-2 group-hover:text-zinc-400 transition-colors">
-                    {item.publisher || 'Market Wire'} • {formatTime(item.date)}
+                <a key={i} href={item.url || '#'} target="_blank" rel="noreferrer" className="block p-5 hover:bg-white/[0.02] transition-all group relative border-l-2 border-transparent hover:border-white/10">
+                  <div className="absolute left-0 top-0 w-full h-full bg-gradient-to-r from-white/[0.01] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="block text-[9px] text-zinc-500 font-black uppercase tracking-[0.25em] mb-3 group-hover:text-zinc-400 transition-colors">
+                    {item.publisher || 'MARKET WIRE'} • {formatTime(item.date)}
                   </span>
-                  <p className="text-[13px] text-zinc-300 font-medium leading-snug group-hover:text-white transition-colors">{item.title}</p>
+                  <p className="text-[13px] text-zinc-300 font-bold leading-relaxed group-hover:text-white transition-colors relative z-10">{item.title}</p>
                 </a>
               ))}
             </div>

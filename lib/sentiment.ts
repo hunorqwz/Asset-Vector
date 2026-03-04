@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType, Schema } from "@google/generative-ai";
 import { NarrativeArticle } from "./types";
 
 export interface NarrativeDriver {
@@ -115,27 +115,38 @@ export class SentimentAnalyzer {
         systemInstruction: "You are an institutional Quant Sentiment API. Respond with strict JSON matching the requested schema. No markdown wrapping. Just pure JSON."
       });
 
-      const prompt = `
-Analyze the recent narrative for ${ticker} based on these headlines:
+      const prompt = `Analyze the recent narrative for ${ticker} based on these headlines:
 ${heads.slice(0, 5).map(h => h.title).join(" | ")}
 
-Output strict JSON object matching this TypeScript interface exactly:
-{
-  "score": number, // -1 (extremely bearish) to 1 (extremely bullish)
-  "label": "BULLISH" | "BEARISH" | "NEUTRAL",
-  "drivers": [
-    { "driver": "string describing the specific fundamental or narrative driver from news", "impact": "BULLISH" | "BEARISH" | "NEUTRAL" }
-  ],
-  "drift": "STABLE" | "ACCELERATING_BULL" | "ACCELERATING_BEAR" | "REVERSAL"
-}
-Limit output to 3 primary drivers maximum. Make drivers sound extremely professional (e.g. "Regulatory Headwinds" instead of "they got sued").
-      `;
+Limit output to 3 primary drivers maximum. Make drivers sound extremely professional (e.g. "Regulatory Headwinds" instead of "they got sued").`;
+
+      const responseSchema: Schema = {
+        type: SchemaType.OBJECT,
+        properties: {
+          score: { type: SchemaType.NUMBER },
+          label: { type: SchemaType.STRING },
+          drivers: { 
+            type: SchemaType.ARRAY, 
+            items: { 
+              type: SchemaType.OBJECT, 
+              properties: { 
+                driver: { type: SchemaType.STRING }, 
+                impact: { type: SchemaType.STRING } 
+              }, 
+              required: ["driver", "impact"] 
+            } 
+          },
+          drift: { type: SchemaType.STRING }
+        },
+        required: ["score", "label", "drivers", "drift"]
+      } as any;
 
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.1,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          responseSchema
         }
       });
       

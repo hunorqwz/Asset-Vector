@@ -1,6 +1,6 @@
 import 'dotenv/config'; 
 import { db } from "../db";
-import { users, signals } from "../db/schema";
+import { users, marketSignals } from "../db/schema";
 import { fetchMarketData } from "../lib/market-data";
 import { eq } from "drizzle-orm";
 
@@ -57,12 +57,11 @@ async function runDiagnostics() {
     console.log("[3/3] Testing Signal Storage...");
     
     // Simulate saving a generated signal
-    const [savedSignal] = await db.insert(signals).values({
+    const [savedSignal] = await db.insert(marketSignals).values({
         ticker: "BTC-USD",
         direction: "BULLISH",
-        targetPrice: "105000.00",
-        horizonDays: "14",
-        confidence: "88.5",
+        score: "88.50",
+        confidence: "0.88",
         snr: "1.24",
         regime: "MOMENTUM"
     }).returning();

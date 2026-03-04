@@ -78,6 +78,7 @@ export function ConfluenceEngine({ details, tech, sentiment, ticker, synthesis }
 
     return { 
       label: `${signal} (${score} INDEX)`, 
+      signal,
       color, 
       iconColor, 
       desc: synthesis.primaryDriver 
@@ -85,49 +86,54 @@ export function ConfluenceEngine({ details, tech, sentiment, ticker, synthesis }
   }, [synthesis]);
 
   return (
-    <section className={`p-6 border transition-all ${analysis.color} relative overflow-hidden bg-[#050505]`}>
-      <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+    <section 
+      className={`p-6 border transition-all duration-700 ${analysis.color} relative overflow-hidden bg-[#030303] rounded-xl`}
+      style={{ boxShadow: analysis.signal.includes('BUY') ? 'inset 0 0 40px rgba(34, 197, 94, 0.03)' : analysis.signal.includes('SELL') ? 'inset 0 0 40px rgba(239, 68, 68, 0.03)' : 'none' }}
+    >
+      <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none transform rotate-12 scale-150">
         <StatsIcon />
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 relative z-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-1.5 h-6 bg-current shadow-[0_0_10px_currentColor] opacity-50" />
-          <h2 className="text-[13px] font-bold uppercase tracking-[0.2em] text-white">Confluence Matrix</h2>
+          <div className={`w-1 h-6 bg-current shadow-[0_0_15px_currentColor] transition-all duration-700`} />
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.3em] text-white">Institutional Confluence Matrix</h2>
         </div>
-        <div className={`text-[11px] font-bold font-mono px-3 py-1.5 border border-current opacity-90 uppercase tracking-widest flex items-center gap-2 ${analysis.iconColor}`}>
-           <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+        <div className={`text-[10px] font-bold font-mono px-4 py-2 border border-current transition-all duration-700 uppercase tracking-widest flex items-center gap-3 bg-black/40 backdrop-blur-sm`}>
+           <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse shadow-[0_0_8px_currentColor]" />
            {analysis.label}
         </div>
       </div>
 
-      <p className="text-[12px] text-zinc-300 leading-relaxed font-medium mb-8 max-w-2xl relative z-10">{analysis.desc}</p>
+      <p className="text-[13px] text-zinc-400 leading-relaxed font-medium mb-10 max-w-3xl relative z-10 border-l border-white/5 pl-6 ml-1 italic">{analysis.desc}</p>
       
       {synthesis.sentimentPriceDivergence && synthesis.sentimentPriceDivergence !== 'NONE' && (
-        <div className={`mb-8 p-4 border animate-pulse flex items-center justify-between relative z-10 ${synthesis.sentimentPriceDivergence === 'BULLISH_DIVERGENCE' ? 'bg-bull/10 border-bull/30 text-bull' : 'bg-bear/10 border-bear/30 text-bear'}`}>
-           <div className="flex items-center gap-3">
-             <div className="w-1.5 h-6 bg-current shadow-[0_0_10px_currentColor]" />
+        <div className={`mb-10 p-5 border animate-in fade-in slide-in-from-bottom-2 duration-1000 flex items-center justify-between relative z-10 rounded-lg ${synthesis.sentimentPriceDivergence === 'BULLISH_DIVERGENCE' ? 'bg-bull/10 border-bull/20 text-bull' : 'bg-bear/10 border-bear/20 text-bear'}`}>
+           <div className="flex items-center gap-4">
+             <div className="w-1 h-8 bg-current shadow-[0_0_12px_currentColor]" />
              <div>
-               <h4 className="text-[11px] font-bold uppercase tracking-[0.2em]">{synthesis.sentimentPriceDivergence.replace('_', ' ')} DETECTED</h4>
-               <p className="text-[10px] opacity-70 font-medium">Narrative velocity is decoupling from current price action. Expect trend reset.</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="text-[10px] font-bold uppercase tracking-[0.25em]">{synthesis.sentimentPriceDivergence.replace('_', ' ')} DETECTED</h4>
+                  <span className="text-[9px] px-1.5 py-0.5 bg-current text-black font-black rounded-sm">CRITICAL</span>
+                </div>
+                <p className="text-[11px] opacity-80 font-medium tracking-tight">Narrative velocity is decoupling from current price action. High probability of mean reversion.</p>
              </div>
            </div>
-           <div className={`w-3 h-3 rounded-full bg-current`} />
         </div>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-white/5 relative z-10">
-         <div className="p-5 bg-black/60 border-b md:border-b-0 md:border-r border-white/5">
-            <span className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Fundamental Stratum</span>
-            <span className={`text-[14px] font-bold font-mono uppercase tracking-widest ${fundamentalState === 'UNDERVALUED' ? 'text-bull' : fundamentalState === 'OVERVALUED' ? 'text-bear' : 'text-zinc-400'}`}>{fundamentalState}</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-white/5 relative z-10 rounded-lg overflow-hidden">
+         <div className="p-6 bg-black/40 border-b md:border-b-0 md:border-r border-white/5 hover:bg-white/[0.02] transition-colors">
+            <span className="block text-[9px] uppercase tracking-[0.25em] text-zinc-500 mb-4 font-black">Fundamental Stratum</span>
+            <span className={`text-[15px] font-bold font-mono uppercase tracking-widest ${fundamentalState === 'UNDERVALUED' ? 'text-bull' : fundamentalState === 'OVERVALUED' ? 'text-bear' : 'text-zinc-500'}`}>{fundamentalState}</span>
          </div>
-         <div className="p-5 bg-black/60 border-b md:border-b-0 md:border-r border-white/5">
-            <span className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Technical Telemetry</span>
-            <span className={`text-[14px] font-bold font-mono uppercase tracking-widest ${technicalState === 'BULLISH TREND' ? 'text-bull' : technicalState === 'BEARISH TREND' ? 'text-bear' : 'text-zinc-400'}`}>{technicalState}</span>
+         <div className="p-6 bg-black/40 border-b md:border-b-0 md:border-r border-white/5 hover:bg-white/[0.02] transition-colors">
+            <span className="block text-[9px] uppercase tracking-[0.25em] text-zinc-500 mb-4 font-black">Technical Telemetry</span>
+            <span className={`text-[15px] font-bold font-mono uppercase tracking-widest ${technicalState === 'BULLISH TREND' ? 'text-bull' : technicalState === 'BEARISH TREND' ? 'text-bear' : 'text-zinc-500'}`}>{technicalState}</span>
          </div>
-         <div className="p-5 bg-black/60">
-            <span className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Sentiment Vector</span>
-            <span className={`text-[14px] font-bold font-mono uppercase tracking-widest ${contextualState === 'POSITIVE' ? 'text-bull' : contextualState === 'NEGATIVE' ? 'text-bear' : 'text-zinc-400'}`}>{contextualState}</span>
+         <div className="p-6 bg-black/40 hover:bg-white/[0.02] transition-colors">
+            <span className="block text-[9px] uppercase tracking-[0.25em] text-zinc-500 mb-4 font-black">Narrative Vector</span>
+            <span className={`text-[15px] font-bold font-mono uppercase tracking-widest ${contextualState === 'POSITIVE' ? 'text-bull' : contextualState === 'NEGATIVE' ? 'text-bear' : 'text-zinc-500'}`}>{contextualState}</span>
          </div>
       </div>
     </section>

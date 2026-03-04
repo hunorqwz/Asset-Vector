@@ -8,12 +8,15 @@ import { StealthTooltip, LiveLatency } from "@/components/LiveTelemetry";
 
 
 
+import { RegimeBreakout } from "@/lib/regime-radar";
+
 interface GlobalHeaderProps {
   alerts: any[];
   insights: any[];
+  regimeBreakout?: RegimeBreakout | null;
 }
 
-export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
+export function GlobalHeader({ alerts, insights, regimeBreakout }: GlobalHeaderProps) {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -65,7 +68,7 @@ export function GlobalHeader({ alerts, insights }: GlobalHeaderProps) {
         <div className="flex items-center gap-4 md:gap-6">
            {/* Alerts & Live Status */}
            <div className="flex items-center gap-4">
-              <AlertBell alerts={alerts} insights={insights} />
+              <AlertBell alerts={alerts} insights={insights} regimeBreakout={regimeBreakout} />
               <div className="hidden sm:flex flex-col items-end">
                 <StealthTooltip content="Data pipeline is streaming." position="bottom">
                   <div className="flex items-center gap-2">

@@ -1,9 +1,8 @@
 "use server";
 import { db } from "@/db";
 import { marketSignals } from "@/db/schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { AlphaPick } from "./discovery";
-import { revalidatePath } from "next/cache";
 
 /**
  * Persists high-conviction Alpha Picks to the database for future evaluation.
@@ -110,42 +109,97 @@ export async function evaluateAlphaPicks() {
   return { evaluated: evaluatedCount };
 }
 
+export interface PickRecord {
+  ticker: string;
+  scanner: string;
+  entry: number;
+  exit: number | null;
+  alpha: number | null;
+  betaAtGeneration: number;
+  status: 'WIN' | 'LOSS' | 'PENDING';
+  date: Date;
+}
+
+export interface BacktestReport {
+  winRate: number;
+  totalPicks: number;
+  evaluatedCount: number;
+  pendingCount: number;
+  avgAlpha: number;           // avg alpha in % per evaluated pick
+  bestPick: PickRecord | null;
+  worstPick: PickRecord | null;
+  equityCurve: { index: number; cumAlpha: number }[];  // cumulative alpha curve
+  scannerBreakdown: Record<string, { wins: number; losses: number; avgAlpha: number }>;
+  recentPicks: PickRecord[];
+}
+
 /**
- * Calculates the running 'Alpha Performance' of the recorded picks.
+ * Full Alpha Performance Report — powers the Alpha Performance Dashboard.
  */
-export async function getBacktestWinRate() {
+export async function getBacktestWinRate(): Promise<BacktestReport | null> {
   const allPicks = await db.query.marketSignals.findMany({
     where: eq(marketSignals.signalLabel, "ALPHA_PICK"),
-    orderBy: (t: any, { desc }: any) => [desc(t.generatedAt)],
-    limit: 100
+    orderBy: (t: any, { asc }: any) => [asc(t.generatedAt)], // oldest first for equity curve
+    limit: 200
   });
 
   if (allPicks.length === 0) return null;
 
-  const evaluated = allPicks.filter((p: any) => p.isEvaluated);
-  const wins = evaluated.filter((p: any) => parseFloat(p.accuracy) >= 1.0).length;
-  
-  const winRate = evaluated.length > 0 ? (wins / evaluated.length) * 100 : 0;
-  
-  // Calculate average alpha performance of evaluated picks
-  let totalAlpha = 0;
-  evaluated.forEach((p: any) => {
-    totalAlpha += parseFloat(p.alphaPerformance || "0");
+  const records: PickRecord[] = allPicks.map((p: any) => ({
+    ticker: p.ticker,
+    scanner: p.direction || 'UNKNOWN',
+    entry: parseFloat(p.priceAtGeneration) || 0,
+    exit: p.isEvaluated ? (parseFloat(p.outcomePrice7D) || null) : null,
+    alpha: p.isEvaluated ? (parseFloat(p.alphaPerformance) || null) : null,
+    betaAtGeneration: parseFloat(p.betaAtGeneration || '1.0'),
+    status: !p.isEvaluated ? 'PENDING' : (parseFloat(p.accuracy) >= 1.0 ? 'WIN' : 'LOSS'),
+    date: p.generatedAt,
+  }));
+
+  const evaluated = records.filter(r => r.status !== 'PENDING');
+  const wins = evaluated.filter(r => r.status === 'WIN');
+  const winRate = evaluated.length > 0 ? (wins.length / evaluated.length) * 100 : 0;
+
+  const alphaValues = evaluated.map(r => r.alpha ?? 0);
+  const totalAlpha = alphaValues.reduce((a, b) => a + b, 0);
+  const avgAlpha = evaluated.length > 0 ? (totalAlpha / evaluated.length) * 100 : 0;
+
+  // Equity curve: cumulative alpha over time (evaluated picks only)
+  let cumAlpha = 0;
+  const equityCurve = evaluated.map((r, i) => {
+    cumAlpha += (r.alpha ?? 0) * 100;
+    return { index: i, cumAlpha: Number(cumAlpha.toFixed(4)) };
   });
-  
-  const avgPerformance = evaluated.length > 0 ? (totalAlpha / evaluated.length) * 100 : 0;
+
+  // Best and worst
+  const sortedByAlpha = [...evaluated].sort((a, b) => (b.alpha ?? 0) - (a.alpha ?? 0));
+  const bestPick = sortedByAlpha[0] ?? null;
+  const worstPick = sortedByAlpha[sortedByAlpha.length - 1] ?? null;
+
+  // Per-scanner breakdown
+  const scannerBreakdown: BacktestReport['scannerBreakdown'] = {};
+  for (const r of evaluated) {
+    const s = r.scanner.toUpperCase();
+    if (!scannerBreakdown[s]) scannerBreakdown[s] = { wins: 0, losses: 0, avgAlpha: 0 };
+    if (r.status === 'WIN') scannerBreakdown[s].wins++;
+    else scannerBreakdown[s].losses++;
+    scannerBreakdown[s].avgAlpha += (r.alpha ?? 0) * 100;
+  }
+  for (const s of Object.keys(scannerBreakdown)) {
+    const total = scannerBreakdown[s].wins + scannerBreakdown[s].losses;
+    if (total > 0) scannerBreakdown[s].avgAlpha = Number((scannerBreakdown[s].avgAlpha / total).toFixed(3));
+  }
 
   return {
-    winRate,
+    winRate: Number(winRate.toFixed(1)),
     totalPicks: allPicks.length,
     evaluatedCount: evaluated.length,
-    avgPerformance,
-    latestPicks: allPicks.slice(0, 5).map((p: any) => ({
-      ticker: p.ticker,
-      entry: parseFloat(p.priceAtGeneration),
-      current: p.isEvaluated ? parseFloat(p.outcomePrice7D) : null,
-      status: p.isEvaluated ? (parseFloat(p.accuracy) >= 1.0 ? 'WIN' : 'LOSS') : 'PENDING',
-      date: p.generatedAt
-    }))
+    pendingCount: records.filter(r => r.status === 'PENDING').length,
+    avgAlpha: Number(avgAlpha.toFixed(3)),
+    bestPick,
+    worstPick,
+    equityCurve,
+    scannerBreakdown,
+    recentPicks: [...records].reverse().slice(0, 20), // newest first for the table
   };
 }

@@ -156,3 +156,9 @@ export const priceAlerts = pgTable("price_alerts", {
     userIdIdx: index("idx_price_alerts_user_id").on(table.userId),
   };
 });
+
+export const systemKv = pgTable("system_kv", {
+  key: varchar("key", { length: 255 }).primaryKey(),
+  value: jsonb("value").notNull(),
+  expiresAt: timestamp("expires_at").notNull()
+});

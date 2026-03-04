@@ -1,8 +1,8 @@
 import React from 'react';
-import { NewsArticle } from '@/lib/stock-details';
+import { NarrativeArticle } from '@/lib/types';
 
 interface NewsFeedProps {
-  articles: NewsArticle[];
+  articles: NarrativeArticle[];
 }
 
 export function NewsFeed({ articles }: NewsFeedProps) {
@@ -19,7 +19,7 @@ export function NewsFeed({ articles }: NewsFeedProps) {
       {articles.map((article, idx) => (
         <a 
           key={idx} 
-          href={article.link} 
+          href={article.url} 
           target="_blank" 
           className="bg-[#0a0a0a] border border-white/10 p-4 group hover:border-white/30 transition-all block relative overflow-hidden"
         >
@@ -30,7 +30,7 @@ export function NewsFeed({ articles }: NewsFeedProps) {
             <div className="flex justify-between items-center mb-4">
               <span className="text-[11px] text-zinc-300 font-bold uppercase tracking-[0.15em]">{article.publisher}</span>
               <span className="text-zinc-500 bg-white/5 px-2 py-0.5 rounded font-mono border border-white/5">
-                {new Date(article.providerPublishTime * 1000).toLocaleDateString('en-US', { timeZone: 'UTC' })}
+                {new Date(article.date).toLocaleDateString('en-US', { timeZone: 'UTC' })}
               </span>
             </div>
             

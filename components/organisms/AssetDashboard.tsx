@@ -39,6 +39,7 @@ import { ConfluenceEngine } from "@/components/organisms/ConfluenceEngine";
 import { ContextEngine } from "@/components/organisms/ContextEngine";
 import { AIEarningsLab } from "@/components/organisms/AIEarningsLab";
 import { ExecutionPlanner } from "@/components/organisms/ExecutionPlanner";
+import { OptionsSurfaceVisualizer } from "@/components/organisms/OptionsSurfaceVisualizer";
 
 import { OptionsIntelligence } from '@/lib/options-pricing';
 
@@ -237,6 +238,10 @@ export function AssetDashboard({ ticker, signal }: { ticker: string, signal: Mar
                   <DataRow label="Puts Vol / OI" value={`${fmtCount(d.optionsFlow.putsVolume)} / ${fmtCount(d.optionsFlow.putsOpenInterest)}`} />
                   <DataRow label="Avg Implied Volatility" value={fmtPct(d.optionsFlow.impliedVolatility)} />
                 </DataSection>
+              )}
+
+              {signal.optionsIntelligence && signal.optionsIntelligence.isValid && (
+                <OptionsSurfaceVisualizer data={signal.optionsIntelligence} />
               )}
 
               <DataSection title="Valuation & Multiples" icon={<ValuationIcon />}>

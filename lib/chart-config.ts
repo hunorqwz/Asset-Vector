@@ -15,8 +15,8 @@ export const THEME_HSL = {
 
 export const CHART_COLORS = {
   // Brand Mapping
-  BULLISH: `hsl(${THEME_HSL.BULL})`,
-  BEARISH: `hsl(${THEME_HSL.BEAR})`,
+  BULLISH: '#22d369', 
+  BEARISH: '#f87171', 
   
   // High-Performance Procedural Rendering (Canvas)
   HSL: THEME_HSL,

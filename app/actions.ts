@@ -84,7 +84,9 @@ export async function getMarketSignals(): Promise<MarketSignal[]> {
     if (dbWatchlist.length > 0) {
       tickers = dbWatchlist.map((w: any) => w.ticker);
     }
-  } catch {}
+  } catch (error) {
+    console.error(`[Watchlist Sync] Failed to retrieve system routing for user ${session.user.id}:`, error);
+  }
 
   // If no assets in personal watchlist, strictly return empty array
   if (tickers.length === 0) return [];
@@ -170,8 +172,7 @@ export async function getAssetDetails(ticker: string) {
   const currentPrice = stockDetails.price.current;
   const optionsIntelligence = await fetchOptionsIntelligence(sym, currentPrice);
   
-  const sequence = signal.history.slice(-50).map((h: any) => [h.open, h.high, h.low, h.close, h.volume]);
-  const prediction = await predictNextHorizon(sequence, sym);
+  const prediction = signal.prediction; // Reuse prediction from persistent signal
   
   if (signal) await archiveSignal(signal);
   await evaluateOldSignals().catch(() => {});

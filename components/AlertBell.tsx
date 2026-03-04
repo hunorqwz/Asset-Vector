@@ -1,20 +1,22 @@
 "use client";
 import { useState, useTransition } from "react";
 import { PriceAlert, Insight, dismissAlert } from "@/app/actions/alerts";
+import { RegimeBreakout } from "@/lib/regime-radar";
 
 interface AlertBellProps {
   alerts: PriceAlert[];
   insights?: Insight[];
+  regimeBreakout?: RegimeBreakout | null;
 }
 
-export function AlertBell({ alerts, insights = [] }: AlertBellProps) {
+export function AlertBell({ alerts, insights = [], regimeBreakout }: AlertBellProps) {
   const [open, setOpen] = useState(false);
   const [localAlerts, setLocalAlerts] = useState(alerts);
   const [isPending, startTransition] = useTransition();
 
   const triggered = localAlerts.filter(a => a.isTriggered);
   const active = localAlerts.filter(a => !a.isTriggered);
-  const hasNew = triggered.length > 0 || insights.length > 0;
+  const hasNew = triggered.length > 0 || insights.length > 0 || (regimeBreakout?.isBreakout && regimeBreakout.urgency !== 'LOW');
 
   const handleDismiss = (id: string) => {
     startTransition(async () => {
@@ -84,12 +86,31 @@ export function AlertBell({ alerts, insights = [] }: AlertBellProps) {
 
             {/* List */}
             <div className="max-h-96 overflow-y-auto scrollbar-hide">
-              {localAlerts.length === 0 && insights.length === 0 ? (
+              {localAlerts.length === 0 && insights.length === 0 && !regimeBreakout?.isBreakout ? (
                 <div className="py-10 text-center">
                   <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">No alerts</p>
                 </div>
               ) : (
                 <div className="divide-y divide-white/5">
+                  {/* Regime Breakout Banner */}
+                  {regimeBreakout?.isBreakout && (
+                    <div className={`px-4 py-4 border-b ${
+                      regimeBreakout.urgency === 'HIGH' ? 'bg-bear/5 border-bear/20' : 'bg-amber-500/5 border-amber-500/20'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                          regimeBreakout.urgency === 'HIGH' ? 'bg-bear' : 'bg-amber-400'
+                        }`} />
+                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                          regimeBreakout.urgency === 'HIGH' ? 'text-bear' : 'text-amber-400'
+                        }`}>Regime Shift: SPY</span>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 font-medium leading-relaxed">
+                        {regimeBreakout.previousRegime?.replace(/_/g, ' ')} → {regimeBreakout.currentRegime.replace(/_/g, ' ')}. {regimeBreakout.strategySuggestion.slice(0, 80)}&hellip;
+                      </p>
+                    </div>
+                  )}
+
                   {/* Institutional Insights */}
                   {insights.map((insight, ii) => (
                     <div key={`insight-${ii}`} className="group relative px-4 py-4 bg-matrix/5 border-b border-matrix/20 overflow-hidden">

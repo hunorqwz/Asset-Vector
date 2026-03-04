@@ -49,7 +49,12 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
     yahooFinance.options(sym).catch(() => null)
   ]);
 
-  if (!resRaw) throw new Error("FETCH_FAILED");
+  if (!resRaw) {
+    if (!sym.includes("-") && sym.length <= 5) {
+      return fetchStockDetails(`${sym}-USD`);
+    }
+    throw new Error("FETCH_FAILED");
+  }
   const res = resRaw as any;
 
   const qt = safeStr(res.price?.quoteType, 'EQUITY');

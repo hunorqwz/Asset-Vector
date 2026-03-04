@@ -64,6 +64,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/components/providers/SessionProvider";
+import { AlpacaProvider } from "@/components/providers/AlpacaProvider";
 
 export default function RootLayout({
   children,
@@ -76,11 +77,13 @@ export default function RootLayout({
         className={`${inter.variable} ${geistMono.variable} ${pixelFont.variable} antialiased select-none`}
       >
         <AuthProvider>
-          <div className="animate-scanline" />
-          <div className="vignette" />
-          <div className="app-grid bg-background overflow-hidden relative">
-            {children}
-          </div>
+          <AlpacaProvider>
+            <div className="animate-scanline" />
+            <div className="vignette" />
+            <div className="app-grid bg-background overflow-hidden relative">
+              {children}
+            </div>
+          </AlpacaProvider>
         </AuthProvider>
       </body>
     </html>

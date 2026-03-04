@@ -3,6 +3,16 @@ import YahooFinance from "yahoo-finance2";
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
+export interface OptionStrike {
+  strike: number;
+  callOI: number;
+  putOI: number;
+  callVol: number;
+  putVol: number;
+  callIV: number;
+  putIV: number;
+}
+
 export interface OptionsIntelligence {
   currentPrice: number;
   atmImpliedVolatility: number;
@@ -13,6 +23,7 @@ export interface OptionsIntelligence {
   daysToExpiration: number;
   expirationDate: string;
   putCallRatio: number;
+  strikes: OptionStrike[];
   isValid: boolean;
 }
 
@@ -39,6 +50,7 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
     daysToExpiration: 0,
     expirationDate: "",
     putCallRatio: 0,
+    strikes: [],
     isValid: false
   };
 
@@ -99,6 +111,44 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
     
     const putCallRatio = totalCallOI > 0 ? totalPutOI / totalCallOI : 0;
 
+    // Build strikes map
+    const strikesMap = new Map<number, OptionStrike>();
+    targetOption.calls.forEach((c: any) => {
+      strikesMap.set(c.strike, {
+        strike: c.strike,
+        callOI: c.openInterest || 0,
+        putOI: 0,
+        callVol: c.volume || 0,
+        putVol: 0,
+        callIV: c.impliedVolatility || 0,
+        putIV: 0
+      });
+    });
+    
+    targetOption.puts?.forEach((p: any) => {
+      const existing = strikesMap.get(p.strike);
+      if (existing) {
+        existing.putOI = p.openInterest || 0;
+        existing.putVol = p.volume || 0;
+        existing.putIV = p.impliedVolatility || 0;
+      } else {
+        strikesMap.set(p.strike, {
+          strike: p.strike,
+          callOI: 0,
+          putOI: p.openInterest || 0,
+          callVol: 0,
+          putVol: p.volume || 0,
+          callIV: 0,
+          putIV: p.impliedVolatility || 0
+        });
+      }
+    });
+
+    // Sort by strike and only keep those within a reasonable +/- 25% range of current price to save bandwidth
+    const strikes = Array.from(strikesMap.values())
+      .filter(s => s.strike > currentPrice * 0.75 && s.strike < currentPrice * 1.25)
+      .sort((a, b) => a.strike - b.strike);
+
     const result: OptionsIntelligence = {
       currentPrice,
       atmImpliedVolatility: atmIV,
@@ -109,6 +159,7 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
       daysToExpiration: Math.round(daysToExpiration),
       expirationDate: expirationDate.toISOString(),
       putCallRatio,
+      strikes,
       isValid: true
     };
 

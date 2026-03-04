@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { getInstitutionalAlphaPicks, AlphaPick } from "@/app/actions/discovery";
-import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
+import { getAlerts, checkAndTriggerAlerts, getRegimeBreakout } from "@/app/actions/alerts";
 import { GlobalHeader } from "@/components/organisms/GlobalHeader";
 import { fmt, fmtPct } from "@/lib/format";
 import { evaluateAlphaPicks, getBacktestWinRate } from "@/app/actions/backtest";
@@ -15,18 +15,19 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function DiscoveryPage() {
-  const [picks, alerts, backtestData, _eval] = await Promise.all([
+  const [picks, alerts, backtestData, _eval, regimeData] = await Promise.all([
     getInstitutionalAlphaPicks(),
     getAlerts(),
     getBacktestWinRate(),
     evaluateAlphaPicks(),
+    getRegimeBreakout(),
   ]);
 
   const { insights } = await checkAndTriggerAlerts({}); 
 
   return (
     <>
-      <GlobalHeader alerts={alerts} insights={insights} />
+      <GlobalHeader alerts={alerts} insights={insights} regimeBreakout={regimeData} />
 
       <main className="overflow-y-auto scrollbar-hide px-8 py-10">
         <div className="max-w-[1400px] mx-auto">

@@ -1,21 +1,10 @@
 "use client";
 import React from "react";
 
-interface BacktestStats {
-  winRate: number;
-  totalPicks: number;
-  evaluatedCount: number;
-  avgPerformance: number;
-  latestPicks: Array<{
-    ticker: string;
-    entry: number;
-    current: number | null;
-    status: 'WIN' | 'LOSS' | 'PENDING';
-    date: Date;
-  }>;
-}
+import { BacktestReport } from "@/app/actions/backtest";
+import Link from "next/link";
 
-export function BacktestScorecard({ data }: { data: BacktestStats | null }) {
+export function BacktestScorecard({ data }: { data: BacktestReport | null }) {
   if (!data) return null;
 
   return (
@@ -24,9 +13,17 @@ export function BacktestScorecard({ data }: { data: BacktestStats | null }) {
         <span className="text-[50px] font-black text-matrix">AUDIT</span>
       </div>
       
-      <div className="flex items-center gap-3 mb-6 relative z-10">
-        <div className="w-2 h-2 rounded-sm bg-matrix shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" />
-        <h2 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Alpha Track Record</h2>
+      <div className="flex items-center justify-between mb-6 relative z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-sm bg-matrix shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" />
+          <h2 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Alpha Track Record</h2>
+        </div>
+        <Link 
+          href="/discovery/performance" 
+          className="text-[9px] font-bold text-matrix uppercase tracking-widest hover:text-white transition-colors"
+        >
+          Full Report →
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8 relative z-10">
@@ -38,7 +35,7 @@ export function BacktestScorecard({ data }: { data: BacktestStats | null }) {
         </div>
         <div>
           <p className="text-[32px] tracking-tighter shadow-sm drop-shadow-[0_0_12px_rgba(255,255,255,0.1)] font-bold text-white leading-none">
-            {data.avgPerformance > 0 ? "+" : ""}{data.avgPerformance.toFixed(2)}%
+            {data.avgAlpha > 0 ? "+" : ""}{(data.avgAlpha * 100).toFixed(2)}%
           </p>
           <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mt-2">Avg Alpha</p>
         </div>
@@ -49,7 +46,7 @@ export function BacktestScorecard({ data }: { data: BacktestStats | null }) {
           <span>Recent Picks</span>
           <span>Status</span>
         </div>
-        {data.latestPicks.map((pick, i) => (
+        {data.recentPicks.slice(0, 5).map((pick, i) => (
           <div key={i} className="flex items-center justify-between text-[11px] font-mono group-hover:bg-white/[0.02] p-1.5 -mx-1.5 rounded transition-colors">
             <div className="flex items-center gap-2">
               <span className="text-white font-bold tracking-wider">{pick.ticker}</span>
@@ -70,7 +67,7 @@ export function BacktestScorecard({ data }: { data: BacktestStats | null }) {
       </div>
 
       <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-between text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] relative z-10">
-        <span>Samples: {data.totalPicks}</span>
+        <span>Total: {data.totalPicks}</span>
         <span>Audited: {data.evaluatedCount}</span>
       </div>
     </div>

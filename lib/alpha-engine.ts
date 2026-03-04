@@ -33,8 +33,10 @@ export function calculateAlphaScore(signal: MarketSignal, details: StockDetails)
   }
 
   // 3. VALUE: Low PE + Institutional Quality + Bullish Sentiment
-  if (valuation.forwardPE !== null && valuation.forwardPE < 18 && (signal.quality?.score ?? 0) > 70 && sentiment.score > 0.1) {
-    const valueScore = ( (signal.quality?.score || 0) + (50 - (valuation.forwardPE / 2)) ) / 1.5;
+  const fpe = valuation.forwardPE;
+  const qscore = signal.quality?.score || 0;
+  if (fpe !== null && fpe !== undefined && fpe < 18 && qscore > 70 && sentiment.score > 0.1) {
+    const valueScore = ( qscore + (50 - (fpe / 2)) ) / 1.5;
     if (valueScore > bestScore) {
       bestScore = valueScore;
       bestScanner = 'VALUE';

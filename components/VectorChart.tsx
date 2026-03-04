@@ -194,9 +194,18 @@ export const VectorChart = ({
 
     let volSeries: any = null;
     if (indicators.volume) {
-      volSeries = chart.addSeries(HistogramSeries, { color: '#262626', priceFormat: { type: 'volume' }, priceScaleId: 'volume', priceLineVisible: false });
+      volSeries = chart.addSeries(HistogramSeries, { 
+        color: 'rgba(255, 255, 255, 0.15)', 
+        priceFormat: { type: 'volume' }, 
+        priceScaleId: 'volume', 
+        priceLineVisible: false 
+      });
       chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 }, visible: false });
-      volSeries.setData(chartData.map(d => ({ time: d.time as UTCTimestamp, value: d.volume, color: d.close >= d.open ? `${upCol}55` : `${downCol}55` })));
+      volSeries.setData(chartData.map(d => ({ 
+        time: d.time as UTCTimestamp, 
+        value: d.volume, 
+        color: d.close >= d.open ? `${upCol}AA` : `${downCol}AA` 
+      })));
     }
 
     // For attaching crosshair values
@@ -551,7 +560,7 @@ export const VectorChart = ({
           volSeries?.update({
              time: lastBar.time as UTCTimestamp,
              value: lastBar.volume + lastTick.volume,
-             color: price >= lastBar.open ? `${upCol}55` : `${downCol}55`
+             color: price >= lastBar.open ? `${upCol}AA` : `${downCol}AA`
           });
         }
       }

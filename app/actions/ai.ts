@@ -1,12 +1,36 @@
 "use server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { OHLCV, NarrativeArticle } from "@/lib/types";
-import { getFromCache, setInCache } from "@/lib/cache";
+import { db } from "@/db";
+import { systemKv } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { SentimentAnalyzer, SentimentReport, SentimentFallback } from "@/lib/sentiment";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
 const activeRequests = new Map<string, Promise<StrategicInsight | null>>();
 const activeSentimentRequests = new Map<string, Promise<SentimentReport>>();
+
+async function getGlobalCache<T>(key: string): Promise<T | null> {
+  try {
+    const row = await db.query.systemKv.findFirst({ where: eq(systemKv.key, key) });
+    if (!row) return null;
+    if (new Date(row.expiresAt).getTime() < Date.now()) return null;
+    return row.value as T;
+  } catch (e) {
+    console.error("Global Cache Read Error:", e);
+    return null;
+  }
+}
+
+async function setGlobalCache<T>(key: string, value: T, ttlMs: number) {
+  try {
+    const expiresAt = new Date(Date.now() + ttlMs);
+    await db.insert(systemKv).values({ key, value: value as any, expiresAt })
+      .onConflictDoUpdate({ target: systemKv.key, set: { value: value as any, expiresAt } });
+  } catch (e) {
+    console.error("Global Cache Write Error:", e);
+  }
+}
 
 export interface StrategicInsight {
   patternRecognition: { form: string; confidence: number; implication: string };
@@ -21,7 +45,7 @@ export interface StrategicInsight {
 
 export async function generateStrategicAnalysis(ticker: string, history: OHLCV[], news: NarrativeArticle[]): Promise<StrategicInsight | null> {
   const cacheKey = `ai_strategy_${ticker}`;
-  const cached = getFromCache<StrategicInsight | string>(cacheKey);
+  const cached = await getGlobalCache<StrategicInsight | string>(cacheKey);
   if (cached) return cached === "COOLDOWN" ? null : cached as StrategicInsight;
 
   if (activeRequests.has(ticker)) return activeRequests.get(ticker)!;
@@ -33,20 +57,32 @@ export async function generateStrategicAnalysis(ticker: string, history: OHLCV[]
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", systemInstruction: "Institutional Quant Analyst. Output strictly valid JSON." });
         const recent = history.slice(-30).map(h => ({ d: new Date(h.time * 1000).toISOString().split('T')[0], c: h.close, v: h.volume }));
-        const schemaStr = `{
-  "patternRecognition": { "form": "string", "confidence": "number 0-1", "implication": "string" },
-  "sentiment": { "bias": "BULLISH|BEARISH|NEUTRAL", "score": "number -1 to 1", "drivers": ["string"], "nuance": "string" },
-  "scenarios": {
-    "conservative": { "shortTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" }, "midTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" }, "longTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" } },
-    "balanced": { "shortTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" }, "midTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" }, "longTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" } },
-    "aggressive": { "shortTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" }, "midTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" }, "longTerm": { "priceTarget": 0, "probability": 0, "rationale": "str" } }
-  },
-  "riskAnalysis": "string"
-}`;
-        const prompt = `Analyze ${ticker}. Data: ${JSON.stringify(recent)}. News: ${news.slice(0, 5).map(n => n.title).join(" | ")}. Match this exact JSON schema:\n${schemaStr}`;
-        const res = await model.generateContent({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, responseMimeType: "application/json" } });
+        
+        const responseSchema = {
+          type: SchemaType.OBJECT,
+          properties: {
+            patternRecognition: { type: SchemaType.OBJECT, properties: { form: { type: SchemaType.STRING }, confidence: { type: SchemaType.NUMBER }, implication: { type: SchemaType.STRING } }, required: ["form", "confidence", "implication"] },
+            sentiment: { type: SchemaType.OBJECT, properties: { bias: { type: SchemaType.STRING }, score: { type: SchemaType.NUMBER }, drivers: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }, nuance: { type: SchemaType.STRING } }, required: ["bias", "score", "drivers", "nuance"] },
+            scenarios: {
+              type: SchemaType.OBJECT,
+              properties: {
+                conservative: { type: SchemaType.OBJECT, properties: { shortTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } }, midTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } }, longTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } } } },
+                balanced: { type: SchemaType.OBJECT, properties: { shortTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } }, midTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } }, longTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } } } },
+                aggressive: { type: SchemaType.OBJECT, properties: { shortTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } }, midTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } }, longTerm: { type: SchemaType.OBJECT, properties: { priceTarget: { type: SchemaType.NUMBER }, probability: { type: SchemaType.NUMBER }, rationale: { type: SchemaType.STRING } } } } }
+              }, required: ["conservative", "balanced", "aggressive"]
+            },
+            riskAnalysis: { type: SchemaType.STRING }
+          },
+          required: ["patternRecognition", "sentiment", "scenarios", "riskAnalysis"]
+        } as any;
+
+        const prompt = `Analyze ${ticker}. Data: ${JSON.stringify(recent)}. News: ${news.slice(0, 5).map(n => n.title).join(" | ")}. Limit to highly precise answers.`;
+        const res = await model.generateContent({
+           contents: [{ role: "user", parts: [{ text: prompt }] }],
+           generationConfig: { temperature: 0.1, responseMimeType: "application/json", responseSchema }
+        });
         const parsed = JSON.parse(res.response.text()) as StrategicInsight;
-        setInCache(cacheKey, parsed, 600000);
+        await setGlobalCache(cacheKey, parsed, 86400000); // 24 HOURS TTL
         return parsed;
       } catch (err: any) {
         console.error("generateStrategicAnalysis error:", err);
@@ -54,7 +90,7 @@ export async function generateStrategicAnalysis(ticker: string, history: OHLCV[]
         if (err?.status === 429 || msg.includes("rate limit") || msg.includes("quota")) {
           retries++;
           if (retries <= 2) { await new Promise(r => setTimeout(r, 2000 * Math.pow(2, retries - 1))); continue; }
-          setInCache(cacheKey, "COOLDOWN", 60000);
+          await setGlobalCache(cacheKey, "COOLDOWN", 60000);
         } else if (err instanceof SyntaxError) {
           retries++;
           if (retries <= 2) continue; // Retry JSON parse errors
@@ -71,7 +107,7 @@ export async function generateStrategicAnalysis(ticker: string, history: OHLCV[]
 
 export async function extractSentimentNarrative(ticker: string, headlines: NarrativeArticle[]): Promise<SentimentReport> {
   const cacheKey = `ai_sentiment_extraction_${ticker}`;
-  const cached = getFromCache<SentimentReport | string>(cacheKey);
+  const cached = await getGlobalCache<SentimentReport | string>(cacheKey);
   
   if (cached) {
     if (cached === "COOLDOWN") {
@@ -87,10 +123,10 @@ export async function extractSentimentNarrative(ticker: string, headlines: Narra
   const promise = (async () => {
     try {
       const res = await SentimentAnalyzer.analyzeAsync(ticker, headlines);
-      setInCache(cacheKey, res, 600000);
+      await setGlobalCache(cacheKey, res, 3600000); // 1 HOUR TTL
       return res;
     } catch (e) {
-      setInCache(cacheKey, "COOLDOWN", 60000);
+      await setGlobalCache(cacheKey, "COOLDOWN", 60000);
       return SentimentFallback.analyze(headlines);
     }
   })();

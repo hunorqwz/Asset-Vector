@@ -6,9 +6,12 @@
 export function calculateReturns(prices: number[]): number[] {
   const returns: number[] = [];
   for (let i = 1; i < prices.length; i++) {
-    if (prices[i-1] !== 0 && !isNaN(prices[i-1])) {
+    // Both current and previous prices must be strictly positive to calculate a valid log-return
+    if (prices[i-1] > 0 && prices[i] > 0 && !isNaN(prices[i-1]) && !isNaN(prices[i])) {
        // Logarithmic returns for stationarity (institutional standard)
        returns.push(Math.log(prices[i] / prices[i-1]));
+    } else {
+       returns.push(0); // Neutral flat-line if data is corrupted or asset went to 0
     }
   }
   return returns;
@@ -27,7 +30,8 @@ export function calculateArithmeticReturns(prices: number[]): number[] {
 export function calculateVariance(data: number[]): number {
   if (data.length < 2) return 0;
   const mean = data.reduce((a, b) => a + b, 0) / data.length;
-  return data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (data.length - 1);
+  const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (data.length - 1);
+  return Math.max(0, variance); // Ensure precision never drifts below zero
 }
 
 export function calculateCovariance(data1: number[], data2: number[]): number {
@@ -50,14 +54,16 @@ export function calculateCorrelation(data1: number[], data2: number[]): number {
   const var1 = calculateVariance(data1);
   const var2 = calculateVariance(data2);
   
-  if (var1 <= 0 || var2 <= 0) return 0;
+  // Guard: Zero-volatility assets cannot have correlation
+  if (var1 <= 1e-12 || var2 <= 1e-12) return 0;
   return cov / (Math.sqrt(var1) * Math.sqrt(var2));
 }
 
 export function calculateBeta(assetReturns: number[], benchmarkReturns: number[]): number {
   const cov = calculateCovariance(assetReturns, benchmarkReturns);
   const varBench = calculateVariance(benchmarkReturns);
-  return varBench !== 0 ? cov / varBench : 1;
+  // Guard: If benchmark is flat, Beta is undefined in theory, but 0 in signal processing context
+  return varBench > 1e-12 ? cov / varBench : 0;
 }
 
 export function calculateJensensAlpha(
@@ -94,6 +100,45 @@ export interface ARIMAProjection {
  * Integrated Auto-Regressive process for stationary price projection.
  * Formula: Y_t = μ + ϕ(Y_{t-1} - μ) + ε_t
  */
+/**
+ * Institutional Data Integrity Engine (v2.5)
+ * Detects and filters "bad prints" (outliers) using Median Absolute Deviation (MAD).
+ * Unlike Z-Score, MAD is robust to extreme outliers that would skew a simple mean.
+ */
+export function validateAndCleanData(prices: number[], threshold: number = 5): number[] {
+  if (prices.length < 5) return prices;
+
+  // 1. Calculate Median
+  const sorted = [...prices].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+
+  // 2. Calculate Median Absolute Deviation (MAD)
+  const absoluteDeviations = prices.map(p => Math.abs(p - median));
+  const sortedDeviations = [...absoluteDeviations].sort((a, b) => a - b);
+  const mad = sortedDeviations[Math.floor(sortedDeviations.length / 2)];
+
+  // 3. Filter outliers using Modified Z-Score
+  // Z = 0.6745 * (x - median) / MAD
+  const cleanPrices: number[] = [...prices];
+  for (let i = 1; i < prices.length - 1; i++) {
+    const p = prices[i];
+    let modifiedZ = 0;
+    if (mad !== 0) {
+      modifiedZ = (0.6745 * (p - median)) / mad;
+    } else if (p !== median) {
+      modifiedZ = Infinity; // Infinite outlier if it differs from a perfectly flat median
+    }
+
+    if (Math.abs(modifiedZ) > threshold) {
+      // Data Corruption Detected: Interpolate from neighbors to maintain continuity
+      // institutional-grade gap filling
+      cleanPrices[i] = (prices[i - 1] + prices[i + 1]) / 2;
+    }
+  }
+
+  return cleanPrices;
+}
+
 export function runARIMAForecast(prices: number[], periods: number = 5): ARIMAProjection {
   if (prices.length < 20) {
     return { forecast: [], standardError: 0, confidence95: { upper: [], lower: [] } };
