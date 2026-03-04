@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateDCF, DCFParams } from './valuation';
+import { calculateDCF, DCFParams } from '../lib/valuation';
 
 describe('Discounted Cash Flow Model', () => {
   it('calculates the correct DCF values for normal inputs', () => {

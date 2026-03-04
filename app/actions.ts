@@ -13,6 +13,7 @@ import { fetchOptionsIntelligence } from "@/lib/options-pricing";
 
 import { fetchMarketPulse, MarketPulseData } from "@/lib/market-pulse";
 import { getAlpacaAccount, getAlpacaPositions, placeAlpacaOrder, getAlpacaQuote } from "@/lib/alpaca-client";
+import { after } from "next/server";
 
 export async function getAlpacaData() {
   try {
@@ -93,15 +94,17 @@ export async function getMarketSignals(): Promise<MarketSignal[]> {
 
   const results = await Promise.all(tickers.map(async (t) => {
     try {
-      const sig = await getPersistentSignal(t, 100);
+      const sig = await getPersistentSignal(t, 2500);
       return sig;
     } catch {
       return null;
     }
   }));
 
-  // Await evaluation of old signals to ensure accuracy scores are processed
-  await evaluateOldSignals().catch(() => {});
+  // Perform data hygiene and evaluate old signals without blocking request via SPLR (after phase)
+  after(() => {
+    evaluateOldSignals().catch((e) => console.error("[Background Eval] Error:", e));
+  });
 
   return results.filter((r): r is MarketSignal => r !== null);
 }
@@ -174,17 +177,19 @@ export async function getAssetDetails(ticker: string) {
   
   const prediction = signal.prediction; // Reuse prediction from persistent signal
   
-  if (signal) await archiveSignal(signal);
-  await evaluateOldSignals().catch(() => {});
+  after(() => {
+    if (signal) archiveSignal(signal).catch((e) => console.error("[Background Archive] Error:", e));
+    evaluateOldSignals().catch((e) => console.error("[Background Eval] Error:", e));
+  });
 
   return { ...signal, prediction, stockDetails, optionsIntelligence };
 }
 
 export async function getMinimalAssetDetails(ticker: string) {
   const sym = decodeURIComponent(ticker);
-  // Fetch 300 bars from persistence/cache instead of full analytical run
+  // Fetch 2500 bars from persistence/cache instead of full analytical run
   const [signal, stockDetails] = await Promise.all([
-    getPersistentSignal(sym, 100),
+    getPersistentSignal(sym, 2500),
     fetchStockDetails(sym), // This is heavily cached (1 hour)
   ]);
   

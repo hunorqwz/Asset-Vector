@@ -33,7 +33,7 @@ import { safeNum, safeStr, safeDate } from './utils';
 
 export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
   const cacheKey = `stock_details:${ticker}`;
-  const cached = getFromCache<StockDetails>(cacheKey);
+  const cached = await getFromCache<StockDetails>(cacheKey);
   if (cached) return cached;
 
   const sym = decodeURIComponent(ticker);
@@ -199,7 +199,7 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
 
   calibrateMetrics(details);
 
-  setInCache(cacheKey, details, CACHE_TTL.STOCK_DETAILS);
+  await setInCache(cacheKey, details, CACHE_TTL.STOCK_DETAILS);
   return details;
 }
 

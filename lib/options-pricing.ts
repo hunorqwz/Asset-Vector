@@ -37,7 +37,7 @@ export function normalCDF(x: number): number {
 
 export async function fetchOptionsIntelligence(ticker: string, currentPrice: number): Promise<OptionsIntelligence> {
   const CACHE_KEY = `options_intel_${ticker}_v1`;
-  const cached = getFromCache<OptionsIntelligence>(CACHE_KEY);
+  const cached = await getFromCache<OptionsIntelligence>(CACHE_KEY);
   if (cached) return cached;
 
   const emptyResult: OptionsIntelligence = {
@@ -164,7 +164,7 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
     };
 
     // Cache the options chain result for 1 hour to prevent scraping bans
-    setInCache(CACHE_KEY, result, 60 * 60 * 1000);
+    await setInCache(CACHE_KEY, result, 60 * 60 * 1000);
     return result;
 
   } catch (error) {

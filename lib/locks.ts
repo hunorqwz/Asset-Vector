@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { systemKv } from "@/db/schema";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, lte } from "drizzle-orm";
 
 /**
  * HIGH-PRECISION DISTRIBUTED LOCK ENGINE
@@ -15,21 +15,9 @@ export async function acquireLock(key: string, durationMs: number = 60000): Prom
   const expiresAt = new Date(now.getTime() + durationMs);
 
   try {
-    // 1. Check if a non-expired lock already exists
-    const existing = await db.query.systemKv.findFirst({
-      where: and(
-        eq(systemKv.key, `lock:${key}`),
-        gt(systemKv.expiresAt, now)
-      )
-    });
-
-    if (existing) return false;
-
-    // 2. Attempt to Upsert the lock
-    // Using a simple overwrite if expired, but the 'where' clause in some DBs is better.
-    // Drizzle/Neon doesn't support 'onConflict' with a where condition easily for generic updates,
-    // so we use the existence check above as a guard.
-    await db.insert(systemKv).values({
+    // Atomic Upsert: Inserts if not exists, or updates if the existing lock has expired.
+    // returning() will only yield a row if an insert or update actually occurred.
+    const result = await db.insert(systemKv).values({
       key: `lock:${key}`,
       value: { lockedAt: now.toISOString() },
       expiresAt: expiresAt
@@ -38,10 +26,11 @@ export async function acquireLock(key: string, durationMs: number = 60000): Prom
       set: { 
         value: { lockedAt: now.toISOString() },
         expiresAt: expiresAt 
-      }
-    });
+      },
+      where: lte(systemKv.expiresAt, now)
+    }).returning({ key: systemKv.key });
 
-    return true;
+    return result.length > 0;
   } catch (error) {
     console.error(`[Distributed Lock] Failed to acquire lock for ${key}:`, error);
     return false;

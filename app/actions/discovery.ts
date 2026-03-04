@@ -32,7 +32,7 @@ const DISCOVERY_TICKERS = [
 
 export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
   const CACHE_KEY = "institutional_alpha_picks_v2";
-  const cached = getFromCache<AlphaPick[]>(CACHE_KEY);
+  const cached = await getFromCache<AlphaPick[]>(CACHE_KEY);
   if (cached) return cached;
 
   const picks: AlphaPick[] = [];
@@ -128,7 +128,7 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
   const finalPicks = sortedPicks.slice(0, 8);
   
   // Cache for 10 minutes (Slightly shorter for dynamic regime changes)
-  setInCache(CACHE_KEY, finalPicks, 10 * 60 * 1000);
+  await setInCache(CACHE_KEY, finalPicks, 10 * 60 * 1000);
 
   // Archival Loop
   await recordAlphaPicks(finalPicks.map(p => ({ ...p, scanner: p.scanner as any })));

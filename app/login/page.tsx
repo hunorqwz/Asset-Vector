@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { LoginForm } from "@/components/organisms/LoginForm";
 import Link from "next/link";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Sign In | Asset Vector",
@@ -46,7 +47,9 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <LoginForm />
+          <Suspense fallback={<div className="text-zinc-500 text-xs text-center py-4">Loading secure portal...</div>}>
+            <LoginForm />
+          </Suspense>
           
           <div className="mt-8 pt-8 border-t border-white/5 flex flex-col gap-4">
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest font-bold font-mono">

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { generateTechnicalConfluence } from '@/lib/technical-analysis';
-import { OHLCV } from '@/lib/market-data';
+import { generateTechnicalConfluence } from '../lib/technical-analysis';
+import { OHLCV } from '../lib/market-data';
 
 describe('Technical Analysis Indicator Engine', () => {
 

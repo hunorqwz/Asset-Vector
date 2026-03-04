@@ -44,7 +44,7 @@ const STRATEGY_MAP: Record<MarketRegime, Record<RegimeTrend, string>> = {
  * to detect macro structural transitions in real time.
  */
 export async function detectRegimeBreakout(): Promise<RegimeBreakout | null> {
-  const cached = getFromCache<RegimeBreakout>(CACHE_KEY);
+  const cached = await getFromCache<RegimeBreakout>(CACHE_KEY);
   if (cached) return cached;
 
   try {
@@ -106,7 +106,7 @@ export async function detectRegimeBreakout(): Promise<RegimeBreakout | null> {
       detectedAt: new Date().toISOString(),
     };
 
-    setInCache(CACHE_KEY, result, CACHE_TTL);
+    await setInCache(CACHE_KEY, result, CACHE_TTL);
     return result;
 
   } catch (err) {

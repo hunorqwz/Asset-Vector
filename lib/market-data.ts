@@ -16,7 +16,7 @@ import {
 } from "./math";
 import { getAlpacaQuote } from "./alpaca-client";
 import { db } from "@/db";
-import { marketSignals } from "@/db/schema";
+import { marketSignals, latestSignals } from "@/db/schema";
 import { desc, eq, and, gt } from "drizzle-orm";
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
@@ -52,6 +52,7 @@ export type MarketSignal = {
 };
 
 export const RANGE_INTERVAL_MAP: Record<string, { interval: ChartInterval; lookbackSeconds: number }> = {
+  // 1D fetches 3 days of 1m data to safely handle timezone overlaps and weekend gaps for intraday view
   '1D': { interval: '1m',  lookbackSeconds: 3 * 86400 },
   '5D': { interval: '5m',  lookbackSeconds: 10 * 86400 },
   '1M': { interval: '15m', lookbackSeconds: 40 * 86400 }, 
@@ -68,7 +69,7 @@ export async function fetchHistoryWithInterval(
   lookbackSeconds: number = 0
 ): Promise<OHLCV[]> {
   const cacheKey = `chart:${ticker}:${interval}:${lookbackSeconds}`;
-  const cached = getFromCache<OHLCV[]>(cacheKey);
+  const cached = await getFromCache<OHLCV[]>(cacheKey);
   if (cached) return cached;
 
   const start = lookbackSeconds === 0 ? 0 : Math.floor(Date.now() / 1000) - lookbackSeconds;
@@ -108,7 +109,7 @@ export async function fetchHistoryWithInterval(
     }
 
     if (data.length > 0) {
-      setInCache(cacheKey, data, interval === '1d' ? CACHE_TTL.MARKET_DATA : 30000);
+      await setInCache(cacheKey, data, interval === '1d' ? CACHE_TTL.MARKET_DATA : 30000);
     }
     return data;
   } catch (error) {
@@ -124,7 +125,7 @@ export async function fetchHistoryWithInterval(
  */
 export async function fetchLiveQuote(ticker: string): Promise<number> {
   const cacheKey = `quote:${ticker}`;
-  const cached = getFromCache<number>(cacheKey);
+  const cached = await getFromCache<number>(cacheKey);
   if (cached !== null) return cached;
 
   try {
@@ -152,7 +153,7 @@ export async function fetchLiveQuote(ticker: string): Promise<number> {
       return 0; // Guard against crashing on missing price
     }
 
-    setInCache(cacheKey, price, CACHE_TTL.MARKET_DATA);
+    await setInCache(cacheKey, price, CACHE_TTL.MARKET_DATA);
     return price;
   } catch (error) {
     console.warn(`[Market Data] Global Quote fetch failed for ${ticker}:`, error);
@@ -232,10 +233,11 @@ async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
 
 // Global Benchmark Cache to prevent redundant fetches (v2.1)
 let GLOBAL_BENCHMARK_DATA: { time: number; data: OHLCV[] } | null = null;
+let GLOBAL_BENCHMARK_PROMISE: Promise<{ time: number; data: OHLCV[] }> | null = null;
 
 export async function fetchMarketData(ticker: string, len: number = 2500): Promise<MarketSignal> {
   const cacheKey = `signal:${ticker}:${len}`;
-  const cached = getFromCache<MarketSignal>(cacheKey);
+  const cached = await getFromCache<MarketSignal>(cacheKey);
   if (cached) return cached;
   
   // Optimize: Calculate approximate lookback to avoid fetching full history (Performance Fix)
@@ -294,8 +296,14 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   // Benchmark Singleton Logic
   if (!GLOBAL_BENCHMARK_DATA || Date.now() - GLOBAL_BENCHMARK_DATA.time > 3600000) {
-      const bHistory = await fetchHistoryWithInterval("SPY", "1d", 0).catch(() => []);
-      GLOBAL_BENCHMARK_DATA = { time: Date.now(), data: bHistory };
+      if (!GLOBAL_BENCHMARK_PROMISE) {
+          GLOBAL_BENCHMARK_PROMISE = fetchHistoryWithInterval("SPY", "1d", 0).catch(() => []).then(bHistory => {
+              GLOBAL_BENCHMARK_DATA = { time: Date.now(), data: bHistory };
+              GLOBAL_BENCHMARK_PROMISE = null;
+              return GLOBAL_BENCHMARK_DATA;
+          });
+      }
+      await GLOBAL_BENCHMARK_PROMISE;
   }
 
   const [ai, news, fundamentals, tnxQuote] = await Promise.all([
@@ -354,7 +362,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   const regimeInfo = RegimeDetector.detect(history.map(h => h.close));
 
-  const sentiment = SentimentFallback.analyze(news);
+  const sentiment = await SentimentAnalyzer.analyzeAsync(ticker, news);
   const technical = generateTechnicalConfluence(history, smooth, regimeInfo.predictability);
   const levels = detectSupportResistance(history);
   const structuralProbability: LevelTouchProbability[] = levels.map(l => ({
@@ -407,23 +415,52 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   // 5. Persist to DB for SPLR Architecture (v3.0)
   try {
-    await db.insert(marketSignals).values({
+    // Immediate Upsert for Fast Read Cache
+    await db.insert(latestSignals).values({
       ticker,
-      priceAtGeneration: currentPrice.toString(),
-      score: synthesis.score.toString(),
-      signalLabel: synthesis.signal,
-      direction: trend,
-      confidence: regimeInfo.predictability.toString(),
-      snr: kf.getSNR().toString(),
-      regime: regimeInfo.regime,
-      fullData: signal as any,
-      isEvaluated: false
+      generatedAt: new Date(),
+      fullData: signal as any
+    }).onConflictDoUpdate({
+      target: latestSignals.ticker,
+      set: {
+        generatedAt: new Date(),
+        fullData: signal as any
+      }
     });
+
+    // Rate-limited Archival (Max 1 per 4 hours)
+    const archiveCacheKey = `archive_lock_${ticker}`;
+    if (!await getFromCache(archiveCacheKey)) {
+      await setInCache(archiveCacheKey, true, 4 * 60 * 60 * 1000); // Temporary quick lock
+
+      // Double-check DB in background to avoid race conditions on startup
+      db.query.marketSignals.findFirst({
+        where: and(
+          eq(marketSignals.ticker, ticker),
+          gt(marketSignals.generatedAt, new Date(Date.now() - 4 * 60 * 60 * 1000))
+        ),
+      }).then((existing: any) => {
+        if (!existing) {
+          db.insert(marketSignals).values({
+            ticker,
+            priceAtGeneration: currentPrice.toString(),
+            score: synthesis.score.toString(),
+            signalLabel: synthesis.signal,
+            direction: trend,
+            confidence: regimeInfo.predictability.toString(),
+            snr: kf.getSNR().toString(),
+            regime: regimeInfo.regime,
+            isEvaluated: false
+          }).catch((err: any) => console.error(`[SPLR Archive] Error for ${ticker}:`, err));
+        }
+      });
+    }
+
   } catch (err) {
-    console.error(`[SPLR] Failed to persist signal for ${ticker}:`, err);
+    console.error(`[SPLR] Failed to persist signal caching for ${ticker}:`, err);
   }
 
-  setInCache(cacheKey, signal, CACHE_TTL.MARKET_DATA);
+  await setInCache(cacheKey, signal, CACHE_TTL.MARKET_DATA);
   return signal;
 }
 
@@ -435,10 +472,9 @@ export async function getPersistentSignal(ticker: string, len: number = 2500): P
   const REFRESH_WINDOW_MS = 5 * 60 * 1000; // 5 Minutes
   
   try {
-    // 1. Check for a very recent signal in the DB
-    const latest = await db.query.marketSignals.findFirst({
-      where: eq(marketSignals.ticker, ticker),
-      orderBy: desc(marketSignals.generatedAt)
+    // 1. Check for a very recent signal in the highly-available latest_signals table
+    const latest = await db.query.latestSignals.findFirst({
+      where: eq(latestSignals.ticker, ticker)
     });
 
     if (latest && latest.fullData) {

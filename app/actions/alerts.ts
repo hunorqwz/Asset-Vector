@@ -1,9 +1,10 @@
 "use server";
 import { db } from "@/db";
-import { priceAlerts } from "@/db/schema";
+import { priceAlerts, userPositions, userWatchlists } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 export type PriceAlert = {
   id: string;
@@ -52,6 +53,21 @@ export async function createAlert(
     return { success: false, error: "INVALID_INPUT" };
   }
 
+  // Validate ticker against watchlist or portfolio to prevent untracked alerts (M6 Fix)
+  const normalizedTicker = ticker.toUpperCase();
+  const [inWatchlist, inPortfolio] = await Promise.all([
+    db.query.userWatchlists.findFirst({ 
+      where: and(eq(userWatchlists.userId, session.user.id), eq(userWatchlists.ticker, normalizedTicker)) 
+    }),
+    db.query.userPositions.findFirst({ 
+      where: and(eq(userPositions.userId, session.user.id), eq(userPositions.ticker, normalizedTicker)) 
+    })
+  ]);
+  
+  if (!inWatchlist && !inPortfolio) {
+    return { success: false, error: "TICKER_NOT_TRACKED" };
+  }
+
   // Limit: 20 active alerts per user
   const existing = await db.query.priceAlerts.findMany({
     where: and(eq(priceAlerts.userId, session.user.id), eq(priceAlerts.isTriggered, false)),
@@ -62,7 +78,7 @@ export async function createAlert(
   try {
     await db.insert(priceAlerts).values({
       userId: session.user.id,
-      ticker: ticker.toUpperCase(),
+      ticker: normalizedTicker,
       targetPrice: targetPrice.toString(),
       direction,
       note: note?.trim() || null,
@@ -106,15 +122,14 @@ export async function dismissAlert(id: string): Promise<{ success: boolean }> {
   }
 }
 
-import { calculateAlphaScore } from "@/lib/alpha-engine";
-import { getAssetDetails, getMinimalAssetDetails } from "@/app/actions";
+// ---- BACKGROUND & INSIGHT SYSTEMS ----
 
 export type Insight = {
   ticker: string;
-  type: "ALPHA" | "REDUNDANCY";
+  type: "ALPHA" | "REGIME_SHIFT" | "SENTIMENT_SPIKE";
   label: string;
   message: string;
-  score?: number;
+  score: number;
 };
 
 export type AlertSessionState = {
@@ -126,6 +141,8 @@ export type AlertSessionState = {
  * Perform a structural audit of the user's focus tickers (Watchlist + Portfolio)
  * and detect institutional regime shifts or high Alpha scores.
  */
+import { getMinimalAssetDetails } from "../actions";
+import { calculateAlphaScore } from "@/lib/alpha-engine";
 import { getFromCache, setInCache } from "@/lib/cache";
 
 export async function getInstitutionalInsights(tickers: string[]): Promise<Insight[]> {
@@ -135,40 +152,48 @@ export async function getInstitutionalInsights(tickers: string[]): Promise<Insig
   const capped = tickers.slice(0, 10); // Performance cap
   const insights: Insight[] = [];
 
-  // Check cache for each ticker individually to maximize hit rate
+  // 1. Check cache synchronously for instant UI response (O(1))
   const pendingTickers: string[] = [];
-  const pendingIndices: number[] = [];
-
-  capped.forEach((ticker, i) => {
-    const cached = getFromCache<Insight>(`insight:${ticker}`);
-    if (cached) {
-      insights.push(cached);
+  for (const ticker of capped) {
+    const cachedItem = await getFromCache<Insight | { type: "NONE" }>(`insight:${ticker}`);
+    if (cachedItem) {
+      if (cachedItem.type !== "NONE") {
+        insights.push(cachedItem as Insight);
+      }
     } else {
       pendingTickers.push(ticker);
-      pendingIndices.push(i);
     }
-  });
+  }
 
+  // 2. Offload heavy API fetches to Background Thread (SPLR)
   if (pendingTickers.length > 0) {
-    const results = await Promise.allSettled(pendingTickers.map(t => getMinimalAssetDetails(t)));
-    
-    results.forEach((r, i) => {
-      if (r.status === 'fulfilled') {
-        const data = r.value;
-        const { score, scanner } = calculateAlphaScore(data, data.stockDetails);
+    after(async () => {
+      try {
+        const results = await Promise.allSettled(pendingTickers.map(t => getMinimalAssetDetails(t)));
         
-        if (score > 85 && scanner) {
-          const insight: Insight = {
-            ticker: pendingTickers[i],
-            type: "ALPHA",
-            label: `${scanner} SIGNAL`,
-            message: `High conviction institutional ${scanner.toLowerCase()} detected.`,
-            score: Math.round(score)
-          };
-          insights.push(insight);
-          // Cache for 30 minutes
-          setInCache(`insight:${pendingTickers[i]}`, insight, 30 * 60 * 1000);
-        }
+        results.forEach(async (r, i) => {
+          if (r.status === 'fulfilled') {
+            const data = r.value;
+            const { score, scanner } = calculateAlphaScore(data, data.stockDetails);
+            
+            if (score > 85 && scanner) {
+              const insight: Insight = {
+                ticker: pendingTickers[i],
+                type: "ALPHA",
+                label: `${scanner} SIGNAL`,
+                message: `High conviction institutional ${scanner.toLowerCase()} detected.`,
+                score: Math.round(score)
+              };
+              // Cache success for 30 minutes
+              await setInCache(`insight:${pendingTickers[i]}`, insight, 30 * 60 * 1000);
+            } else {
+              // Cache null state for 5 minutes so we don't spam API
+              await setInCache(`insight:${pendingTickers[i]}`, { type: "NONE" }, 5 * 60 * 1000);
+            }
+          }
+        });
+      } catch (err) {
+        console.error("[Insights Background Fetch] Failed:", err);
       }
     });
   }
@@ -185,6 +210,13 @@ export async function checkAndTriggerAlerts(
 ): Promise<AlertSessionState> {
   const session = await auth();
   if (!session?.user?.id) return { triggered: [], insights: [] };
+
+  const tickersExtracted = Object.keys(priceMap);
+  const lockKey = `alert_eval_lock_${session.user.id}`;
+  if (await getFromCache(lockKey)) {
+    return { triggered: [], insights: await getInstitutionalInsights(tickersExtracted) };
+  }
+  await setInCache(lockKey, true, 60000); // 1-minute debounce per user (M5 Fix)
 
   const active = await db.query.priceAlerts.findMany({
     where: and(

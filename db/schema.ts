@@ -157,6 +157,12 @@ export const priceAlerts = pgTable("price_alerts", {
   };
 });
 
+export const latestSignals = pgTable("latest_signals", {
+  ticker: varchar("ticker", { length: 10 }).primaryKey().references(() => assets.ticker),
+  generatedAt: timestamp("generated_at").defaultNow(),
+  fullData: jsonb("full_data"), 
+});
+
 export const systemKv = pgTable("system_kv", {
   key: varchar("key", { length: 255 }).primaryKey(),
   value: jsonb("value").notNull(),

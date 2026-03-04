@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateDCF, calculateGrahamNumber, calculatePeterLynchFairValue } from '@/lib/valuation';
+import { calculateGrahamNumber, calculateDCF, calculatePeterLynchFairValue } from "../lib/valuation";
 
 describe('Valuation Models', () => {
   describe('calculateDCF', () => {

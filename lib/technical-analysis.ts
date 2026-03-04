@@ -186,7 +186,6 @@ export function generateTechnicalConfluence(
   // 3. PREDICTABILITY NOISE FILTER
   // If market is random (Predictability near 0), pull the score back toward 50 (Neutral)
   // This prevents the system from being "too confident" in noisy data.
-  const neutralPull = 1 - predictability; 
   score = 50 + (score - 50) * predictability;
 
   // Signal Mapping
@@ -315,8 +314,7 @@ export function detectSupportResistance(data: OHLCV[], sensitivity: number = 0.0
 
   // 3. Convert clusters to Support/Resistance
   const currentPrice = data[data.length - 1].close;
-  
-  return clusters
+  const mapped = clusters
     .filter(c => c.touches >= 2) // Filter noise
     .map(c => {
       const isSupport = c.price < currentPrice;
@@ -326,67 +324,11 @@ export function detectSupportResistance(data: OHLCV[], sensitivity: number = 0.0
         touches: c.touches,
         strength: Math.min(5, c.touches)
       };
-    })
-    .sort((a, b) => b.touches - a.touches)
-    .slice(0, 4); // Only show top 4 strongest levels to prevent clutter
+    });
+
+  const supports = mapped.filter(c => c.type === 'SUPPORT').sort((a, b) => b.touches - a.touches).slice(0, 2);
+  const resistances = mapped.filter(c => c.type === 'RESISTANCE').sort((a, b) => b.touches - a.touches).slice(0, 2);
+
+  return [...supports, ...resistances].sort((a, b) => b.price - a.price);
 }
 
-/**
- * Institutional Volume Profile
- * Maps volume at specific price levels to identify High Volume Nodes (HVNs)
- * which act as significant algorithmic support/resistance gravity wells.
- */
-export function detectVolumeProfileNodes(data: OHLCV[], bins: number = 50): VolumeNode[] {
-  if (data.length < 2) return [];
-
-  let maxPrice = -Infinity, minPrice = Infinity;
-  let totalVol = 0;
-
-  data.forEach(b => {
-    if (b.high > maxPrice) maxPrice = b.high;
-    if (b.low < minPrice) minPrice = b.low;
-    if (b.volume) totalVol += b.volume;
-  });
-
-  if (maxPrice === minPrice || totalVol === 0) return [];
-
-  const binSize = (maxPrice - minPrice) / bins;
-  const volumeProfile = new Array(bins).fill(0);
-
-  data.forEach(b => {
-    if (!b.volume) return;
-    
-    const startBin = Math.max(0, Math.floor((b.low - minPrice) / binSize));
-    let endBin = Math.min(bins - 1, Math.floor((b.high - minPrice) / binSize));
-    
-    if (startBin > endBin) endBin = startBin;
-
-    const binsSpanned = endBin - startBin + 1;
-    const volPerBin = b.volume / binsSpanned;
-
-    for (let i = startBin; i <= endBin; i++) volumeProfile[i] += volPerBin;
-  });
-
-  const avgVolPerBin = totalVol / bins;
-  const nodes: { index: number, volume: number }[] = [];
-  
-  // Find local maxima (HVNs)
-  for (let i = 2; i < bins - 2; i++) {
-    const vol = volumeProfile[i];
-    if (vol > avgVolPerBin * 1.5 && 
-        vol > volumeProfile[i-1] && vol > volumeProfile[i-2] &&
-        vol > volumeProfile[i+1] && vol > volumeProfile[i+2]) {
-      nodes.push({ index: i, volume: vol });
-    }
-  }
-
-  return nodes
-    .sort((a, b) => b.volume - a.volume)
-    .slice(0, 3) 
-    .map(n => ({
-      price: Number((minPrice + (n.index * binSize) + (binSize / 2)).toFixed(2)),
-      volume: n.volume,
-      type: 'HVN',
-      strength: Math.min(5, Math.ceil(n.volume / avgVolPerBin))
-    }));
-}

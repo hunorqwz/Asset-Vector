@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runMonteCarloSimulation, MonteCarloParams } from './monte-carlo';
+import { runMonteCarloSimulation, MonteCarloParams } from '../lib/monte-carlo';
 
 describe('Monte Carlo Simulation', () => {
     it('returns an empty invalid result if there are less than 30 days of history', () => {

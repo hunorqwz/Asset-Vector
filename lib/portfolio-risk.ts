@@ -89,10 +89,12 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
   // 2. Calculate Individual Betas and Aggregate
   let totalPortfolioBeta = 0;
   const assetReturnsMap: Record<string, number[]> = {};
+  const alerts: string[] = [];
 
   positions.forEach(pos => {
     const assetHist = historyData.find(h => h.ticker === pos.ticker)?.history || [];
     if (assetHist.length < 252) {
+      alerts.push(`Insufficient History: ${pos.ticker} has < 1Y data. Beta defaulted to 1.0.`);
       totalPortfolioBeta += pos.weight * 1; // Default to market beta if data is missing
       return;
     }
@@ -105,7 +107,6 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
   });
 
   // 3. Concentration Guard (Hidden Correlation) & Global Matrix
-  const alerts: string[] = [];
   const activeTickers = positions.map(p => p.ticker);
   const matrix: number[][] = Array(activeTickers.length).fill(0).map(() => Array(activeTickers.length).fill(1));
   

@@ -12,7 +12,7 @@ import { withLock } from "@/lib/locks";
 export async function archiveSignal(signal: MarketSignal) {
   try {
     const CACHE_KEY = `signal_archive_${signal.ticker}`;
-    if (getFromCache(CACHE_KEY)) return;
+    if (await getFromCache(CACHE_KEY)) return;
 
     const FOUR_HOURS_AGO = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
@@ -25,11 +25,11 @@ export async function archiveSignal(signal: MarketSignal) {
     });
 
     if (existing) {
-      setInCache(CACHE_KEY, true, existing.generatedAt!.getTime() + (4 * 60 * 60 * 1000) - Date.now());
+      await setInCache(CACHE_KEY, true, existing.generatedAt!.getTime() + (4 * 60 * 60 * 1000) - Date.now());
       return;
     }
     
-    setInCache(CACHE_KEY, true, 4 * 60 * 60 * 1000); // 4 Hour Lock
+    await setInCache(CACHE_KEY, true, 4 * 60 * 60 * 1000); // 4 Hour Lock
 
     await db.insert(marketSignals).values({
       ticker: signal.ticker,
@@ -72,42 +72,61 @@ export async function evaluateOldSignals() {
       try {
         const genTime = new Date(sig.generatedAt!).getTime();
         const targetTime = genTime + (7 * 24 * 60 * 60 * 1000);
-        const history = await fetchHistoryWithInterval(sig.ticker, '1d');
-        if (!history || history.length === 0) continue;
-
-        // Target: First bar that is >= targetTime
-        // If we don't find it, but current time is > targetTime + 2 days (i.e. we definitely missed it)
-        // then take the last available bar as the outcome.
-        let outcomeBar = history.find((h: any) => (h.time * 1000) >= targetTime);
         
+        const [history, spyHistory] = await Promise.all([
+          fetchHistoryWithInterval(sig.ticker, '1d'),
+          fetchHistoryWithInterval("SPY", '1d')
+        ]);
+        
+        if (!history || history.length === 0 || !spyHistory || spyHistory.length === 0) continue;
+
+        // Extract outcome boundaries for asset
+        let outcomeBar = history.find((h: any) => (h.time * 1000) >= targetTime);
         if (!outcomeBar) {
           const lastBar = history[history.length - 1];
           if (!lastBar) continue;
           const lastBarTime = lastBar.time * 1000;
           const now = Date.now();
-          
-          // If the last bar is within 3 days of targetTime and we are past targetTime, use it
           if (now > targetTime && Math.abs(lastBarTime - targetTime) < (3 * 24 * 60 * 60 * 1000)) {
             outcomeBar = lastBar;
           }
         }
-
         if (!outcomeBar) continue;
+
+        // Extract benchmark boundaries
+        // Use a 4-day trailing lookback to catch friday/weekend generation gaps
+        const spyInitialBar = spyHistory.find((h: any) => (h.time * 1000) >= genTime - (4 * 24 * 60 * 60 * 1000)) || spyHistory[spyHistory.length - 1];
+        let spyOutcomeBar = spyHistory.find((h: any) => (h.time * 1000) >= targetTime);
+        if (!spyOutcomeBar) spyOutcomeBar = spyHistory[spyHistory.length - 1];
 
         const entryPrice = Number(sig.priceAtGeneration);
         const exitPrice = outcomeBar.close;
         const changePct = (exitPrice - entryPrice) / entryPrice;
 
-        let isCorrect = false;
-        if (sig.direction === "BULLISH" && changePct > 0.015) isCorrect = true;
-        else if (sig.direction === "BEARISH" && changePct < -0.015) isCorrect = true;
-        else if (sig.direction === "NEUTRAL" && Math.abs(changePct) <= 0.015) isCorrect = true;
+        const spyEntry = spyInitialBar.close;
+        const spyExit = spyOutcomeBar.close;
+        const spyChangePct = (spyExit - spyEntry) / spyEntry;
+
+        const alpha = changePct - spyChangePct;
+
+        // Benchmark-relative Accuracy Grading (Alpha Performance)
+        let accuracyScore = 0;
+        if (sig.direction === "BULLISH") {
+          accuracyScore = Math.max(0, Math.min(1, (alpha + 0.015) / 0.03));
+        } else if (sig.direction === "BEARISH") {
+          accuracyScore = Math.max(0, Math.min(1, (-alpha + 0.015) / 0.03));
+        } else if (sig.direction === "NEUTRAL") {
+          accuracyScore = Math.max(0, 1 - (Math.abs(alpha) / 0.02));
+        }
 
         await db.update(marketSignals)
           .set({
             isEvaluated: true,
             outcomePrice7D: exitPrice.toString(),
-            accuracy: isCorrect ? "1.00" : "0.00",
+            benchmarkPriceAtGeneration: spyEntry.toString(),
+            benchmarkOutcomePrice: spyExit.toString(),
+            alphaPerformance: alpha.toFixed(4),
+            accuracy: accuracyScore.toFixed(2),
           })
           .where(eq(marketSignals.id, sig.id));
 
@@ -136,8 +155,9 @@ export async function getAccuracyScorecard(ticker?: string) {
     if (evaluated.length === 0) return null;
 
     const total = evaluated.length;
-    const correct = evaluated.filter((s: any) => Number(s.accuracy) === 1).length;
-    const accuracy = (correct / total) * 100;
+    const sum = evaluated.reduce((acc: number, s: any) => acc + Number(s.accuracy), 0);
+    const accuracy = (sum / total) * 100;
+    const correct = evaluated.filter((s: any) => Number(s.accuracy) >= 0.5).length;
 
     return {
       total,
@@ -147,7 +167,7 @@ export async function getAccuracyScorecard(ticker?: string) {
         ticker: s.ticker,
         at: s.generatedAt,
         label: s.signalLabel,
-        correct: Number(s.accuracy) === 1,
+        correct: Number(s.accuracy) >= 0.5,
         entry: Number(s.priceAtGeneration),
         outcome: Number(s.outcomePrice7D),
       }))

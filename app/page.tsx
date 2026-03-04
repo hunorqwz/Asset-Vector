@@ -87,7 +87,7 @@ export default async function Home() {
                         key={i} 
                         signal={s}
                         alpha={isAlpha}
-                        onRemove={async () => { "use server"; await removeAsset(s.ticker); }}
+                        onRemove={removeAsset.bind(null, s.ticker)}
                       />
                     );
                   })}

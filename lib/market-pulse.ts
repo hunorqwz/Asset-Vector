@@ -54,7 +54,7 @@ const MACRO_TICKERS = {
 
 export async function fetchMarketPulse(): Promise<MarketPulseData> {
   const CACHE_KEY = "market_pulse_data_v2";
-  const cached = getFromCache<MarketPulseData>(CACHE_KEY);
+  const cached = await getFromCache<MarketPulseData>(CACHE_KEY);
   if (cached) return cached;
 
   const sectorTickers = Object.values(SECTOR_ETFS);
@@ -118,7 +118,7 @@ export async function fetchMarketPulse(): Promise<MarketPulseData> {
     }
   };
 
-  setInCache(CACHE_KEY, result, 120 * 1000); 
+  await setInCache(CACHE_KEY, result, 120 * 1000); 
   return result;
 }
 
