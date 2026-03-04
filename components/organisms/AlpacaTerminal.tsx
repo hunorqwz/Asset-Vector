@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAlpacaTape } from '@/hooks/useAlpacaTape';
-import { executeTrade, getAlpacaData, getLiveQuote } from '@/app/actions';
+import { executeTrade } from '@/app/actions/execute';
+import { getAlpacaData, getLiveQuote } from '@/app/actions';
 import { fmt } from '@/lib/format';
 
 interface AlpacaTerminalProps {
@@ -14,7 +15,7 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
   const [quote, setQuote] = useState<{ ap: number; bp: number } | null>(null);
   const [account, setAccount] = useState<any>(null);
   const [position, setPosition] = useState<any>(null);
-  const [qty, setQty] = useState("10");
+  const [notional, setNotional] = useState("1000");
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,9 +45,24 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
     setLoading(true);
     setStatus("TRANSMITTING...");
     try {
-      const res = await executeTrade(ticker, qty, side);
+      // notional is the USD amount to trade: e.g. $1000 at the current ask price
+      const notionalValue = parseFloat(notional);
+      const currentPrice = quote?.ap ?? lastTick?.price ?? 0;
+
+      if (isNaN(notionalValue) || notionalValue <= 0) {
+        setStatus("INVALID: Enter a valid USD notional amount.");
+        setLoading(false);
+        return;
+      }
+      if (currentPrice <= 0) {
+        setStatus("FAILED: Could not determine current market price.");
+        setLoading(false);
+        return;
+      }
+
+      const res = await executeTrade(ticker, side, notionalValue, currentPrice);
       if (res.success) {
-        setStatus(`ORDER EXECUTED: ${side.toUpperCase()} ${qty} ${ticker}`);
+        setStatus(`ORDER EXECUTED: ${side.toUpperCase()} $${notionalValue} ${ticker}`);
         // Refresh account/position
         const data = await getAlpacaData();
         if (data) {
@@ -121,11 +137,11 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
 
       <div className="space-y-6">
         <div className="relative">
-           <label className="text-[9px] font-black text-zinc-600 absolute -top-2 left-3 bg-black px-1.5 z-10 tracking-[0.2em] uppercase">Quantity</label>
+           <label className="text-[9px] font-black text-zinc-600 absolute -top-2 left-3 bg-black px-1.5 z-10 tracking-[0.2em] uppercase">USD Notional</label>
            <input 
               type="number" 
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
+              value={notional}
+              onChange={(e) => setNotional(e.target.value)}
               className="w-full bg-transparent border border-white/10 rounded-lg px-4 py-3 text-sm font-mono font-bold text-white focus:outline-none focus:border-bull/50 transition-colors"
            />
         </div>

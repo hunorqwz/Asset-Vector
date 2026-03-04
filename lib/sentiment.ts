@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, SchemaType, Schema } from "@google/generative-ai";
 import { NarrativeArticle } from "./types";
+import { AI_MODEL } from "@/lib/ai-config";
 
 export interface NarrativeDriver {
   driver: string;
@@ -111,7 +112,7 @@ export class SentimentAnalyzer {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
+        model: AI_MODEL,
         systemInstruction: "You are an institutional Quant Sentiment API. Respond with strict JSON matching the requested schema. No markdown wrapping. Just pure JSON."
       });
 

@@ -12,7 +12,7 @@ import { archiveSignal, evaluateOldSignals } from "@/app/actions/signals";
 import { fetchOptionsIntelligence } from "@/lib/options-pricing";
 
 import { fetchMarketPulse, MarketPulseData } from "@/lib/market-pulse";
-import { getAlpacaAccount, getAlpacaPositions, placeAlpacaOrder, getAlpacaQuote } from "@/lib/alpaca-client";
+import { getAlpacaAccount, getAlpacaPositions, getAlpacaQuote } from "@/lib/alpaca-client";
 import { after } from "next/server";
 
 export async function getAlpacaData() {
@@ -27,17 +27,10 @@ export async function getAlpacaData() {
   }
 }
 
-export async function executeTrade(symbol: string, qty: string, side: "buy" | "sell") {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "UNAUTHORIZED" };
-  
-  try {
-    const order = await placeAlpacaOrder(symbol, qty, side);
-    return { success: true, order };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
-}
+// NOTE: executeTrade has been removed from this file.
+// The canonical implementation is in app/actions/execute.ts
+// Signature: executeTrade(ticker, side, notionalValue, currentPrice)
+// Import directly from "@/app/actions/execute" in any component that needs it.
 
 export async function getLiveQuote(symbol: string) {
   try {

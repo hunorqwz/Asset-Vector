@@ -120,7 +120,7 @@ export async function fetchHistoryWithInterval(
     }
 
     if (data.length > 0) {
-      await setInCache(cacheKey, data, interval === '1d' ? CACHE_TTL.MARKET_DATA : 30000);
+      await setInCache(cacheKey, data, interval === '1d' ? CACHE_TTL.CHART_DAILY : CACHE_TTL.CHART_INTRADAY);
     }
     return data;
   } catch (error) {
@@ -171,7 +171,7 @@ export async function fetchLiveQuote(ticker: string): Promise<number> {
       return 0; // Guard against crashing on missing price
     }
 
-    await setInCache(cacheKey, price, CACHE_TTL.MARKET_DATA);
+    await setInCache(cacheKey, price, CACHE_TTL.LIVE_QUOTE);
     return price;
   } catch (error) {
     console.warn(`[Market Data] Global Quote fetch failed for ${ticker}:`, error);
@@ -273,9 +273,8 @@ async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
   }
 }
 
-// Global Benchmark Cache to prevent redundant fetches (v2.1)
-let GLOBAL_BENCHMARK_DATA: { time: number; data: OHLCV[] } | null = null;
-let GLOBAL_BENCHMARK_PROMISE: Promise<{ time: number; data: OHLCV[] }> | null = null;
+// Legacy global benchmark cache removed as it violates serverless constraints.
+// We now rely purely on the l1Cache/systemKv architecture inside fetchHistoryWithInterval.
 
 export async function fetchMarketData(ticker: string, len: number = 2500): Promise<MarketSignal> {
   const cacheKey = `signal:${ticker}:${len}`;
@@ -336,17 +335,8 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     uncert = r.uncertainty;
   });
 
-  // Benchmark Singleton Logic
-  if (!GLOBAL_BENCHMARK_DATA || Date.now() - GLOBAL_BENCHMARK_DATA.time > 3600000) {
-      if (!GLOBAL_BENCHMARK_PROMISE) {
-          GLOBAL_BENCHMARK_PROMISE = fetchHistoryWithInterval("SPY", "1d", 0).catch(() => []).then(bHistory => {
-              GLOBAL_BENCHMARK_DATA = { time: Date.now(), data: bHistory };
-              GLOBAL_BENCHMARK_PROMISE = null;
-              return GLOBAL_BENCHMARK_DATA;
-          });
-      }
-      await GLOBAL_BENCHMARK_PROMISE;
-  }
+  // Benchmark Fetch (relies on fetchHistoryWithInterval's own multi-tier cache)
+  const spyHistory = await fetchHistoryWithInterval("SPY", "1d", 0).catch(() => []);
 
   const [ai, news, fundamentals, tnxQuote] = await Promise.all([
     predictNextHorizon(history.map(t => [t.open, t.high, t.low, t.close, t.volume]), ticker, realizedVol),
@@ -358,8 +348,8 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   const riskFreeRate = (tnxQuote?.regularMarketPrice || 4.0) / 100;
 
   let benchmark: RollingCorrelation | undefined = undefined;
-  if (GLOBAL_BENCHMARK_DATA && ticker !== "SPY") {
-      benchmark = calculateCorrelationMetrics(history, GLOBAL_BENCHMARK_DATA.data, "SPY", riskFreeRate);
+  if (spyHistory.length > 0 && ticker !== "SPY") {
+      benchmark = calculateCorrelationMetrics(history, spyHistory, "SPY", riskFreeRate);
   }
 
   let quality: QualityScore | undefined = undefined;
@@ -404,7 +394,16 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   const regimeInfo = RegimeDetector.detect(history.map(h => h.close));
 
-  const sentiment = await SentimentAnalyzer.analyzeAsync(ticker, news);
+  // Fast Fail: Wrap Gemini sentiment call in a 3.5s timeout circuit breaker
+  const sentiment = await Promise.race([
+    SentimentAnalyzer.analyzeAsync(ticker, news),
+    new Promise<SentimentReport>((_, reject) => 
+      setTimeout(() => reject(new Error('SENTIMENT_TIMEOUT')), 3500)
+    )
+  ]).catch(err => {
+    console.warn(`[Sentiment Circuit Breaker] Failed or timed out for ${ticker}:`, err.message);
+    return SentimentFallback.analyze(news); 
+  });
   const technical = generateTechnicalConfluence(history, smooth, regimeInfo.predictability);
   const levels = detectSupportResistance(history);
   const orderBlocks = detectOrderBlocks(history);
@@ -462,16 +461,20 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   // 5. Persist to DB for SPLR Architecture (v3.0)
   try {
+    // Strip the massive 2500-bar history array before storing in Neon JSONB to prevent DB bloat.
+    // The history will be dynamically reconstructed from the L1/L2 chart cache on read.
+    const { history: _discardedHistory, ...signalWithoutHistory } = signal;
+
     // Immediate Upsert for Fast Read Cache
     await db.insert(latestSignals).values({
       ticker,
       generatedAt: new Date(),
-      fullData: signal as any
+      fullData: signalWithoutHistory as any
     }).onConflictDoUpdate({
       target: latestSignals.ticker,
       set: {
         generatedAt: new Date(),
-        fullData: signal as any
+        fullData: signalWithoutHistory as any
       }
     });
 
@@ -507,7 +510,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     console.error(`[SPLR] Failed to persist signal caching for ${ticker}:`, err);
   }
 
-  await setInCache(cacheKey, signal, CACHE_TTL.MARKET_DATA);
+  await setInCache(cacheKey, signal, CACHE_TTL.MARKET_SIGNAL);
   return signal;
 }
 
@@ -527,6 +530,12 @@ export async function getPersistentSignal(ticker: string, len: number = 2500): P
     if (latest && latest.fullData) {
       const age = Date.now() - new Date(latest.generatedAt!).getTime();
       const signal = latest.fullData as unknown as MarketSignal;
+
+      // If history was stripped for DB hygiene, seamlessly re-attach it using the chart cache
+      if (!signal.history || signal.history.length === 0) {
+        const lookbackSeconds = len === 0 ? 0 : Math.ceil(len * 1.6 * 86400); 
+        signal.history = await fetchHistoryWithInterval(ticker, '1d', lookbackSeconds).then(h => h.slice(-len));
+      }
 
       // If extremely fresh (< 1 min), just return
       if (age < 60000) return signal;

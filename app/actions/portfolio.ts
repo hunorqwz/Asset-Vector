@@ -4,6 +4,8 @@ import { userPositions, assets } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { computePortfolioRisk, RiskIntelligence } from "@/lib/portfolio-risk";
+import { getPortfolioPrices } from "@/app/actions";
 
 export type Position = {
   id: string;
@@ -140,9 +142,6 @@ export async function getPositionForTicker(ticker: string): Promise<Position | n
     notes: row.notes,
   };
 }
-import { computePortfolioRisk, RiskIntelligence } from "@/lib/portfolio-risk";
-import { getPortfolioPrices } from "@/app/actions";
-
 export async function getPortfolioRiskIntelligence(): Promise<RiskIntelligence | null> {
   const session = await auth();
   if (!session?.user?.id) return null;

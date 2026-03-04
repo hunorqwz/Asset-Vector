@@ -70,9 +70,9 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
       }
     });
     
-    // Tiny delay between chunks to let the connection pool breathe
+    // Delay between chunks to respect API rate limits (500ms is much safer than 50ms)
     if (i + CHUNK_SIZE < DISCOVERY_TICKERS.length) {
-      await new Promise(res => setTimeout(res, 50));
+      await new Promise(res => setTimeout(res, 500));
     }
   }
 

@@ -74,8 +74,8 @@ export async function evaluateOldSignals() {
         const targetTime = genTime + (7 * 24 * 60 * 60 * 1000);
         
         const [history, spyHistory] = await Promise.all([
-          fetchHistoryWithInterval(sig.ticker, '1d'),
-          fetchHistoryWithInterval("SPY", '1d')
+          fetchHistoryWithInterval(sig.ticker, '1d', 14 * 86400),
+          fetchHistoryWithInterval("SPY", '1d', 14 * 86400)
         ]);
         
         if (!history || history.length === 0 || !spyHistory || spyHistory.length === 0) continue;
@@ -134,6 +134,9 @@ export async function evaluateOldSignals() {
         console.error(`[Signal Evaluation] Error for ${sig.ticker}:`, err);
       }
     }
+
+    // Run data hygiene to prevent unbounded database growth
+    await pruneHistoricalData();
   });
 }
 

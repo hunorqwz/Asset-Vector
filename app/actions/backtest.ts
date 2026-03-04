@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { marketSignals } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { AlphaPick } from "./discovery";
+import { fetchMarketData, fetchLiveQuote } from "@/lib/market-data";
 
 /**
  * Persists high-conviction Alpha Picks to the database for future evaluation.
@@ -44,8 +45,6 @@ export async function recordAlphaPicks(picks: AlphaPick[]) {
     console.error("Backtest Archival Error:", error);
   }
 }
-
-import { fetchMarketData, fetchLiveQuote } from "@/lib/market-data";
 
 export async function evaluateAlphaPicks() {
   const pending = await db.query.marketSignals.findMany({
