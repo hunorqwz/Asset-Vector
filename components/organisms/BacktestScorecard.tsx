@@ -35,7 +35,7 @@ export function BacktestScorecard({ data }: { data: BacktestReport | null }) {
         </div>
         <div>
           <p className="text-[32px] tracking-tighter shadow-sm drop-shadow-[0_0_12px_rgba(255,255,255,0.1)] font-bold text-white leading-none">
-            {data.avgAlpha > 0 ? "+" : ""}{(data.avgAlpha * 100).toFixed(2)}%
+            {data.avgAlpha > 0 ? "+" : ""}{data.avgAlpha.toFixed(2)}%
           </p>
           <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mt-2">Avg Alpha</p>
         </div>

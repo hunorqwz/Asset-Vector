@@ -31,7 +31,20 @@ export function generateSynthesis(
   let sentWeight = predictabilityUnits < 0.45 ? 0.40 : 0.30;
   let qualWeight = quality ? 0.30 : 0;
   
-  // Re-normalize if quality is present
+  // NARRATIVE POISONING FIX: If sentiment data is insufficient, zero its weight 
+  // and redistribute to Technicals and Quality.
+  if (sentiment.isInsufficientData) {
+      const weightToMove = sentWeight;
+      sentWeight = 0;
+      if (quality) {
+          techWeight += weightToMove * 0.5;
+          qualWeight += weightToMove * 0.5;
+      } else {
+          techWeight += weightToMove;
+      }
+  }
+
+  // Re-normalize weights
   const total = techWeight + sentWeight + qualWeight;
   techWeight /= total;
   sentWeight /= total;
@@ -41,6 +54,7 @@ export function generateSynthesis(
   const techScore = technical.confluenceScore;
   
   // Normalize Sentiment (-1 to 1 -> 0 to 100)
+  // If data is insufficient, this score won't impact final sum due to 0 weight
   const sentScore = (sentiment.score + 1) * 50;
 
   // Normalize Quality (0-100)
@@ -91,8 +105,12 @@ export function generateSynthesis(
   else if (combinedReliability > 0.3) confidence = "Tactical Only";
   else confidence = "Low/Noise";
 
+  // NARRATIVE CONFIDENCE HAIRCUT
+  if (sentiment.isInsufficientData && confidence === "Institutional") confidence = "High";
+  if (sentiment.isInsufficientData && confidence === "High") confidence = "Moderate";
+
   // 8. Driver Logic
-  let primaryDriver = "Balanced Multi-Factor Assessment";
+  let primaryDriver = sentiment.isInsufficientData ? "Technicals (Narrative Lag)" : "Balanced Multi-Factor Assessment";
   
   if (quality && quality.score > 80) {
       primaryDriver = "Institutional Quality & Structural Strength";

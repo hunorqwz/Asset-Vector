@@ -1,263 +1,220 @@
 import { getFromCache, setInCache, CACHE_TTL } from "./cache";
-import { calculateReturns, calculateVariance, runARIMAForecast } from "./math";
+import { calculateReturns, calculateVariance, runARIMAForecast, calculateGARCHVolatility } from "./math";
 import { KalmanFilter } from "./kalman";
 import { RegimeDetector } from "./regime";
+import { SentimentReport } from "./sentiment";
+import { detectVolumeProfileNodes } from "./technical-analysis";
+import { OHLCV } from "./market-data";
+
+export type PredictionHorizon = "4H" | "1D" | "3D" | "1W" | "1M";
 
 export interface PredictionResult {
   p10: number;
   p50: number;
   p90: number;
   source: string;
+  horizon: PredictionHorizon;
+  confidence: number; 
+  tilt?: number; 
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tiered fallback configuration
-// ─────────────────────────────────────────────────────────────────────────────
-const FORECAST_HORIZON = 5; // bars ahead
-const CIRCUIT_BREAKER_FAILURES = 3;
-const CIRCUIT_BREAKER_COOLDOWN_MS = 300_000; // 5 minutes
-const ML_REQUEST_TIMEOUT_MS = 2000;
+export type MultiHorizonPrediction = Record<PredictionHorizon, PredictionResult>;
+
+const HORIZON_MAP: Record<PredictionHorizon, number> = {
+  "4H": 0.16,  
+  "1D": 1,
+  "3D": 3,
+  "1W": 5,     
+  "1M": 21     
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCAL PRECISION ENGINE (Tier 1 Offline)
-//
-// Combines three independent estimators and weights them by reliability:
-//   1. ARIMA(1,1,0) on log-returns   — captures autocorrelated drift
-//   2. Kalman-projected mean          — signal-noise-separated trajectory
-//   3. Regime-gated volatility cone   — GBM with Hurst-adjusted distribution
-//
-// Final p10/p50/p90 are the weighted median of all three to remain robust
-// even when one estimator degrades (insufficient data, flat market, etc.).
 // ─────────────────────────────────────────────────────────────────────────────
-function localPrecisionForecast(
+export function localPrecisionForecast(
   seq: number[][],
-  realizedVol: number
+  realizedVol: number,
+  horizon: PredictionHorizon = "1D",
+  sentiment?: SentimentReport,
+  barsPerDay: number = 1
 ): PredictionResult {
   const prices = seq.map((x) => x[3]);
   const last = prices[prices.length - 1];
+  const targetBars = HORIZON_MAP[horizon];
 
   if (prices.length < 30 || last <= 0) {
-    return { p10: 0, p50: 0, p90: 0, source: "Incomplete Data" };
+    return { p10: 0, p50: 0, p90: 0, source: "Incomplete Data", horizon, confidence: 0 };
   }
 
+  // 1. GARCH-Lite Volatility (Clustering Awareness)
+  const returns = calculateReturns(prices);
+  // Scale GARCH result (per-bar vol) to daily equivalent vol
+  const garchVolDaily = calculateGARCHVolatility(returns) * Math.sqrt(barsPerDay);
+  const effectiveVol = Math.max(garchVolDaily, realizedVol / Math.sqrt(252));
+
+  const targetTotalBars = targetBars * barsPerDay;
+
   // ── Estimator 1: ARIMA(1,1,0) ──────────────────────────────────────────
-  const arima = runARIMAForecast(prices, FORECAST_HORIZON);
-  const arimaP50 = arima.forecast.length > 0
-    ? arima.forecast[arima.forecast.length - 1]
-    : null;
-  const arimaP90 = arima.confidence95.upper.length > 0
-    ? arima.confidence95.upper[arima.confidence95.upper.length - 1]
-    : null;
-  const arimaP10 = arima.confidence95.lower.length > 0
-    ? arima.confidence95.lower[arima.confidence95.lower.length - 1]
-    : null;
+  const arimaBars = Math.max(1, Math.round(targetTotalBars)); 
+  const arima = runARIMAForecast(prices, arimaBars);
+  const arimaP50 = arima.forecast.length > 0 ? arima.forecast[arima.forecast.length - 1] : null;
 
   // ── Estimator 2: Adaptive Kalman Trend Projection ──────────────────────
-  // Run the filter over the last 60 bars and extrapolate the final velocity
   const kalmanWindow = prices.slice(-60);
   const { R, Q } = KalmanFilter.deriveParameters(kalmanWindow);
   const kf = new KalmanFilter(R, Q);
-  let prev = 0;
-  let curr = 0;
+  let currSmooth = 0, prevSmooth = 0;
   for (const p of kalmanWindow) {
-    prev = curr;
-    curr = kf.filter(p).prediction;
+    prevSmooth = currSmooth;
+    currSmooth = kf.filter(p).prediction;
   }
-  const kalmanVelocity = curr - prev; // per-bar linear velocity
-  const kalmanP50 = last + kalmanVelocity * FORECAST_HORIZON;
-  // Cone width = annualized vol * sqrt(days) * 1.645 (90% CI)
-  const kalmanConeHalf = realizedVol > 0
-    ? last * (realizedVol / Math.sqrt(252)) * Math.sqrt(FORECAST_HORIZON) * 1.645
-    : Math.abs(kalmanVelocity) * FORECAST_HORIZON * 1.5;
-  const kalmanP10 = kalmanP50 - kalmanConeHalf;
-  const kalmanP90 = kalmanP50 + kalmanConeHalf;
-
+  const kalmanVelocity = currSmooth - prevSmooth; 
+  const kalmanP50 = last + kalmanVelocity * targetTotalBars;
+  
   // ── Estimator 3: Regime-Gated GBM ──────────────────────────────────────
-  // Detects the Hurst exponent; adjusts drift and volatility amplifier
-  // based on whether the market is in momentum or mean-reversion mode.
-  const returns = calculateReturns(prices);
-  const recentReturns = returns.slice(-20);
-  const drift = recentReturns.reduce((a, b) => a + b, 0) / (recentReturns.length || 1);
-  const variance = calculateVariance(recentReturns);
-  const vol = Math.sqrt(variance);
-
+  // drift is per bar. Total drift = drift * (targetBars * barsPerDay)
+  const drift = returns.slice(-20).reduce((a, b) => a + b, 0) / (20);
   const hurst = RegimeDetector.getHurst(prices);
-  // In a trending market (H > 0.55), drift is more persistent → amplify
-  // In mean-reversion (H < 0.45), drift decays quickly → dampen
-  const driftAmplifier = hurst > 0.55 ? 1.2 : hurst < 0.45 ? 0.6 : 1.0;
+  const driftAmplifier = hurst > 0.55 ? 1.25 : hurst < 0.45 ? 0.5 : 1.0;
   const effectiveDrift = drift * driftAmplifier;
 
-  const gbmK = 1.96; // 95% CI
-  const range = vol * Math.sqrt(FORECAST_HORIZON) * gbmK;
-  const gbmP50 = last * Math.exp(effectiveDrift * FORECAST_HORIZON);
-  const gbmP10 = gbmP50 * Math.exp(-range);
-  const gbmP90 = gbmP50 * Math.exp(range);
+  // Bayesian Sentiment Tilt (v4.0)
+  let tilt = 0;
+  if (sentiment && !sentiment.isInsufficientData) {
+      // Sentiment score is [-1, 1], so 0 is neutral.
+      const sentDelta = sentiment.score; // -1.0 (Bearish) to 1.0 (Bullish)
+      // Sentiment velocity affects DAILY trend. Scale by 1/barsPerDay to get per-bar tilt.
+      // Maximum boost is ~0.5% daily for strong sentiment + velocity.
+      tilt = (sentDelta * (Math.abs(sentiment.velocity) + 0.5) * 0.005) / barsPerDay;
+  }
+
+  const finalDrift = effectiveDrift + tilt;
+
+  // Structural Magnet Tilt (v4.1)
+  // Price tends to gravitate towards high-liquidity zones (HVNs) in non-trending regimes
+  const volumeProfile = detectVolumeProfileNodes(seq.map(x => ({ 
+      time: 0, open: x[0], high: x[1], low: x[2], close: x[3], volume: x[4] 
+  })), 30);
+  const poc = volumeProfile.length > 0 ? volumeProfile[0].price : last;
+  const gapToPoc = (poc - last) / last;
+  
+  // Magnet power: Stronger in mean-reversion regimes (Hurst < 0.45)
+  // v4.2 Enhancement: Increase pull for high-liquidity stabilization
+  const magnetStrength = hurst < 0.45 ? 0.35 : hurst > 0.55 ? 0.05 : 0.15;
+  const structuralTilt = (gapToPoc * magnetStrength) / barsPerDay;
+
+  // Final drift aggregation with a safety cap for institutional stability
+  let totalDrift = finalDrift + structuralTilt;
+  const driftCap = 0.01; // Max 1% move per bar (prevents extrapolation madness)
+  totalDrift = Math.max(-driftCap, Math.min(driftCap, totalDrift));
+  
+  const gbmP50 = last * Math.exp(totalDrift * targetTotalBars);
 
   // ── Weighted Ensemble ────────────────────────────────────────────────────
-  // Weights: ARIMA (downweighted if too few bars) / Kalman / GBM
-  // SNR from Kalman gives us confidence in the Kalman estimate
-  const kfSNR = kf.getSNR();
-  const kalmanWeight = Math.min(0.45, 0.2 + kfSNR * 0.1);
-  const arimaWeight = arima.forecast.length >= FORECAST_HORIZON ? 0.40 : 0.15;
-  const gbmWeight = Math.max(1 - kalmanWeight - arimaWeight, 0.15);
+  let kWeight = 0, aWeight = 0, gWeight = 0;
+  if (targetBars < 1) { // 4H
+    kWeight = 0.7; gWeight = 0.3; aWeight = 0;
+  } else if (targetBars <= 3) { // 1D, 3D
+    kWeight = 0.3; aWeight = 0.4; gWeight = 0.3;
+  } else { // 1W, 1M
+    kWeight = 0.1; aWeight = 0.4; gWeight = 0.5;
+  }
 
   function weighted(a: number | null, k: number, g: number): number {
-    const aW = a !== null ? arimaWeight : 0;
-    const scale = aW + kalmanWeight + gbmWeight;
-    const aVal = a ?? k; // fallback ARIMA → Kalman
-    return ((aVal * aW) + (k * kalmanWeight) + (g * gbmWeight)) / scale;
+    const activeAWeight = a !== null ? aWeight : 0;
+    const totalWeight = activeAWeight + kWeight + gWeight;
+    return (( (a ?? k) * activeAWeight) + (k * kWeight) + (g * gWeight)) / totalWeight;
   }
 
   const p50 = weighted(arimaP50, kalmanP50, gbmP50);
-  const p10 = weighted(arimaP10, kalmanP10, gbmP10);
-  const p90 = weighted(arimaP90, kalmanP90, gbmP90);
+  
+  // ── High-Precision Uncertainty Cone ──────────────────────────────────────
+  // Use GARCH daily vol scaled by horizon sqrt(T)
+  const ci90Width = p50 * effectiveVol * Math.sqrt(targetBars) * 1.645;
+  const p10 = p50 - ci90Width;
+  const p90 = p50 + ci90Width;
 
-  // Sanity guard: p10 < p50 < p90 and all values positive
-  const safeP10 = Math.min(p10, p50 * 0.999);
-  const safeP90 = Math.max(p90, p50 * 1.001);
+  const kfSNR = kf.getSNR();
+  const predictability = Math.abs(hurst - 0.5) * 2;
+  const confidence = Number(((kfSNR * 0.4) + (predictability * 0.6)).toFixed(4));
 
   return {
-    p10: Number(Math.max(0, safeP10).toFixed(4)),
+    p10: Number(Math.max(0, p10).toFixed(4)),
     p50: Number(Math.max(0, p50).toFixed(4)),
-    p90: Number(Math.max(0, safeP90).toFixed(4)),
-    source: `Local Precision Engine (ARIMA+Kalman+GBM, H=${hurst.toFixed(2)})`
+    p90: Number(Math.max(0, p90).toFixed(4)),
+    source: `Surgical Ensemble v4.0 (GARCH+Tilt)`,
+    horizon,
+    confidence,
+    tilt: Number((tilt * 100).toFixed(4))
   };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SIMPLE GBM DRIFT FALLBACK (Tier 2 Offline — emergency only)
-// Kept intentionally lean. Used only if localPrecisionForecast returns zeros.
+// MAIN ENTRY POINTS
 // ─────────────────────────────────────────────────────────────────────────────
-function simpleGBMFallback(seq: number[][]): PredictionResult {
-  if (seq.length < 20) return { p10: 0, p50: 0, p90: 0, source: "Incomplete Data" };
 
-  const last = seq[seq.length - 1][3];
-  const returns = calculateReturns(seq.map((x) => x[3]));
-  const recent = returns.slice(-20);
-  const drift = recent.reduce((a, b) => a + b, 0) / recent.length;
-  const vol = Math.sqrt(calculateVariance(recent));
-  const range = vol * Math.sqrt(FORECAST_HORIZON) * 1.5;
-  const p50 = last * Math.exp(drift * FORECAST_HORIZON);
+/**
+ * Institutional Prediction Engine (v4.0)
+ * Generates predictions across multiple time horizons for a comprehensive risk view.
+ */
+export async function predictMultiHorizon(
+  inputSequence: number[][],
+  ticker: string = "UNKNOWN",
+  realizedVol: number = 0.2,
+  sentiment?: SentimentReport,
+  barsPerDay: number = 1
+): Promise<MultiHorizonPrediction> {
+  const horizons: PredictionHorizon[] = ["4H", "1D", "3D", "1W", "1M"];
+  
+  // We compute horizons in parallel to keep low latency (SPLR)
+  const results = await Promise.all(
+    horizons.map(h => predictNextHorizon(inputSequence, ticker, realizedVol, h, sentiment, barsPerDay))
+  );
 
   return {
-    p10: last * Math.exp(drift * FORECAST_HORIZON - range),
-    p50,
-    p90: last * Math.exp(drift * FORECAST_HORIZON + range),
-    source: "Log-Normal Drift (Emergency Fallback)"
+    "4H": results[0],
+    "1D": results[1],
+    "3D": results[2],
+    "1W": results[3],
+    "1M": results[4]
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN ENTRY POINT
-// ─────────────────────────────────────────────────────────────────────────────
 /**
- * Institutional Inference Engine (v3.0 — Resilient Tiered Architecture)
- *
- * Tier 0: TFT-v2.1 ML Server (remote, highest accuracy when available)
- * Tier 1: Local Precision Engine (ARIMA + Kalman + Regime-Gated GBM ensemble)
- * Tier 2: Simple Log-Normal GBM Drift (emergency last resort)
- *
- * The circuit breaker ensures the ML server is not hammered during outages.
- * On every successful ML response the failure counter is fully reset.
+ * Standard Single-Horizon Prediction
+ * Legacy entry point updated to support variable target horizons.
  */
 export async function predictNextHorizon(
   inputSequence: number[][],
   ticker: string = "UNKNOWN",
-  realizedVol: number = 0.2
+  realizedVol: number = 0.2,
+  horizon: PredictionHorizon = "1D",
+  sentiment?: SentimentReport,
+  barsPerDay: number = 1
 ): Promise<PredictionResult> {
   const lastPrice = inputSequence[inputSequence.length - 1][3];
+  if (lastPrice <= 0) {
+     return { p10: 0, p50: 0, p90: 0, source: "Invalid Price", horizon, confidence: 0 };
+  }
 
-  // Quantize to 0.1% increments for cache efficiency
-  const step = Math.max(lastPrice * 0.001, 0.01);
-  const quantizedPrice = Math.round(lastPrice / step) * step;
-  const version = process.env.VERCEL_GIT_COMMIT_SHA || 'v31';
-  const cacheKey = `pred_${ticker}_${quantizedPrice.toFixed(3)}_${version}`;
+  // Cache strictly by Ticker + Price + Horizon + Resolution + Version
+  const quantizedPrice = Math.round(lastPrice * 100) / 100;
+  const version = "v4.0"; 
+  const cacheKey = `pred_${ticker}_${horizon}_b${barsPerDay}_${quantizedPrice}_${version}`;
 
   const cached = await getFromCache<PredictionResult>(cacheKey);
   if (cached) return cached;
 
-  // Pre-compute stationary features (Z-Score normalized log-returns)
-  const stationarySequence: number[] = [];
-  for (let i = 1; i < inputSequence.length; i++) {
-    const prev = inputSequence[i - 1][3];
-    const curr = inputSequence[i][3];
-    if (prev > 0) {
-      const ret = Math.log(curr / prev);
-      const normalizedRet = realizedVol > 0 ? ret / (realizedVol / Math.sqrt(252)) : ret;
-      stationarySequence.push(normalizedRet);
-    }
-  }
+  // Tiered Inference Logic
+  // (In v4.0 we prioritize Local Precision Engine for all the specific horizons 
+  // until the ML Server is updated to support multi-horizon requests).
+  
+  const result = localPrecisionForecast(inputSequence, realizedVol, horizon, sentiment, barsPerDay);
+  
+  // Sanity Guard: P10 < P50 < P90
+  if (result.p10 > result.p50) result.p10 = result.p50 * 0.99;
+  if (result.p90 < result.p50) result.p90 = result.p50 * 1.01;
 
-  // ── Tier 0: Remote TFT Server ───────────────────────────────────────────
-  const isCircuitTripped = await getFromCache<boolean>("ml_circuit_tripped") === true;
-  if (!isCircuitTripped) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), ML_REQUEST_TIMEOUT_MS);
-
-      const INFERENCE_URL = process.env.ML_INFERENCE_URL || "http://127.0.0.1:5000/predict";
-      const res = await fetch(INFERENCE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ticker,
-          lastPrice,
-          volatility: realizedVol,
-          returns: stationarySequence.slice(-50),
-          history: inputSequence.map((x) => ({
-            open: x[0], high: x[1], low: x[2], close: x[3], volume: x[4]
-          }))
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        // Success → reset failure counter and return
-        await setInCache("ml_failure_count", 0, 3_600_000);
-        const data = await res.json() as { p10: number; p50: number; p90: number };
-        const result: PredictionResult = {
-          p10: data.p10,
-          p50: data.p50,
-          p90: data.p90,
-          source: "TFT-v2.1 (Z-Score)"
-        };
-        await setInCache(cacheKey, result, CACHE_TTL.PREDICTION);
-        return result;
-      }
-
-      throw new Error(`SERVER_ERROR_${res.status}`);
-
-    } catch (error: any) {
-      const failures = (await getFromCache<number>("ml_failure_count") || 0) + 1;
-      await setInCache("ml_failure_count", failures, 3_600_000);
-
-      if (failures >= CIRCUIT_BREAKER_FAILURES) {
-        console.warn(
-          `[Circuit Breaker] Tripping after ${failures} failures. ` +
-          `Offline engine active for ${CIRCUIT_BREAKER_COOLDOWN_MS / 60000} min.`
-        );
-        await setInCache("ml_circuit_tripped", true, CIRCUIT_BREAKER_COOLDOWN_MS);
-      }
-
-      const reason = error?.name === "AbortError" ? "timeout" : `HTTP error (${error?.message})`;
-      console.warn(`[Inference] ML Server unavailable (${reason}). Failure ${failures}/${CIRCUIT_BREAKER_FAILURES}. Falling back to local engine.`);
-    }
-  } else {
-    console.info(`[Inference] Circuit breaker active for ${ticker}. Serving local precision engine.`);
-  }
-
-  // ── Tier 1: Local Precision Engine ─────────────────────────────────────
-  const localResult = localPrecisionForecast(inputSequence, realizedVol);
-
-  if (localResult.p50 > 0) {
-    // Cache local results with 15-min TTL (shorter than remote, re-check sooner)
-    await setInCache(cacheKey, localResult, 15 * 60 * 1000);
-    return localResult;
-  }
-
-  // ── Tier 2: Simple GBM Drift (absolute last resort) ────────────────────
-  const emergency = simpleGBMFallback(inputSequence);
-  return emergency;
+  await setInCache(cacheKey, result, CACHE_TTL.PREDICTION);
+  return result;
 }

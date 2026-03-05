@@ -46,11 +46,12 @@ import { WhaleRadarPanel } from "@/components/organisms/WhaleRadarPanel";
 import { OptionsIntelligence } from '@/lib/options-pricing';
 import { MacroSnapshot } from '@/lib/macro-analysis';
 import { MacroOverlay } from '@/components/organisms/MacroOverlay';
+import { MultiHorizonPrediction } from '@/lib/inference';
 
 const TABS = ['OVERVIEW', 'FUNDAMENTALS', 'VALUATION', 'GOVERNANCE'] as const;
 type TabType = typeof TABS[number];
 
-export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: string, signal: MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails; optionsIntelligence?: OptionsIntelligence | null }, macroSnapshot: MacroSnapshot }) {
+export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: string, signal: MarketSignal & { prediction: PredictionResult; multiHorizonPrediction?: MultiHorizonPrediction; stockDetails: StockDetails; optionsIntelligence?: OptionsIntelligence | null }, macroSnapshot: MacroSnapshot }) {
   const [activeTab, setActiveTab] = useState<TabType>('OVERVIEW');
   const [isNeuralEngaged, setIsNeuralEngaged] = useState(false);
   const d = signal.stockDetails;
@@ -103,6 +104,7 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
         <VectorChart 
           data={signal.history} 
           prediction={signal.prediction} 
+          multiHorizonPrediction={signal.multiHorizonPrediction}
           stochasticPaths={simulation?.isValid ? simulation.paths : []}
           ticker={ticker} 
           color={signal.trend === "BULLISH" ? "#22c55e" : "#ef4444"} 

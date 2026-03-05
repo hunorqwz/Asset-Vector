@@ -31,7 +31,29 @@ export function calculateVariance(data: number[]): number {
   if (data.length < 2) return 0;
   const mean = data.reduce((a, b) => a + b, 0) / data.length;
   const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (data.length - 1);
-  return Math.max(0, variance); // Ensure precision never drifts below zero
+  return Math.max(0, variance); 
+}
+
+/**
+ * Institutional GARCH-lite Volatility Model
+ * Recursively estimates current variance based on prior variance and shocks.
+ * Formula: σ²_t = ω + α * ε²_{t-1} + β * σ²_{t-1}
+ */
+export function calculateGARCHVolatility(returns: number[]): number {
+  if (returns.length < 20) return Math.sqrt(calculateVariance(returns));
+  
+  const longTermVar = calculateVariance(returns);
+  // Institutional standard coefficients for stable markets
+  const omega = longTermVar * 0.05; 
+  const alpha = 0.15; // weight on recent shock
+  const beta = 0.80;  // weight on persistent variance
+  
+  let currentVar = longTermVar;
+  for (const r of returns) {
+    currentVar = omega + alpha * (r * r) + beta * currentVar;
+  }
+  
+  return Math.sqrt(currentVar);
 }
 
 export function calculateCovariance(data1: number[], data2: number[]): number {

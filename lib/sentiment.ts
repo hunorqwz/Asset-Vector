@@ -14,6 +14,7 @@ export interface SentimentReport {
   drivers: NarrativeDriver[];
   drift: "STABLE" | "ACCELERATING_BULL" | "ACCELERATING_BEAR" | "REVERSAL";
   velocity: number; // Rate of change in sentiment (-2 to 2)
+  isInsufficientData?: boolean; // True if news volume is too low for reliable AI/Heuristic analysis
 }
 
 // Institutional Keyword Sets for High-Precision Heuristics
@@ -23,7 +24,15 @@ const NEGATIVE_KEYWORDS = new Set(["drop", "plunge", "fall", "crash", "miss", "w
 export class SentimentFallback {
   static analyze(heads: NarrativeArticle[]): SentimentReport {
     if (heads.length === 0) {
-      return { score: 0, label: "NEUTRAL", headlineCount: 0, drivers: [], drift: "STABLE", velocity: 0 };
+      return { 
+        score: 0, 
+        label: "NEUTRAL", 
+        headlineCount: 0, 
+        drivers: [], 
+        drift: "STABLE", 
+        velocity: 0,
+        isInsufficientData: true 
+      };
     }
 
     let weightedScore = 0;
@@ -101,7 +110,15 @@ function ageInHours(date: string): number {
 export class SentimentAnalyzer {
   static async analyzeAsync(ticker: string, heads: NarrativeArticle[]): Promise<SentimentReport> {
     if (!heads || heads.length === 0) {
-      return { score: 0, label: "NEUTRAL", headlineCount: 0, drivers: [], drift: "STABLE", velocity: 0 };
+      return { 
+        score: 0, 
+        label: "NEUTRAL", 
+        headlineCount: 0, 
+        drivers: [], 
+        drift: "STABLE", 
+        velocity: 0,
+        isInsufficientData: true 
+      };
     }
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;

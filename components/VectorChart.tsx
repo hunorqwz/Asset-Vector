@@ -8,6 +8,7 @@ import { CHART_COLORS } from '@/lib/chart-config';
 import { fmtCount } from '@/lib/format';
 import { GlassBoxTheory, THEORY_CONTENT } from './organisms/GlassBoxTheory';
 import { OptionsIntelligence } from '@/lib/options-pricing';
+import { MultiHorizonPrediction, PredictionHorizon } from '@/lib/inference';
 
 interface VectorChartProps {
   data: OHLCV[];
@@ -16,6 +17,7 @@ interface VectorChartProps {
   height?: number;
   initialMode?: OpticMode;
   prediction?: { p10: number; p50: number; p90: number };
+  multiHorizonPrediction?: MultiHorizonPrediction;
   stochasticPaths?: { day: number; price: number }[][];
   lastTick?: { price: number; volume?: number; time: number } | null;
   optionsIntelligence?: OptionsIntelligence | null;
@@ -92,7 +94,7 @@ const GlassBoxLegendItem = ({
 
 export const VectorChart = ({ 
   data: initialData, ticker, color = '#23d18b', height = 400, 
-  initialMode = 'TACTICAL', prediction, stochasticPaths = [], lastTick,
+  initialMode = 'TACTICAL', prediction, multiHorizonPrediction, stochasticPaths = [], lastTick,
   optionsIntelligence
 }: VectorChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -100,6 +102,7 @@ export const VectorChart = ({
   const [activeRange, setActiveRange] = useState<TimeRange>('ALL');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAnalysisMenu, setShowAnalysisMenu] = useState(false);
+  const [activeHorizon, setActiveHorizon] = useState<PredictionHorizon>('1D');
   const [activeTheory, setActiveTheory] = useState<string | null>(null);
   const [hoveredData, setHoveredData] = useState<any>(null);
   const [hoveredIndicators, setHoveredIndicators] = useState<Record<string, number | null>>({});
@@ -114,6 +117,7 @@ export const VectorChart = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
   const technicals = useMarketTechnicals(chartData, 'TACTICAL'); // Default to Tactical calculations for indicator support
+  const activePred = multiHorizonPrediction?.[activeHorizon] || (activeHorizon === '1D' ? prediction : null);
   const [chartHeight, setChartHeight] = useState(height);
   const fullscreenRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -331,33 +335,42 @@ export const VectorChart = ({
       }
     }
 
-    if (prediction && !INTRADAY_RANGES.includes(activeRange) && indicators.kalman) {
+    if (activePred && !INTRADAY_RANGES.includes(activeRange) && indicators.kalman) {
       const last = chartData[chartData.length - 1];
       const projectionPointsP50 = [{ time: last.time as UTCTimestamp, value: last.close }];
       const projectionPointsP10 = [{ time: last.time as UTCTimestamp, value: last.close }];
       const projectionPointsP90 = [{ time: last.time as UTCTimestamp, value: last.close }];
       
       const kLen = technicals?.kalman?.length || 0;
-      // Get the slope (momentum) from the last two Kalman readings to ensure a seamless organic curve
       const slope = kLen >= 2 ? technicals!.kalman[kLen - 1] - technicals!.kalman[kLen - 2] : 0;
       
-      const targetP50 = prediction.p50;
-      const targetP10 = prediction.p10;
-      const targetP90 = prediction.p90;
+      const targetP50 = activePred.p50;
+      const targetP10 = activePred.p10;
+      const targetP90 = activePred.p90;
       
       const start = last.close;
-      const days = 7;
+      
+      const HORIZON_DAYS_MAP: Record<PredictionHorizon, number> = {
+          "4H": 0.5,
+          "1D": 1,
+          "3D": 3,
+          "1W": 7,
+          "1M": 30
+      };
+      const days = HORIZON_DAYS_MAP[activeHorizon];
+      const points = Math.max(5, Math.ceil(days * 2)); // Dynamic point density
       
       // Quadratic curve formulas: y(t) = at^2 + bt + c
       const aP50 = (targetP50 - start - slope * days) / (days * days);
       const aP10 = (targetP10 - start - slope * days) / (days * days);
       const aP90 = (targetP90 - start - slope * days) / (days * days);
       
-      for (let i = 1; i <= days; i++) {
-        const time = (last.time + 86400 * i) as UTCTimestamp;
-        projectionPointsP50.push({ time, value: aP50 * (i * i) + slope * i + start });
-        projectionPointsP10.push({ time, value: aP10 * (i * i) + slope * i + start });
-        projectionPointsP90.push({ time, value: aP90 * (i * i) + slope * i + start });
+      for (let i = 1; i <= points; i++) {
+        const step = (days / points) * i;
+        const time = (last.time + 86400 * step) as UTCTimestamp;
+        projectionPointsP50.push({ time, value: aP50 * (step * step) + slope * step + start });
+        projectionPointsP10.push({ time, value: aP10 * (step * step) + slope * step + start });
+        projectionPointsP90.push({ time, value: aP90 * (step * step) + slope * step + start });
       }
       
       const pLineP50 = chart.addSeries(LineSeries, { color: CHART_COLORS.NEURAL_VECTOR, lineWidth: 2 as any, lineStyle: LineStyle.Dashed, priceLineVisible: false });
@@ -574,7 +587,7 @@ export const VectorChart = ({
     }
 
     return () => { window.removeEventListener('resize', resize); chart.remove(); };
-  }, [chartData, color, chartHeight, technicals, prediction, indicators, activeRange, lastTick]);
+  }, [chartData, color, chartHeight, technicals, prediction, multiHorizonPrediction, activeHorizon, indicators, activeRange, lastTick]);
 
   return (
     <div ref={fullscreenRef} className="relative w-full flex flex-col bg-transparent">
@@ -582,6 +595,11 @@ export const VectorChart = ({
         <div className="flex gap-1">
           {(['1D', '5D', '1M', '3M', '6M', '1Y', '5Y', 'ALL'] as TimeRange[]).map(r => (
             <button key={r} onClick={() => applyTimeRange(r)} className={`px-3 py-1.5 text-[11px] font-bold tracking-widest transition-all ${activeRange === r ? 'bg-white/15 text-white shadow-none' : 'text-zinc-500 hover:text-zinc-300'}`}>{r}</button>
+          ))}
+        </div>
+        <div className="flex gap-1 bg-white/5 border border-white/10 p-0.5 rounded-sm">
+          {(['4H', '1D', '3D', '1W', '1M'] as PredictionHorizon[]).map(h => (
+            <button key={h} onClick={() => setActiveHorizon(h)} className={`px-2 py-1 text-[9px] font-black tracking-widest transition-all ${activeHorizon === h ? 'bg-matrix text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>{h}</button>
           ))}
         </div>
         <div className="flex items-center gap-2">
@@ -639,9 +657,9 @@ export const VectorChart = ({
               kalman: technicals?.kalman?.[technicals.kalman.length - 1],
               vwap: technicals?.vwap?.[technicals.vwap.length - 1],
               arima: technicals?.arima?.forecast?.[0],
-              p50: prediction?.p50,
-              p90: prediction?.p90,
-              p10: prediction?.p10,
+              p50: activePred?.p50,
+              p90: activePred?.p90,
+              p10: activePred?.p10,
               expUpper: optionsIntelligence?.upperBound,
               expLower: optionsIntelligence?.lowerBound
             };
@@ -672,8 +690,8 @@ export const VectorChart = ({
                   {indicators.kalman && (
                     <>
                       <GlassBoxLegendItem 
-                        label="Vector" 
-                        value={indDisplay.kalman?.toFixed(2) ?? indDisplay.p50?.toFixed(2)} 
+                        label={`Vector (${activeHorizon})`} 
+                        value={indDisplay.p50?.toFixed(2)} 
                         theoryKey="Kalman" 
                         color={CHART_COLORS.NEURAL_VECTOR} 
                         isDashed 

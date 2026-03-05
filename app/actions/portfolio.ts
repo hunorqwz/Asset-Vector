@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { computePortfolioRisk, RiskIntelligence } from "@/lib/portfolio-risk";
 import { getPortfolioPrices } from "@/app/actions";
+import { getPersistentSignal } from "@/lib/market-data";
 
 export type Position = {
   id: string;
@@ -151,14 +152,26 @@ export async function getPortfolioRiskIntelligence(): Promise<RiskIntelligence |
     if (rawPositions.length === 0) return null;
 
     const tickers = [...new Set(rawPositions.map(p => p.ticker))];
-    const prices = await getPortfolioPrices(tickers);
+    const [prices, signals] = await Promise.all([
+      getPortfolioPrices(tickers),
+      Promise.all(tickers.map(t => getPersistentSignal(t, 2500).catch(() => null)))
+    ]);
 
-    // Filter out tickers with no price
-    const enriched = rawPositions.map(p => ({
-      ...p,
-      currentPrice: prices[p.ticker] || p.avgCost,
-      currentValue: (prices[p.ticker] || p.avgCost) * p.shares
-    }));
+    const signalMap = new Map(tickers.map((t, i) => [t, signals[i]]));
+
+    const enriched = rawPositions.map(p => {
+      const priceResult = prices[p.ticker];
+      // priceResult can now be null or number (from getPortfolioPrices update)
+      const currentPrice = (typeof priceResult === 'number' && priceResult > 0) ? priceResult : p.avgCost;
+      const signal = signalMap.get(p.ticker);
+      return {
+        ...p,
+        currentPrice,
+        currentValue: currentPrice * p.shares,
+        isStale: priceResult === null,
+        multiHorizonPrediction: signal?.multiHorizonPrediction
+      };
+    });
 
     const totalValue = enriched.reduce((s, p) => s + p.currentValue, 0);
     if (totalValue === 0) return null;
@@ -188,11 +201,17 @@ export async function simulateHedge(simTicker: string, amountUsd: number): Promi
   try {
     const rawPositions = await getPositions();
     const tickers = [...new Set([...rawPositions.map(p => p.ticker), simTicker])];
-    const prices = await getPortfolioPrices(tickers);
+    const [prices, signals] = await Promise.all([
+      getPortfolioPrices(tickers),
+      Promise.all(tickers.map(t => getPersistentSignal(t, 2500).catch(() => null)))
+    ]);
+
+    const signalMap = new Map(tickers.map((t, i) => [t, signals[i]]));
 
     const enriched = rawPositions.map(p => ({
       ...p,
-      currentValue: (prices[p.ticker] || p.avgCost) * p.shares
+      currentValue: (prices[p.ticker] || p.avgCost) * p.shares,
+      multiHorizonPrediction: signalMap.get(p.ticker)?.multiHorizonPrediction
     }));
 
     const totalValue = enriched.reduce((s, p) => s + p.currentValue, 0) + amountUsd;

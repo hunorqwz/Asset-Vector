@@ -358,17 +358,17 @@ export function detectVolumeProfileNodes(data: OHLCV[], bins: number = 30): Volu
   
   // Find local maxima (HVN) and minima (LVN)
   const nodes: VolumeNode[] = [];
-  for (let i = 1; i < bins - 1; i++) {
-    const prev = profile[i - 1].volume;
+  for (let i = 0; i < bins; i++) {
+    const prev = i > 0 ? profile[i - 1].volume : -1;
     const curr = profile[i].volume;
-    const next = profile[i + 1].volume;
+    const next = i < bins - 1 ? profile[i + 1].volume : -1;
     
-    if (curr > prev && curr > next) {
+    if (curr > prev && curr > next && curr > 0) {
       nodes.push({
         price: Number(profile[i].price.toFixed(2)),
         volume: curr,
         type: 'HVN',
-        strength: 0 // Will calculate relative to max
+        strength: 0 
       });
     } else if (curr < prev && curr < next && curr > 0) {
       nodes.push({

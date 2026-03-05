@@ -1,7 +1,7 @@
 "use server";
 import { getMinimalAssetDetails } from "@/app/actions";
 import { MarketSignal, fetchHistoryWithInterval } from "@/lib/market-data";
-import { PredictionResult } from "@/lib/inference";
+import { PredictionResult, MultiHorizonPrediction } from "@/lib/inference";
 import { StockDetails } from "@/lib/stock-details";
 import { calculateAlphaScore, AlphaScanner } from "@/lib/alpha-engine";
 import { recordAlphaPicks } from "./backtest";
@@ -19,6 +19,7 @@ export interface AlphaPick {
   score: number;
   correlationToPortfolio?: number; // 1.0 to -1.0
   beta?: number;
+  multiHorizonPrediction?: MultiHorizonPrediction;
 }
 
 const DISCOVERY_TICKERS = [
@@ -37,24 +38,51 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
 
   const picks: AlphaPick[] = [];
   
-  // 1. Fetch User Portfolio for Correlation Check
+  // 1. Calculate Real Weighted Portfolio Returns for Correlation (Surgical Fix)
   const positions = await getPositions();
   const portfolioTickers = positions.map(p => p.ticker);
-  
-  // Get historical returns for the portfolio (Top-level approximation)
+
   let portfolioReturns: number[] | null = null;
-  if (portfolioTickers.length > 0) {
+  if (positions.length > 0) {
     try {
-      const topHolding = portfolioTickers[0]; // Proxy for portfolio for speed in discovery
-      const topHist = await fetchHistoryWithInterval(topHolding, '1d');
-      portfolioReturns = calculateReturns(topHist.map(h => h.close));
-    } catch {
+      const tickers = positions.map(p => p.ticker);
+      const allHistories = await Promise.all(
+        tickers.map(t => fetchHistoryWithInterval(t, '1d').catch(() => []))
+      );
+
+      // Map histories to tickers for easy lookup
+      const historyMap = new Map<string, any[]>(tickers.map((t, i) => [t, allHistories[i]]));
+      
+      // Use the earliest common date or a 1Y lookback
+      const spyHist = await fetchHistoryWithInterval('SPY', '1d');
+      const timeMaster = spyHist.map(h => h.time);
+      
+      const weightedRet: number[] = new Array(timeMaster.length - 1).fill(0);
+
+      positions.forEach(pos => {
+        const hist = historyMap.get(pos.ticker) || [];
+        const priceMap = new Map<number, number>(hist.map(h => [h.time, h.close]));
+        
+        for (let i = 1; i < timeMaster.length; i++) {
+          const t = timeMaster[i];
+          const prevT = timeMaster[i-1];
+          const p = priceMap.get(t);
+          const prevP = priceMap.get(prevT);
+          
+          if (p !== undefined && prevP !== undefined && prevP > 0) {
+            const r = (p - prevP) / prevP;
+            weightedRet[i-1] += r * pos.shares * prevP; // Value-weighted contribution
+          }
+        }
+      });
+      portfolioReturns = weightedRet; 
+    } catch (err) {
+      console.error("[Discovery] Portfolio proxy calculation failed:", err);
       portfolioReturns = null;
     }
   }
 
   // 2. Throttled Batch Scanner (Institutional Stability)
-  // Instead of Promise.all (Optimistic), we use Chunked Serial batches to prevent 429 Rate Limits
   const signals: (MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails })[] = [];
   const CHUNK_SIZE = 5;
   
@@ -82,7 +110,17 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
 
     const { score, scanner } = calculateAlphaScore(s, s.stockDetails);
     
+    // Horizon Confluence Bonus
+    let confluenceMultiplier = 1.0;
+    if (s.multiHorizonPrediction) {
+      const dirs = Object.values(s.multiHorizonPrediction).map(p => Math.sign(p.p50 - s.price));
+      if (dirs.every(d => d === 1) || dirs.every(d => d === -1)) {
+        confluenceMultiplier = 1.25; // 25% Bonus for all-horizon agreement
+      }
+    }
+
     if (score > 0 && scanner) {
+      const finalScore = Math.min(100, Math.round(score * confluenceMultiplier));
       let reason = "";
       if (scanner === 'SURGICAL_ALPHA') reason = "Exceptional convergence of institutional confidence and alpha generation.";
       if (scanner === 'REGIME_FIT') reason = "Perfect structural alignment with the current market volatility regime.";
@@ -107,9 +145,10 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
         change: s.stockDetails.price.dayChangePercent,
         scanner,
         reason,
-        score,
+        score: finalScore,
         correlationToPortfolio: correlation !== undefined ? Number(correlation.toFixed(2)) : undefined,
-        beta: s.stockDetails.keyStats.beta || 1.0
+        beta: s.stockDetails.keyStats.beta || 1.0,
+        multiHorizonPrediction: s.multiHorizonPrediction
       });
     }
   });

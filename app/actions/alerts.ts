@@ -206,7 +206,7 @@ export async function getInstitutionalInsights(tickers: string[]): Promise<Insig
  * Now returns both newly triggered price alerts and real-time institutional insights.
  */
 export async function checkAndTriggerAlerts(
-  priceMap: Record<string, number>
+  priceMap: Record<string, number | null>
 ): Promise<AlertSessionState> {
   const session = await auth();
   if (!session?.user?.id) return { triggered: [], insights: [] };
@@ -231,7 +231,7 @@ export async function checkAndTriggerAlerts(
   // 1. Check Price Alerts
   for (const alert of active) {
     const currentPrice = priceMap[alert.ticker];
-    if (currentPrice === undefined) continue;
+    if (currentPrice === undefined || currentPrice === null) continue;
 
     const target = parseFloat(alert.targetPrice as string);
     const shouldTrigger =
@@ -265,7 +265,7 @@ export async function checkAndTriggerAlerts(
   }
 
   // 2. Perform Institutional Audit the tickers in the priceMap
-  const insights = await getInstitutionalInsights(tickersToAudit);
+  const insights = await getInstitutionalInsights(tickersExtracted);
 
   return { triggered, insights };
 }

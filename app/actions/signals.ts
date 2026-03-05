@@ -31,6 +31,8 @@ export async function archiveSignal(signal: MarketSignal) {
     
     await setInCache(CACHE_KEY, true, 4 * 60 * 60 * 1000); // 4 Hour Lock
 
+    const { history: _discardedHistory, ...signalWithoutHistory } = signal;
+
     await db.insert(marketSignals).values({
       ticker: signal.ticker,
       priceAtGeneration: signal.price.toString(),
@@ -41,6 +43,7 @@ export async function archiveSignal(signal: MarketSignal) {
       snr: signal.snr.toString(),
       regime: signal.regime,
       isEvaluated: false,
+      fullData: signalWithoutHistory as any
     });
   } catch (error) {
     console.error("[Signal Archive] Error:", error);

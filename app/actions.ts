@@ -50,19 +50,19 @@ export async function getMarketPulse(): Promise<MarketPulseData> {
 
 const yahooFinance = new YahooFinance();
 
-export async function getPortfolioPrices(tickers: string[]): Promise<Record<string, number>> {
+export async function getPortfolioPrices(tickers: string[]): Promise<Record<string, number | null>> {
   if (tickers.length === 0) return {};
   const results = await Promise.all(
     tickers.map(async (ticker) => {
       try {
         const price = await fetchLiveQuote(ticker);
-        return [ticker, price] as [string, number];
+        return [ticker, price] as [string, number | null];
       } catch {
-        return null;
+        return [ticker, null] as [string, null];
       }
     })
   );
-  return Object.fromEntries(results.filter((r): r is [string, number] => r !== null));
+  return Object.fromEntries(results);
 }
 
 export async function getMarketSignals(): Promise<MarketSignal[]> {

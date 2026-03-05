@@ -9,6 +9,14 @@ import {
 } from "./math";
 import { fetchMarketPulse } from "./market-pulse";
 import { RegimeDetector } from "./regime";
+import { MultiHorizonPrediction } from "./inference";
+
+export interface HorizonConflict {
+  ticker: string;
+  type: 'BULLISH_TRAP' | 'BEARISH_TRAP' | 'TACTICAL_DIP' | 'TACTICAL_SPIKE';
+  description: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+}
 
 export interface ScenarioResult {
   name: string;
@@ -32,6 +40,7 @@ export interface RiskIntelligence {
   jensensAlpha: number; // Risk-adjusted outperformance
   regimeAlignment: number; // 0-100 indicating how well the portfolio fits the current macro regime
   regimeLabel: string;
+  horizonConflicts: HorizonConflict[];
 }
 
 /**
@@ -49,7 +58,8 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
       jensensAlpha: 0,
       regimeAlignment: 50,
       regimeLabel: "N/A",
-      correlationMatrix: { tickers: [], matrix: [] }
+      correlationMatrix: { tickers: [], matrix: [] },
+      horizonConflicts: []
     };
   }
 
@@ -79,7 +89,8 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
        jensensAlpha: 0,
        regimeAlignment: 50,
        regimeLabel: "Insufficient History",
-       correlationMatrix: { tickers: positions.map(p => p.ticker), matrix: [] }
+       correlationMatrix: { tickers: positions.map(p => p.ticker), matrix: [] },
+       horizonConflicts: []
     };
   }
 
@@ -104,6 +115,38 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
 
     const beta = calculateBeta(assetReturns, spyReturns);
     totalPortfolioBeta += pos.weight * beta;
+  });
+
+  // 3. Horizon Conflict Detection (Strategic Multi-Resolution Review)
+  const horizonConflicts: HorizonConflict[] = [];
+  positions.forEach(pos => {
+    // Note: We expect the caller to pass signals or we fetch them if needed. 
+    // To keep this pure and fast, we check if the pos object has the forecast.
+    const pred = (pos as any).multiHorizonPrediction as MultiHorizonPrediction;
+    if (!pred) return;
+
+    const shortTerm = (pred["4H"].p50 + pred["1D"].p50) / 2;
+    const longTerm = (pred["1W"].p50 + pred["1M"].p50) / 2;
+    const currentPrice = (pos as any).currentPrice || pred["1D"].p10 / 0.95; // Heuristic fallback
+
+    const stChange = (shortTerm - currentPrice) / currentPrice;
+    const ltChange = (longTerm - currentPrice) / currentPrice;
+
+    if (stChange > 0.005 && ltChange < -0.01) {
+      horizonConflicts.push({
+        ticker: pos.ticker,
+        type: 'BEARISH_TRAP',
+        description: `Tactical breakout (Short-term) into structural decline (Long-term). Risk of rejection at higher timeframes.`,
+        severity: 'HIGH'
+      });
+    } else if (stChange < -0.005 && ltChange > 0.01) {
+      horizonConflicts.push({
+        ticker: pos.ticker,
+        type: 'TACTICAL_DIP',
+        description: `Short-term weakness detected within a structural accumulation phase. Potential entry/add opportunity.`,
+        severity: 'MEDIUM'
+      });
+    }
   });
 
   // 3. Concentration Guard (Hidden Correlation) & Global Matrix
@@ -261,6 +304,7 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
       matrix
     },
     regimeAlignment: Math.max(0, Math.min(100, regimeAlignment)),
-    regimeLabel
+    regimeLabel,
+    horizonConflicts
   };
 }

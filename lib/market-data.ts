@@ -1,5 +1,5 @@
 import YahooFinance from 'yahoo-finance2';
-import { predictNextHorizon, PredictionResult } from "./inference";
+import { predictNextHorizon, predictMultiHorizon, PredictionResult, MultiHorizonPrediction } from "./inference";
 import { KalmanFilter } from "./kalman";
 import { getFromCache, setInCache, CACHE_TTL } from "./cache";
 import { RegimeDetector, MarketRegime } from "./regime";
@@ -42,6 +42,7 @@ export type MarketSignal = {
   predictability: number;
   sentiment: SentimentReport; history: OHLCV[]; 
   prediction?: PredictionResult;
+  multiHorizonPrediction?: MultiHorizonPrediction;
   news: NarrativeArticle[];
   tech: TechnicalIndicators;
   synthesis: MarketSynthesis;
@@ -132,9 +133,9 @@ export async function fetchHistoryWithInterval(
 /**
  * Fetches only the real-time current price for a ticker.
  * Uses Yahoo Finance's quote endpoint — a single lightweight API call.
- * Do NOT use fetchMarketData for this — that is the full analytical pipeline.
+ * Returns null if fetch fails to prevent zero-price pollution.
  */
-export async function fetchLiveQuote(ticker: string): Promise<number> {
+export async function fetchLiveQuote(ticker: string): Promise<number | null> {
   const cacheKey = `quote:${ticker}`;
   const cached = await getFromCache<number>(cacheKey);
   if (cached !== null) return cached;
@@ -149,7 +150,7 @@ export async function fetchLiveQuote(ticker: string): Promise<number> {
       return null;
     }) as any;
     
-    let price = quote?.regularMarketPrice as number;
+    let price: number | null = quote?.regularMarketPrice as number;
 
     // 2. Cross-Check Verification: Verify against Alpaca SIP Feed for Equities (Priority Path)
     const isEquity = !ticker.includes("-") && !ticker.includes("^");
@@ -158,24 +159,24 @@ export async function fetchLiveQuote(ticker: string): Promise<number> {
       if (alpacaQuote?.ap) {
         const alpacaPrice = Number(alpacaQuote.ap);
         // If Yahoo price differs from Alpaca by more than 1%, trust Alpaca (Primary Exchange Data)
-        if (price > 0 && Math.abs(price - alpacaPrice) / price > 0.01) {
+        if (price !== null && price > 0 && Math.abs(price - alpacaPrice) / price > 0.01) {
           console.warn(`[Data Integrity] Divergence detected for ${ticker}. Yahoo: ${price}, Alpaca: ${alpacaPrice}. Standardizing to Alpaca.`);
           price = alpacaPrice;
-        } else if (price === 0) {
+        } else if (price === null || price === 0) {
           price = alpacaPrice;
         }
       }
     }
 
-    if (typeof price !== 'number' || isNaN(price)) {
-      return 0; // Guard against crashing on missing price
+    if (price === null || typeof price !== 'number' || isNaN(price)) {
+      return null; // Return null instead of 0 to prevent risk model corruption
     }
 
     await setInCache(cacheKey, price, CACHE_TTL.LIVE_QUOTE);
     return price;
   } catch (error) {
     console.warn(`[Market Data] Global Quote fetch failed for ${ticker}:`, error);
-    return 0;
+    return null;
   }
 }
 
@@ -183,10 +184,10 @@ export async function fetchLiveQuote(ticker: string): Promise<number> {
  * Institutional Batch Quote Engine (v3.0)
  * Validates multiple tickers with SIP cross-checks and robust error handling.
  */
-export async function fetchMultiLiveQuotes(tickers: string[]): Promise<Record<string, { price: number; changePercent: number }>> {
+export async function fetchMultiLiveQuotes(tickers: string[]): Promise<Record<string, { price: number; changePercent: number } | null>> {
   if (tickers.length === 0) return {};
   
-  const results: Record<string, { price: number; changePercent: number }> = {};
+  const results: Record<string, { price: number; changePercent: number } | null> = {};
   
   try {
     // 1. Bulk Fetch from Yahoo (Primary) with a 10s timeout safety
@@ -212,16 +213,6 @@ export async function fetchMultiLiveQuotes(tickers: string[]): Promise<Record<st
       }
     }
 
-    // Fill in blanks for tickers that didn't return (to prevent UI 'fetch failed' crashes)
-    tickers.forEach(t => {
-      const upperT = t.toUpperCase();
-      if (!results[t] && results[upperT]) {
-        results[t] = results[upperT];
-      } else if (!results[t]) {
-        results[t] = { price: 0, changePercent: 0 };
-      }
-    });
-
     // 2. SIP Cross-Validation for high-confidence equities
     const crossCheckLimit = tickers.filter(t => !t.includes("-") && !t.includes("^")).slice(0, 3);
     
@@ -242,12 +233,17 @@ export async function fetchMultiLiveQuotes(tickers: string[]): Promise<Record<st
       } catch { /* Silent fail for backup provider */ }
     }));
 
+    // Consistency Check: Ensure every requested ticker exists in results, even if null
+    tickers.forEach(t => {
+      if (!results[t]) results[t] = null;
+      else if (results[t]?.price === 0) results[t] = null; // Treat 0 as No Data for risk safety
+    });
+
     return results;
   } catch (error) {
     console.error("[Market Data] Critical failure in batch quote engine:", error);
-    // Return empty results instead of throwing to prevent top-level crashes
-    const fallback: Record<string, { price: number; changePercent: number }> = {};
-    tickers.forEach(t => fallback[t] = { price: 0, changePercent: 0 });
+    const fallback: Record<string, null> = {};
+    tickers.forEach(t => fallback[t] = null);
     return fallback;
   }
 }
@@ -259,7 +255,7 @@ async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
     const res = await yahooFinance.search(cleanSym, { newsCount: 5 }, { validateResult: false }) as any;
     
     if (!res.news?.length) {
-       return [{ title: "Market liquidity stable", url: "#", date: new Date().toISOString() }];
+       return [];
     }
 
     return res.news.map((n: any) => ({ 
@@ -268,8 +264,8 @@ async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
       date: new Date(n.providerPublishTime).toISOString() 
     }));
   } catch (error) {
-    console.warn(`[News Engine] Search failed for ${ticker}, using fallback:`, error);
-    return [{ title: "Market data synchronization in progress", url: "#", date: new Date().toISOString() }];
+    console.warn(`[News Engine] Search failed for ${ticker}:`, error);
+    return [];
   }
 }
 
@@ -338,12 +334,48 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   // Benchmark Fetch (relies on fetchHistoryWithInterval's own multi-tier cache)
   const spyHistory = await fetchHistoryWithInterval("SPY", "1d", 0).catch(() => []);
 
-  const [ai, news, fundamentals, tnxQuote] = await Promise.all([
-    predictNextHorizon(history.map(t => [t.open, t.high, t.low, t.close, t.volume]), ticker, realizedVol),
+  // 3. Multi-Resolution Data Acquisition (v4.0)
+  // Fetch higher resolution buffers for short-term precision (4H/1D)
+  const [news, fundamentals, tnxQuote, history1h, history15m] = await Promise.all([
     fetchHeadlines(ticker),
     !isCrypto ? yahooFinance.quoteSummary(ticker, { modules: ['summaryDetail', 'financialData', 'defaultKeyStatistics', 'assetProfile'] }).catch(() => null) : Promise.resolve(null),
-    yahooFinance.quote("^TNX").catch(() => null) 
+    yahooFinance.quote("^TNX").catch(() => null),
+    fetchHistoryWithInterval(ticker, '1h', 14 * 86400).catch(() => []), // 2 weeks of 1h
+    fetchHistoryWithInterval(ticker, '15m', 5 * 86400).catch(() => [])   // 5 days of 15m
   ]);
+
+  // Fast Fail: Wrap Gemini sentiment call in a 3.5s timeout circuit breaker
+  const sentiment = await Promise.race([
+    SentimentAnalyzer.analyzeAsync(ticker, news),
+    new Promise<SentimentReport>((_, reject) => 
+      setTimeout(() => reject(new Error('SENTIMENT_TIMEOUT')), 3500)
+    )
+  ]).catch(err => {
+    console.warn(`[Sentiment Circuit Breaker] Failed or timed out for ${ticker}:`, err.message);
+    return SentimentFallback.analyze(news); 
+  });
+
+  // 4. Surgical Wealth v4.0 Ensemble Predictions
+  // We use the most appropriate resolution for each horizon if available
+  const hInput = history.map(t => [t.open, t.high, t.low, t.close, t.volume]);
+  const h1hInput = history1h.length > 50 ? history1h.map(t => [t.open, t.high, t.low, t.close, t.volume]) : hInput;
+  const h15mInput = history15m.length > 50 ? history15m.map(t => [t.open, t.high, t.low, t.close, t.volume]) : h1hInput;
+
+  const bars15m = isCrypto ? 96 : 26;
+  const bars1h = isCrypto ? 24 : 6.5;
+
+  const [ai, multiAi] = await Promise.all([
+    predictNextHorizon(hInput, ticker, realizedVol, '1D', sentiment, 1),
+    predictMultiHorizon(hInput, ticker, realizedVol, sentiment, 1)
+  ]);
+  
+  // Refine specifically the 4H and 1D slices of multiAi with higher resolution if possible
+  if (multiAi["4H"] && h15mInput !== hInput) {
+      multiAi["4H"] = await predictNextHorizon(h15mInput, ticker, realizedVol, '4H', sentiment, bars15m);
+  }
+  if (multiAi["1D"] && h1hInput !== hInput) {
+      multiAi["1D"] = await predictNextHorizon(h1hInput, ticker, realizedVol, '1D', sentiment, bars1h);
+  }
 
   const riskFreeRate = (tnxQuote?.regularMarketPrice || 4.0) / 100;
 
@@ -394,16 +426,6 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   const regimeInfo = RegimeDetector.detect(history.map(h => h.close));
 
-  // Fast Fail: Wrap Gemini sentiment call in a 3.5s timeout circuit breaker
-  const sentiment = await Promise.race([
-    SentimentAnalyzer.analyzeAsync(ticker, news),
-    new Promise<SentimentReport>((_, reject) => 
-      setTimeout(() => reject(new Error('SENTIMENT_TIMEOUT')), 3500)
-    )
-  ]).catch(err => {
-    console.warn(`[Sentiment Circuit Breaker] Failed or timed out for ${ticker}:`, err.message);
-    return SentimentFallback.analyze(news); 
-  });
   const technical = generateTechnicalConfluence(history, smooth, regimeInfo.predictability);
   const levels = detectSupportResistance(history);
   const orderBlocks = detectOrderBlocks(history);
@@ -443,7 +465,8 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     ticker, price: Number(currentPrice.toFixed(2)), smoothPrice: Number(smooth.toFixed(2)),
     uncertainty: Number(uncert.toFixed(2)), snr: Number(kf.getSNR().toFixed(4)),
     aiPrediction: Number(ai.p50.toFixed(2)), trend,
-    prediction: ai, // Populating for detail views (Fixed Bottleneck: Eliminated dual-fetch)
+    prediction: ai, 
+    multiHorizonPrediction: multiAi,
     regime: regimeInfo.regime,
     predictability: regimeInfo.predictability,
     sentiment,
@@ -483,27 +506,28 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     if (!await getFromCache(archiveCacheKey)) {
       await setInCache(archiveCacheKey, true, 4 * 60 * 60 * 1000); // Temporary quick lock
 
-      // Double-check DB in background to avoid race conditions on startup
-      db.query.marketSignals.findFirst({
+      // SERVERLESS HAZARD FIX: We MUST await archival checks because floating promises 
+      // are killed in serverless environments before they complete.
+      const existing = await db.query.marketSignals.findFirst({
         where: and(
           eq(marketSignals.ticker, ticker),
           gt(marketSignals.generatedAt, new Date(Date.now() - 4 * 60 * 60 * 1000))
         ),
-      }).then((existing: any) => {
-        if (!existing) {
-          db.insert(marketSignals).values({
-            ticker,
-            priceAtGeneration: currentPrice.toString(),
-            score: synthesis.score.toString(),
-            signalLabel: synthesis.signal,
-            direction: trend,
-            confidence: regimeInfo.predictability.toString(),
-            snr: kf.getSNR().toString(),
-            regime: regimeInfo.regime,
-            isEvaluated: false
-          }).catch((err: any) => console.error(`[SPLR Archive] Error for ${ticker}:`, err));
-        }
       });
+
+      if (!existing) {
+        await db.insert(marketSignals).values({
+          ticker,
+          priceAtGeneration: currentPrice.toString(),
+          score: synthesis.score.toString(),
+          signalLabel: synthesis.signal,
+          direction: trend,
+          confidence: regimeInfo.predictability.toString(),
+          snr: kf.getSNR().toString(),
+          regime: regimeInfo.regime,
+          isEvaluated: false
+        }).catch((err: any) => console.error(`[SPLR Archive] Error for ${ticker}:`, err));
+      }
     }
 
   } catch (err) {

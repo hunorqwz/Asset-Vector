@@ -47,9 +47,15 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
       if (Date.now() > l1.expiry) {
         l1Cache.delete(key);
       } else {
+        // LRU bump: move to end
         l1Cache.delete(key); 
-        l1Cache.set(key, l1); // LRU bump
-        return l1.data as T;
+        l1Cache.set(key, l1);
+        
+        // Use structuredClone locally to ensure reference isolation (Precision Fix)
+        // This prevents different parts of the app from mutating the same cached object.
+        return (typeof l1.data === 'object' && l1.data !== null) 
+          ? structuredClone(l1.data) as T 
+          : l1.data as T;
       }
     }
 
@@ -65,10 +71,11 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
       return null;
     }
     
-    // Backfill L1 cache
-    l1Cache.set(key, { data: entry.value, expiry: entry.expiresAt.getTime() });
+    // Backfill L1 cache with a clone
+    const data = entry.value as T;
+    l1Cache.set(key, { data: (typeof data === 'object' && data !== null) ? structuredClone(data) : data, expiry: entry.expiresAt.getTime() });
     
-    return entry.value as T;
+    return data;
   } catch (err) {
     console.error(`[Cache Read Error] ${key}:`, err);
     return null; // Fail open
@@ -79,8 +86,9 @@ export async function setInCache<T>(key: string, data: T, ttlMs: number): Promis
   try {
     const expiresAt = new Date(Date.now() + ttlMs);
     
-    // Set L1 Cache
-    l1Cache.set(key, { data, expiry: expiresAt.getTime() });
+    // Set L1 Cache with cloning for isolation
+    const clonedData = (typeof data === 'object' && data !== null) ? structuredClone(data) : data;
+    l1Cache.set(key, { data: clonedData, expiry: expiresAt.getTime() });
     
     // Garbage Collect L1 (Max 1000 items)
     if (l1Cache.size > 1000) {
@@ -91,19 +99,20 @@ export async function setInCache<T>(key: string, data: T, ttlMs: number): Promis
       }
     }
     
-    // Non-blocking writes for SPLR patterns
+    // SERVERLESS HAZARD FIX: We MUST await this write because floating promises
+    // in serverless (Vercel/Neon) are killed when the request returns.
     if (process.env.NODE_ENV === 'test') return;
-    db.insert(systemKv).values({
+    await db.insert(systemKv).values({
       key,
-      value: data as any,
+      value: clonedData as any,
       expiresAt
     }).onConflictDoUpdate({
       target: systemKv.key,
       set: {
-        value: data as any,
+        value: clonedData as any,
         expiresAt
       }
-    }).catch((err: any) => console.error(`[Cache Write Error] ${key}:`, err));
+    });
     
   } catch (err: any) {
     console.error(`[Cache Write Error] ${key}:`, err);

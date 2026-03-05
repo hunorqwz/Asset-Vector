@@ -119,6 +119,36 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
               </span>
             </div>
 
+            {displayRisk.horizonConflicts.length > 0 && (
+              <div className="pt-4 border-t border-white/5">
+                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  Horizon Conflicts
+                </p>
+                <div className="space-y-4">
+                  {displayRisk.horizonConflicts.map((conflict, i) => (
+                    <div key={i} className="group/conflict">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-black text-white font-mono">{conflict.ticker}</span>
+                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter ${
+                          conflict.severity === 'HIGH' ? 'bg-bear/20 text-bear' : 'bg-amber-500/20 text-amber-500'
+                        }`}>
+                          {conflict.type.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 font-medium leading-relaxed uppercase tracking-tighter">
+                        {conflict.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {displayRisk.correlationAlerts.length > 0 && (
               <div>
                 <p className="text-[10px] font-bold text-bear uppercase tracking-widest mb-4 flex items-center gap-2">

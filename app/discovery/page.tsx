@@ -170,7 +170,37 @@ function DiscoveryCard({ pick }: { pick: AlphaPick }) {
       </div>
       
       <div className="mb-6 flex-1">
-         <p className="text-[11px] text-zinc-400 font-medium leading-relaxed group-hover:text-zinc-300 transition-colors line-clamp-3">{pick.reason}</p>
+         <p className="text-[11px] text-zinc-400 font-medium leading-relaxed group-hover:text-zinc-300 transition-colors line-clamp-2 mb-4">{pick.reason}</p>
+         
+         {/* Multi-Horizon Signal Matrix */}
+         {pick.multiHorizonPrediction && (
+           <div className="flex gap-2.5">
+             {(['4H', '1D', '1W', '1M'] as const).map((h) => {
+               const pred = pick.multiHorizonPrediction![h];
+               if (!pred) return null;
+               const expectedReturn = (pred.p50 - pick.price) / pick.price;
+               const isBullish = expectedReturn > 0.001;
+               const isBearish = expectedReturn < -0.001;
+               
+               return (
+                 <div key={h} className="flex flex-col items-center flex-1">
+                    <span className="text-[7px] font-black text-zinc-600 mb-1 tracking-tighter uppercase flex items-center gap-0.5">
+                      {h}
+                      {isBullish && <span className="text-bull text-[6px]">▴</span>}
+                      {isBearish && <span className="text-bear text-[6px]">▾</span>}
+                    </span>
+                    <div className={`w-full h-[3px] rounded-full relative overflow-hidden ${
+                      isBullish ? 'bg-bull/20' : isBearish ? 'bg-bear/20' : 'bg-zinc-800'
+                    }`}>
+                      {(isBullish || isBearish) && (
+                        <div className={`absolute inset-0 ${isBullish ? 'bg-bull shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-bear shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} style={{ width: '100%' }} />
+                      )}
+                    </div>
+                 </div>
+               );
+             })}
+           </div>
+         )}
       </div>
 
       <div className="flex items-end justify-between pt-5 border-t border-white/5 mt-auto">

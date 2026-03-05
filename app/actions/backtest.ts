@@ -80,7 +80,7 @@ export async function evaluateAlphaPicks() {
 
       // Handle Benchmark
       const benchEntry = parseFloat(signal.benchmarkPriceAtGeneration as string || "0");
-      const benchRet = (benchEntry > 0 && benchExit > 0) ? (benchExit - benchEntry) / benchEntry : 0;
+      const benchRet = (benchEntry > 0 && benchExit !== null && benchExit > 0) ? (benchExit - benchEntry) / benchEntry : 0;
       const beta = parseFloat(signal.betaAtGeneration as string || "1.0");
 
       // True Alpha: Excess return over the expected return based on risk (beta)
@@ -93,7 +93,7 @@ export async function evaluateAlphaPicks() {
         .set({
           isEvaluated: true,
           outcomePrice7D: exit.toString(),
-          benchmarkOutcomePrice: benchExit.toString(),
+          benchmarkOutcomePrice: benchExit?.toString() || "0",
           alphaPerformance: alpha.toString(),
           accuracy: (isCorrect ? 1.0 : 0.0).toString()
         })
