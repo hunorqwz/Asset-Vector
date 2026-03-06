@@ -1,4 +1,4 @@
-import { getMarketPulse } from './app/actions';
+import { getMarketPulse } from '../app/actions';
 
 async function test() {
   console.log("Testing Market Pulse Action...");

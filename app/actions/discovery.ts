@@ -20,6 +20,8 @@ export interface AlphaPick {
   correlationToPortfolio?: number; // 1.0 to -1.0
   beta?: number;
   multiHorizonPrediction?: MultiHorizonPrediction;
+  isNarrativeConflicted?: boolean;
+  hasFreshOrderBlock?: boolean;
 }
 
 const DISCOVERY_TICKERS = [
@@ -148,7 +150,9 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
         score: finalScore,
         correlationToPortfolio: correlation !== undefined ? Number(correlation.toFixed(2)) : undefined,
         beta: s.stockDetails.keyStats.beta || 1.0,
-        multiHorizonPrediction: s.multiHorizonPrediction
+        multiHorizonPrediction: s.multiHorizonPrediction,
+        isNarrativeConflicted: s.sentiment.isConflicted,
+        hasFreshOrderBlock: s.orderBlocks?.some(ob => !ob.isMitigated)
       });
     }
   });

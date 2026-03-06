@@ -24,7 +24,7 @@ export function calculateWhaleIntelligence(details: StockDetails): WhaleIntellig
   let insiderPurchases = 0;
   let insiderBuyValue = 0;
   let insiderSellValue = 0;
-  let uniqueBuyers = new Set<string>();
+  const uniqueBuyers = new Set<string>();
   
   const lookbackDays = 90;
   const now = Date.now();

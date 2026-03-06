@@ -69,10 +69,10 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
               <span className="text-3xl font-bold font-mono text-bull tracking-tighter">${takeProfit.toFixed(2)}</span>
               <span className="text-[11px] font-bold text-bull/60">({(((takeProfit/price)-1)*100).toFixed(1)}%)</span>
             </div>
-            {signal.orderBlocks && signal.orderBlocks.filter(b => b.type === 'BEARISH' && b.price > price).length > 0 ? (
+            {signal.orderBlocks && signal.orderBlocks.filter(b => b.type === 'BEARISH' && b.top > price).length > 0 ? (
               <div className="flex items-center gap-2 mt-1">
                  <div className="w-1 h-3 bg-bear" />
-                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Bearish Supply Level (${signal.orderBlocks.find(b => b.type === 'BEARISH')?.price.toFixed(2)})</span>
+                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Bearish Supply Level (${signal.orderBlocks.find(b => b.type === 'BEARISH')?.top.toFixed(2)})</span>
               </div>
             ) : (
               <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">
@@ -87,10 +87,10 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
               <span className="text-3xl font-bold font-mono text-bear tracking-tighter">${stopLoss.toFixed(2)}</span>
               <span className="text-[11px] font-bold text-bear/60">({(((stopLoss/price)-1)*100).toFixed(1)}%)</span>
             </div>
-            {signal.orderBlocks && signal.orderBlocks.filter(b => b.type === 'BULLISH' && b.price < price).length > 0 ? (
+            {signal.orderBlocks && signal.orderBlocks.filter(b => b.type === 'BULLISH' && b.bottom < price).length > 0 ? (
               <div className="flex items-center gap-2 mt-1">
                  <div className="w-1 h-3 bg-bull" />
-                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Institutional Order Block Detected (${signal.orderBlocks.find(b => b.type === 'BULLISH')?.price.toFixed(2)})</span>
+                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Institutional Order Block Detected (${signal.orderBlocks.find(b => b.type === 'BULLISH')?.bottom.toFixed(2)})</span>
               </div>
             ) : (
               <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">

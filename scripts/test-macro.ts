@@ -1,4 +1,4 @@
-import { fetchMultiLiveQuotes } from './lib/market-data';
+import { fetchMultiLiveQuotes } from '../lib/market-data';
 
 async function test() {
   const tickers = ["^VIX", "DX-Y.NYB", "^TNX", "SPY", "QQQ", "BTC-USD"];

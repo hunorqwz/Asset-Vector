@@ -4,8 +4,8 @@ import path from 'path';
 const dirs = ['lib', 'app', 'tests'];
 
 async function processFile(filePath: string) {
-  let content = await fs.readFile(filePath, 'utf-8');
-  let changed = false;
+  const content = await fs.readFile(filePath, 'utf-8');
+  const changed = false;
 
   if (content.includes('getFromCache') || content.includes('setInCache')) {
     // Replace setInCache(...) with await setInCache(...)

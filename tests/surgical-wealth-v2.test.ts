@@ -46,17 +46,50 @@ describe('Surgical Wealth v2.0 Verification', () => {
   });
 
   describe('Synthesis Narrative Poisoning Guard', () => {
-    const mockTech = { confluenceScore: 75, signal: 'BUY' as any, indicators: [] };
+    const mockTech: any = { 
+      confluenceScore: 75, 
+      signal: 'BUY', 
+      indicators: [],
+      isValid: true,
+      rsi14: 60,
+      macd: { line: 1, signal: 0.5, histogram: 0.5 },
+      bollingerBands: { upper: 110, middle: 105, lower: 100, percentB: 0.8 },
+      predictivePivots: null,
+      fibonacci: null,
+      orderBlocks: [],
+      volatilityCompression: { isSqueezing: false, compressionScore: 0 },
+      adx: 25
+    };
     const mockRegime = 'MOMENTUM' as any;
-    const mockQuality = { score: 60, signal: 'STRONG' as any, factors: [] as any };
+    const mockQuality: any = { score: 60, signal: 'STRONG', factors: [], level: 'A' };
 
     it('should redistribute weights when narrative data is insufficient', () => {
       // 1. Full Data State
-      const fullSentiment = { score: 0, label: 'NEUTRAL' as any, headlineCount: 5, drivers: [], drift: 'STABLE' as any, velocity: 0, isInsufficientData: false };
+      const fullSentiment = { 
+        score: 0, 
+        label: 'NEUTRAL' as any, 
+        headlineCount: 5, 
+        drivers: [], 
+        drift: 'STABLE' as any, 
+        velocity: 0, 
+        isInsufficientData: false,
+        integrityScore: 1.0,
+        isConflicted: false
+      };
       const fullResult = generateSynthesis(mockTech, fullSentiment, 0.6, mockRegime, 100, undefined, mockQuality);
       
       // 2. Insufficient Data State
-      const emptySentiment = { score: 0, label: 'NEUTRAL' as any, headlineCount: 0, drivers: [], drift: 'STABLE' as any, velocity: 0, isInsufficientData: true };
+      const emptySentiment = { 
+        score: 0, 
+        label: 'NEUTRAL' as any, 
+        headlineCount: 0, 
+        drivers: [], 
+        drift: 'STABLE' as any, 
+        velocity: 0, 
+        isInsufficientData: true,
+        integrityScore: 1.0,
+        isConflicted: false 
+      };
       const poisonedResult = generateSynthesis(mockTech, emptySentiment, 0.6, mockRegime, 100, undefined, mockQuality);
       
       // In full state, Neutral sentiment (0 score -> 50) pulls down the High Technicals (90) and High Quality (85).

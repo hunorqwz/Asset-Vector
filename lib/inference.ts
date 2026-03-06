@@ -5,6 +5,7 @@ import { RegimeDetector } from "./regime";
 import { SentimentReport } from "./sentiment";
 import { detectVolumeProfileNodes } from "./technical-analysis";
 import { OHLCV } from "./market-data";
+import { fetchMarketPulse } from "./market-pulse";
 
 export type PredictionHorizon = "4H" | "1D" | "3D" | "1W" | "1M";
 
@@ -36,7 +37,9 @@ export function localPrecisionForecast(
   realizedVol: number,
   horizon: PredictionHorizon = "1D",
   sentiment?: SentimentReport,
-  barsPerDay: number = 1
+  barsPerDay: number = 1,
+  vix?: number,
+  beta: number = 1.0
 ): PredictionResult {
   const prices = seq.map((x) => x[3]);
   const last = prices[prices.length - 1];
@@ -50,7 +53,15 @@ export function localPrecisionForecast(
   const returns = calculateReturns(prices);
   // Scale GARCH result (per-bar vol) to daily equivalent vol
   const garchVolDaily = calculateGARCHVolatility(returns) * Math.sqrt(barsPerDay);
-  const effectiveVol = Math.max(garchVolDaily, realizedVol / Math.sqrt(252));
+  const localVol = Math.max(garchVolDaily, realizedVol / Math.sqrt(252));
+
+  // Systemic Shield: Incorporate VIX as a macro volatility floor
+  // VIX is annualized. Convert to daily equivalent. Baseline VIX ~15-20.
+  const vixDaily = (vix || 20) / (Math.sqrt(252) * 100);
+  
+  // High Beta assets expand more in volatile markets. Floor at 15% systemic contribution.
+  const systemicExpansion = Math.max(0.15, Math.abs(beta) * 0.4);
+  const effectiveVol = Math.sqrt(Math.pow(localVol, 2) + Math.pow(vixDaily * systemicExpansion, 2));
 
   const targetTotalBars = targetBars * barsPerDay;
 
@@ -142,7 +153,7 @@ export function localPrecisionForecast(
     p10: Number(Math.max(0, p10).toFixed(4)),
     p50: Number(Math.max(0, p50).toFixed(4)),
     p90: Number(Math.max(0, p90).toFixed(4)),
-    source: `Surgical Ensemble v4.0 (GARCH+Tilt)`,
+    source: `Surgical Ensemble v4.2 (Systemic Shield)`,
     horizon,
     confidence,
     tilt: Number((tilt * 100).toFixed(4))
@@ -162,13 +173,14 @@ export async function predictMultiHorizon(
   ticker: string = "UNKNOWN",
   realizedVol: number = 0.2,
   sentiment?: SentimentReport,
-  barsPerDay: number = 1
+  barsPerDay: number = 1,
+  beta: number = 1.0
 ): Promise<MultiHorizonPrediction> {
   const horizons: PredictionHorizon[] = ["4H", "1D", "3D", "1W", "1M"];
   
   // We compute horizons in parallel to keep low latency (SPLR)
   const results = await Promise.all(
-    horizons.map(h => predictNextHorizon(inputSequence, ticker, realizedVol, h, sentiment, barsPerDay))
+    horizons.map(h => predictNextHorizon(inputSequence, ticker, realizedVol, h, sentiment, barsPerDay, beta))
   );
 
   return {
@@ -190,7 +202,8 @@ export async function predictNextHorizon(
   realizedVol: number = 0.2,
   horizon: PredictionHorizon = "1D",
   sentiment?: SentimentReport,
-  barsPerDay: number = 1
+  barsPerDay: number = 1,
+  beta: number = 1.0
 ): Promise<PredictionResult> {
   const lastPrice = inputSequence[inputSequence.length - 1][3];
   if (lastPrice <= 0) {
@@ -209,7 +222,10 @@ export async function predictNextHorizon(
   // (In v4.0 we prioritize Local Precision Engine for all the specific horizons 
   // until the ML Server is updated to support multi-horizon requests).
   
-  const result = localPrecisionForecast(inputSequence, realizedVol, horizon, sentiment, barsPerDay);
+  const pulse = await fetchMarketPulse().catch(() => null);
+  const vix = pulse?.macro?.vix?.value;
+  
+  const result = localPrecisionForecast(inputSequence, realizedVol, horizon, sentiment, barsPerDay, vix, beta);
   
   // Sanity Guard: P10 < P50 < P90
   if (result.p10 > result.p50) result.p10 = result.p50 * 0.99;

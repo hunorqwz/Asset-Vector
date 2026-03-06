@@ -64,7 +64,7 @@ describe('Inference Engine - Circuit Breaker (lib/inference)', () => {
     
     // Fetch should not have been called
     expect(fetch).not.toHaveBeenCalled();
-    expect(result.source).toContain('Local Precision Engine');
+    expect(result.source).toContain('Surgical Ensemble v4.2');
   });
 
   it('should timeout and return fallback without tripping circuit on single timeout', async () => {
@@ -76,7 +76,7 @@ describe('Inference Engine - Circuit Breaker (lib/inference)', () => {
      }));
 
      const result = await predictNextHorizon(dummySequence, tickerTimeout);
-     expect(result.source).toContain('Local Precision Engine');
+     expect(result.source).toContain('Surgical Ensemble v4.2');
      expect(await getFromCache("ml_failure_count")).toBe(1);
   });
 });

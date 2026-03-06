@@ -1,4 +1,4 @@
-import { getFromCache } from './lib/cache';
+import { getFromCache } from '../lib/cache';
 
 async function test() {
   const CACHE_KEY = "market_pulse_data_v2";

@@ -15,11 +15,30 @@ export interface SentimentReport {
   drift: "STABLE" | "ACCELERATING_BULL" | "ACCELERATING_BEAR" | "REVERSAL";
   velocity: number; // Rate of change in sentiment (-2 to 2)
   isInsufficientData?: boolean; // True if news volume is too low for reliable AI/Heuristic analysis
+  integrityScore: number; // 0 to 1 (Narrative reliability)
+  isConflicted: boolean; // True if outliers lack institutional consensus
 }
 
 // Institutional Keyword Sets for High-Precision Heuristics
 const POSITIVE_KEYWORDS = new Set(["surge", "record", "high", "jump", "rally", "gain", "strong", "beat", "outperform", "buy", "growth", "optimism", "momentum", "bull", "stable", "upside", "expansion", "profit", "dividend", "acquisition"]);
 const NEGATIVE_KEYWORDS = new Set(["drop", "plunge", "fall", "crash", "miss", "weak", "loss", "warning", "bear", "sell", "concern", "risk", "debt", "drag", "slowdown", "downside", "inflation", "cut", "downgrade", "scandal"]);
+
+// Institutional Source Reliability Map (Narrative Integrity Guard)
+const SOURCE_RELIABILITY: Record<string, number> = {
+  "bloomberg": 1.5,
+  "reuters": 1.5,
+  "ft.com": 1.4,
+  "wsj.com": 1.4,
+  "cnbc": 1.1,
+  "benzinga": 0.8,
+  "yahoo finance": 1.0,
+  "marketwatch": 1.0,
+  "seeking alpha": 0.7, // High retail influence
+  "motley fool": 0.6,
+  "investing.com": 0.8,
+  "coindesk": 1.2, // Authoritative for crypto
+  "cointelegraph": 0.9
+};
 
 export class SentimentFallback {
   static analyze(heads: NarrativeArticle[]): SentimentReport {
@@ -31,7 +50,9 @@ export class SentimentFallback {
         drivers: [], 
         drift: "STABLE", 
         velocity: 0,
-        isInsufficientData: true 
+        isInsufficientData: true,
+        integrityScore: 1.0,
+        isConflicted: false
       };
     }
 
@@ -55,8 +76,34 @@ export class SentimentFallback {
           kwMap.set(w, (kwMap.get(w) || 0) + 1);
         }
       });
+
+      // Narrative Integrity: Source Weighting
+      const sourceKey = article.publisher?.toLowerCase() || "unknown";
+      const sourceWeight = Object.entries(SOURCE_RELIABILITY).find(([k]) => sourceKey.includes(k))?.[1] || 0.8;
+      
       (article as any)._localScore = localScore;
+      (article as any)._sourceWeight = sourceWeight;
     });
+
+    // 1.1 Narrative Conflict Analysis (Surgical Outlier Detection)
+    // If a high-impact headline exists without ANY confirmation from high-reliability sources, it's a conflict.
+    const highReliabilityHeads = heads.filter(h => (h as any)._sourceWeight >= 1.2);
+    const hasConsensus = highReliabilityHeads.length > 0;
+    let conflictCount = 0;
+    
+    heads.forEach(article => {
+      const localScore = (article as any)._localScore || 0;
+      const weight = (article as any)._sourceWeight || 1.0;
+      
+      // If it's a "Screamer" (score > 3) but lacks high-reliability consensus, slash its weight by 70%
+      if (Math.abs(localScore) >= 3 && !hasConsensus && weight < 1.0) {
+        (article as any)._sourceWeight = weight * 0.3;
+        conflictCount++;
+      }
+    });
+
+    const integrityScore = heads.length > 0 ? 
+      heads.reduce((acc, h) => acc + ((h as any)._sourceWeight || 1), 0) / (heads.length * 1.5) : 1;
 
     // 2. Velocity Calculation (Delta over the last 12h)
     const recentHeads = heads.filter(h => ageInHours(h.date) <= 12);
@@ -70,8 +117,10 @@ export class SentimentFallback {
       const localScore = (article as any)._localScore || 0;
       const ageHours = ageInHours(article.date);
       const timeWeight = Math.max(0.1, 1 / (1 + ageHours / 24));
-      weightedScore += localScore * timeWeight;
-      totalWeight += timeWeight;
+      const sourceWeight = (article as any)._sourceWeight || 1.0;
+      
+      weightedScore += localScore * timeWeight * sourceWeight;
+      totalWeight += timeWeight * sourceWeight;
       if (localScore > 0) bullCount++;
       else if (localScore < 0) bearCount++;
     });
@@ -98,7 +147,9 @@ export class SentimentFallback {
       headlineCount: heads.length,
       drivers: drivers.length > 0 ? drivers : [{ driver: "General Market Narrative", impact: "NEUTRAL" }],
       drift,
-      velocity
+      velocity,
+      integrityScore: Number(Math.min(1, integrityScore).toFixed(2)),
+      isConflicted: conflictCount > 0 && !hasConsensus
     };
   }
 }
@@ -117,7 +168,9 @@ export class SentimentAnalyzer {
         drivers: [], 
         drift: "STABLE", 
         velocity: 0,
-        isInsufficientData: true 
+        isInsufficientData: true,
+        integrityScore: 1.0,
+        isConflicted: false
       };
     }
 
@@ -169,7 +222,7 @@ Limit output to 3 primary drivers maximum. Make drivers sound extremely professi
       });
       
       const responseText = result.response.text();
-      let parsed = JSON.parse(responseText);
+      const parsed = JSON.parse(responseText);
       
       return {
         score: Number(parsed.score) || 0,
@@ -177,7 +230,9 @@ Limit output to 3 primary drivers maximum. Make drivers sound extremely professi
         headlineCount: heads.length,
         drivers: parsed.drivers || [],
         drift: parsed.drift || "STABLE",
-        velocity: SentimentFallback.analyze(heads).velocity // Use heuristic velocity for precision 
+        velocity: SentimentFallback.analyze(heads).velocity, // Use heuristic velocity for precision 
+        integrityScore: SentimentFallback.analyze(heads).integrityScore,
+        isConflicted: SentimentFallback.analyze(heads).isConflicted
       };
 
     } catch (error) {

@@ -99,13 +99,36 @@ export function calculateJensensAlpha(
   
   const scaledRf = riskFreeRate * (windowDays / 252);
   
-  const assetStart = assetPriceHistory[assetPriceHistory.length - windowDays].close;
-  const assetEnd = assetPriceHistory[assetPriceHistory.length - 1].close;
-  const assetCumRet = assetStart !== 0 ? (assetEnd / assetStart - 1) : 0;
+  // Alpha Gap Fine-Tuning: Time-Weighted Structural Decay
+  // Apply an exponential decay to prioritize recent structural outperformance
+  let assetWeightedCumRet = 0;
+  let benchWeightedCumRet = 0;
+  let weightSum = 0;
+  const decayFactor = 0.96; // 4% daily decay in relevance
   
-  const benchStart = benchmarkPriceHistory[benchmarkPriceHistory.length - windowDays].close;
-  const benchEnd = benchmarkPriceHistory[benchmarkPriceHistory.length - 1].close;
-  const benchCumRet = benchStart !== 0 ? (benchEnd / benchStart - 1) : 0;
+  const aSlice = assetPriceHistory.slice(-windowDays);
+  const bSlice = benchmarkPriceHistory.slice(-windowDays);
+  
+  for (let i = 1; i < windowDays; i++) {
+    const aPrev = aSlice[i - 1].close;
+    const bPrev = bSlice[i - 1].close;
+    
+    if (aPrev > 0 && bPrev > 0) {
+      const aRet = (aSlice[i].close - aPrev) / aPrev;
+      const bRet = (bSlice[i].close - bPrev) / bPrev;
+      
+      // Weight increases as `i` approaches the current day
+      const weight = Math.pow(decayFactor, windowDays - i - 1);
+      
+      assetWeightedCumRet += aRet * weight;
+      benchWeightedCumRet += bRet * weight;
+      weightSum += weight;
+    }
+  }
+  
+  // Normalize sum of decayed daily returns back to a cumulative timeframe equivalent
+  const assetCumRet = weightSum > 0 ? (assetWeightedCumRet / weightSum) * windowDays : 0;
+  const benchCumRet = weightSum > 0 ? (benchWeightedCumRet / weightSum) * windowDays : 0;
   
   // alpha = R_p - [R_f + Beta * (R_m - R_f)]
   return assetCumRet - (scaledRf + beta * (benchCumRet - scaledRf));

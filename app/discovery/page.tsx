@@ -6,6 +6,7 @@ import { GlobalHeader } from "@/components/organisms/GlobalHeader";
 import { fmt, fmtPct } from "@/lib/format";
 import { evaluateAlphaPicks, getBacktestWinRate } from "@/app/actions/backtest";
 import { BacktestScorecard } from "@/components/organisms/BacktestScorecard";
+import { AlphaConfluenceHeatmap } from "@/components/organisms/AlphaConfluenceHeatmap";
 
 export const metadata: Metadata = {
   title: "Discovery Radar",
@@ -54,6 +55,9 @@ export default async function DiscoveryPage() {
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 mb-12 items-start">
             <div className="xl:col-span-8 2xl:col-span-9 flex flex-col gap-8">
               
+              {/* Alpha Confluence Dashboard */}
+              <AlphaConfluenceHeatmap picks={picks} />
+
               {/* Scanner Categories Info */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <ScannerInfoCard 
@@ -167,6 +171,26 @@ function DiscoveryCard({ pick }: { pick: AlphaPick }) {
         <div className={`shrink-0 text-[8px] font-black px-1.5 py-0.5 border rounded uppercase tracking-tighter shadow-sm ${scannerColors[pick.scanner] || 'text-zinc-400 border-white/10 bg-white/5'}`}>
           {pick.scanner.replace('_', ' ')}
         </div>
+      </div>
+
+      {/* Institutional Confluence Indicators */}
+      <div className="flex gap-2 mb-4">
+        {pick.hasFreshOrderBlock && (
+          <div className="flex items-center gap-1 bg-bull/10 border border-bull/20 px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(34,197,94,0.1)] group/ob">
+            <div className="w-1 h-1 bg-bull rounded-full group-hover/ob:animate-ping" />
+            <span className="text-[7px] font-black text-bull uppercase tracking-widest">Fresh Liquidity</span>
+          </div>
+        )}
+        {pick.isNarrativeConflicted ? (
+          <div className="flex items-center gap-1 bg-bear/10 border border-bear/20 px-1.5 py-0.5 rounded">
+            <span className="text-bear text-[7px]">⚠</span>
+            <span className="text-[7px] font-black text-bear uppercase tracking-widest">Conflicted</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 bg-matrix/10 border border-matrix/20 px-1.5 py-0.5 rounded">
+             <span className="text-[7px] font-black text-matrix uppercase tracking-widest opacity-80">Verified Narrative</span>
+          </div>
+        )}
       </div>
       
       <div className="mb-6 flex-1">

@@ -1,6 +1,6 @@
-import { generateStrategicAnalysis } from "./app/actions/ai";
-import { fetchMarketData } from "./lib/market-data";
-import { fetchStockDetails } from "./lib/stock-details";
+import { generateStrategicAnalysis } from "../app/actions/ai";
+import { fetchMarketData } from "../lib/market-data";
+import { fetchStockDetails } from "../lib/stock-details";
 import * as dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });

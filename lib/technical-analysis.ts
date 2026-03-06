@@ -20,6 +20,8 @@ export interface OrderBlock {
   top: number;
   bottom: number;
   date: string;
+  strength: number;
+  isMitigated: boolean;
 }
 
 export interface TechnicalIndicators {
@@ -62,6 +64,7 @@ export interface TechnicalIndicators {
     compressionScore: number; // 0-100 scale
   };
   adx: number;
+  darkPoolBlocks: { price: number; volume: number }[];
 }
 
 /**
@@ -89,44 +92,49 @@ export function generateTechnicalConfluence(
       fibonacci: null,
       orderBlocks: [],
       volatilityCompression: { isSqueezing: false, compressionScore: 0 },
-      adx: 20
+      adx: 20,
+      darkPoolBlocks: []
     };
   }
 
-  const prices = history.map(h => h.close);
-  const lastPrice = prices[prices.length - 1];
+  const highs = history.map(h => h.high);
+  const lows = history.map(h => h.low);
+  const closes = history.map(h => h.close);
+  const volumes = history.map(h => h.volume || 0);
+
+  const lastPrice = closes[closes.length - 1];
 
   // 1. Calculate Core Indicators
-  const rsiValues = RSI.calculate({ period: 14, values: prices });
+  const rsiValues = RSI.calculate({ period: 14, values: closes });
   const rsi14 = rsiValues[rsiValues.length - 1] || 50;
 
   const macdValues = MACD.calculate({
-    values: prices,
+    values: closes,
     fastPeriod: 12, slowPeriod: 26, signalPeriod: 9,
     SimpleMAOscillator: false, SimpleMASignal: false
   });
   const lastMacd = macdValues[macdValues.length - 1] || { MACD: 0, signal: 0, histogram: 0 };
 
-  const bbValues = BollingerBands.calculate({ period: 20, stdDev: 2, values: prices });
+  const bbValues = BollingerBands.calculate({ period: 20, stdDev: 2, values: closes });
   const lastBB = bbValues[bbValues.length - 1] || { upper: 0, middle: 0, lower: 0 };
   const percentB = lastBB.upper !== lastBB.lower ? (lastPrice - lastBB.lower) / (lastBB.upper - lastBB.lower) : 0.5;
 
   // 1.5. Keltner Channels (for Squeeze Detection)
   const atrValues = ATR.calculate({
-    high: history.map(h => h.high),
-    low: history.map(h => h.low),
-    close: history.map(h => h.close),
+    high: highs,
+    low: lows,
+    close: closes,
     period: 14
   });
   const adxValues = ADX.calculate({
-    high: history.map(h => h.high),
-    low: history.map(h => h.low),
-    close: history.map(h => h.close),
+    high: highs,
+    low: lows,
+    close: closes,
     period: 14
   });
   const adx = adxValues[adxValues.length - 1]?.adx || 20;
 
-  const sma20 = SMA.calculate({ period: 20, values: prices });
+  const sma20 = SMA.calculate({ period: 20, values: closes });
   
   const lastSMA = sma20[sma20.length - 1];
   const lastATR = atrValues[atrValues.length - 1];
@@ -209,8 +217,8 @@ export function generateTechnicalConfluence(
     s1: 2 * pivot - pHigh, s2: pivot - (pHigh - pLow), s3: pivot - 2 * (pHigh - pLow),
   };
 
-  let maxH = -Infinity, minL = Infinity;
-  history.forEach(b => { if (b.high > maxH) maxH = b.high; if (b.low < minL) minL = b.low; });
+  const maxH = Math.max(...highs);
+  const minL = Math.min(...lows);
   const fibDiff = maxH - minL;
   const fibonacci = {
     level0: maxH, level236: maxH - 0.236 * fibDiff, level382: maxH - 0.382 * fibDiff,
@@ -218,36 +226,8 @@ export function generateTechnicalConfluence(
     level100: minL,
   };
 
-  const orderBlocks: OrderBlock[] = [];
-  const lookback = Math.min(history.length, 90);
-  const recentHistory = history.slice(-lookback);
-  
-  for (let i = 0; i < recentHistory.length - 2; i++) {
-    const c1 = recentHistory[i], c2 = recentHistory[i + 1], c3 = recentHistory[i + 2];
-    
-    // Efficiency: Early break if future bars already surpassed these zones
-    if (c3.low > c1.high && c2.close > c2.open) {
-      const top = c3.low, bottom = c1.high;
-      const isMitigated = recentHistory.slice(i + 3).some(bar => bar.low <= top);
-      if (!isMitigated) {
-        orderBlocks.push({ 
-          type: 'BULLISH', top, bottom, 
-          date: new Date(c2.time * 1000).toISOString().split('T')[0] 
-        });
-      }
-    }
-    
-    if (c3.high < c1.low && c2.close < c2.open) {
-      const top = c1.low, bottom = c3.high;
-      const isMitigated = recentHistory.slice(i + 3).some(bar => bar.high >= bottom);
-      if (!isMitigated) {
-        orderBlocks.push({ 
-          type: 'BEARISH', top, bottom, 
-          date: new Date(c2.time * 1000).toISOString().split('T')[0] 
-        });
-      }
-    }
-  }
+  const orderBlocks = detectOrderBlocks(history);
+  const darkPoolBlocks = detectDarkPoolBlocks(history);
 
   return {
     isValid: true,
@@ -256,7 +236,7 @@ export function generateTechnicalConfluence(
     rsi14: Math.round(rsi14),
     macd: { line: lastMacd.MACD || 0, signal: lastMacd.signal || 0, histogram: lastMacd.histogram || 0 },
     bollingerBands: { upper: lastBB.upper, middle: lastBB.middle, lower: lastBB.lower, percentB },
-    predictivePivots, fibonacci, orderBlocks: orderBlocks.reverse().slice(0, 3),
+    predictivePivots, fibonacci, orderBlocks, darkPoolBlocks,
     volatilityCompression: { isSqueezing, compressionScore: Math.round(compressionScore) },
     adx: Math.round(adx)
   };
@@ -390,11 +370,12 @@ export function detectVolumeProfileNodes(data: OHLCV[], bins: number = 30): Volu
 
 /**
  * Detects Institutional Order Blocks through high-volume price consolidation and violent breaks.
+ * Upgraded to Order Flow 2.0 with Mitigation Mapping.
  */
-export function detectOrderBlocks(data: OHLCV[]): { price: number; type: 'BULLISH' | 'BEARISH'; strength: number }[] {
+export function detectOrderBlocks(data: OHLCV[]): OrderBlock[] {
   if (data.length < 10) return [];
   
-  const blocks: { price: number; type: 'BULLISH' | 'BEARISH'; strength: number }[] = [];
+  const blocks: OrderBlock[] = [];
   
   // Look for "Imbalance" candles preceded by consolidation
   for (let i = 5; i < data.length - 1; i++) {
@@ -405,26 +386,48 @@ export function detectOrderBlocks(data: OHLCV[]): { price: number; type: 'BULLIS
     const avgBodySize = data.slice(i - 5, i).reduce((acc, d) => acc + Math.abs(d.close - d.open), 0) / 5;
     const avgVol = data.slice(i - 5, i).reduce((acc, d) => acc + (d.volume || 0), 0) / 5;
     
-    // An "Imbalance" is a candle significantly larger than previous ones with high volume
+    // 1. Detect Imbalance (Violent price discovery)
     if (bodySize > avgBodySize * 2.5 && (curr.volume || 0) > avgVol * 1.5) {
-      const isBullishImbalance = curr.close > curr.open;
-      const type = isBullishImbalance ? 'BULLISH' : 'BEARISH';
+      const isBullish = curr.close > curr.open;
+      const top = prev.high;
+      const bottom = prev.low;
+      const strength = Math.min(5, avgBodySize > 0 ? Math.floor(bodySize / avgBodySize) : 5);
       
-      // The "Block" is the last contrary candle before the imbalance
-      const blockPrice = isBullishImbalance ? prev.low : prev.high;
+      // 2. Mitigation Mapping (Check if future bars touched this zone)
+      let isMitigated = false;
+      for (let j = i + 1; j < data.length; j++) {
+        if (isBullish) {
+          if (data[j].low <= top) {
+            isMitigated = true;
+            break;
+          }
+        } else {
+          if (data[j].high >= bottom) {
+            isMitigated = true;
+            break;
+          }
+        }
+      }
+
+      const date = new Date(curr.time * 1000).toISOString().split('T')[0];
       
-      // Filter duplicates by checking proximity
-      if (!blocks.find(b => Math.abs(b.price - blockPrice) / blockPrice < 0.005)) {
+      // Filter duplicates by price proximity
+      const mid = (top + bottom) / 2;
+      const existing = blocks.find(b => Math.abs((b.top + b.bottom)/2 - mid) / mid < 0.005);
+      if (!existing) {
         blocks.push({
-          price: Number(blockPrice.toFixed(2)),
-          type,
-          strength: Math.min(5, Math.floor(bodySize / avgBodySize))
+          type: isBullish ? 'BULLISH' : 'BEARISH',
+          top: Number(top.toFixed(2)),
+          bottom: Number(bottom.toFixed(2)),
+          date,
+          strength,
+          isMitigated
         });
       }
     }
   }
   
-  return blocks.sort((a, b) => b.strength - a.strength).slice(0, 4);
+  return blocks.sort((a, b) => b.strength - a.strength).slice(0, 5);
 }
 
 /**

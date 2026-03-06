@@ -1,5 +1,6 @@
 import YahooFinance from 'yahoo-finance2';
 import { predictNextHorizon, predictMultiHorizon, PredictionResult, MultiHorizonPrediction } from "./inference";
+import { OrderBlock } from "./technical-analysis";
 import { KalmanFilter } from "./kalman";
 import { getFromCache, setInCache, CACHE_TTL } from "./cache";
 import { RegimeDetector, MarketRegime } from "./regime";
@@ -50,7 +51,7 @@ export type MarketSignal = {
   quality?: QualityScore;
   sector?: string;
   structuralProbability?: LevelTouchProbability[];
-  orderBlocks?: { price: number; type: 'BULLISH' | 'BEARISH'; strength: number }[];
+  orderBlocks?: OrderBlock[];
   darkPoolBlocks?: { price: number; volume: number }[];
 };
 
@@ -292,14 +293,15 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     return {
       ticker, price: 0, smoothPrice: 0, uncertainty: 0, snr: 0, trend: "NEUTRAL",
       regime: "RANDOM_WALK", predictability: 0, 
-      sentiment: { label: "NEUTRAL", score: 0.5, velocity: 0, drift: "STABLE", drivers: [], headlineCount: 0 },
+      sentiment: { label: "NEUTRAL", score: 0.5, velocity: 0, drift: "STABLE", drivers: [], headlineCount: 0, integrityScore: 1.0, isConflicted: false },
       history: [], news: [], 
       tech: { 
         isValid: false, confluenceScore: 50, signal: 'NEUTRAL', rsi14: 50, 
         macd: { line: 0, signal: 0, histogram: 0 }, 
         bollingerBands: { upper: 0, middle: 0, lower: 0, percentB: 0.5 },
         predictivePivots: null, fibonacci: null, orderBlocks: [],
-        volatilityCompression: { isSqueezing: false, compressionScore: 0 }, adx: 20
+        volatilityCompression: { isSqueezing: false, compressionScore: 0 }, adx: 20,
+        darkPoolBlocks: []
       },
       synthesis: { 
         score: 50, signal: "NEUTRAL", confidence: "Low/Noise",
@@ -355,6 +357,14 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     return SentimentFallback.analyze(news); 
   });
 
+  // Calculate Systemic Beta BEFORE predictions to enable the Systemic Shield
+  const riskFreeRate = (tnxQuote?.regularMarketPrice || 4.0) / 100;
+  let benchmark: RollingCorrelation | undefined = undefined;
+  if (spyHistory.length > 0 && ticker !== "SPY") {
+    benchmark = calculateCorrelationMetrics(history, spyHistory, "SPY", riskFreeRate);
+  }
+  const beta = benchmark?.beta || 1.0;
+
   // 4. Surgical Wealth v4.0 Ensemble Predictions
   // We use the most appropriate resolution for each horizon if available
   const hInput = history.map(t => [t.open, t.high, t.low, t.close, t.volume]);
@@ -365,24 +375,19 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   const bars1h = isCrypto ? 24 : 6.5;
 
   const [ai, multiAi] = await Promise.all([
-    predictNextHorizon(hInput, ticker, realizedVol, '1D', sentiment, 1),
-    predictMultiHorizon(hInput, ticker, realizedVol, sentiment, 1)
+    predictNextHorizon(hInput, ticker, realizedVol, '1D', sentiment, 1, beta),
+    predictMultiHorizon(hInput, ticker, realizedVol, sentiment, 1, beta)
   ]);
   
   // Refine specifically the 4H and 1D slices of multiAi with higher resolution if possible
   if (multiAi["4H"] && h15mInput !== hInput) {
-      multiAi["4H"] = await predictNextHorizon(h15mInput, ticker, realizedVol, '4H', sentiment, bars15m);
+      multiAi["4H"] = await predictNextHorizon(h15mInput, ticker, realizedVol, '4H', sentiment, bars15m, beta);
   }
   if (multiAi["1D"] && h1hInput !== hInput) {
-      multiAi["1D"] = await predictNextHorizon(h1hInput, ticker, realizedVol, '1D', sentiment, bars1h);
+      multiAi["1D"] = await predictNextHorizon(h1hInput, ticker, realizedVol, '1D', sentiment, bars1h, beta);
   }
 
-  const riskFreeRate = (tnxQuote?.regularMarketPrice || 4.0) / 100;
-
-  let benchmark: RollingCorrelation | undefined = undefined;
-  if (spyHistory.length > 0 && ticker !== "SPY") {
-      benchmark = calculateCorrelationMetrics(history, spyHistory, "SPY", riskFreeRate);
-  }
+  // Benchmark was calculated earlier for systemic shield
 
   let quality: QualityScore | undefined = undefined;
   let sector: string | undefined = undefined;
@@ -428,7 +433,8 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   const technical = generateTechnicalConfluence(history, smooth, regimeInfo.predictability);
   const levels = detectSupportResistance(history);
-  const orderBlocks = detectOrderBlocks(history);
+  
+  const orderBlocks = technical.orderBlocks;
   const darkPoolBlocks = detectDarkPoolBlocks(history);
   
   const structuralProbability: LevelTouchProbability[] = levels.map(l => ({
