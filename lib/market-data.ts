@@ -340,8 +340,8 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   // Fetch higher resolution buffers for short-term precision (4H/1D)
   const [news, fundamentals, tnxQuote, history1h, history15m] = await Promise.all([
     fetchHeadlines(ticker),
-    !isCrypto ? yahooFinance.quoteSummary(ticker, { modules: ['summaryDetail', 'financialData', 'defaultKeyStatistics', 'assetProfile'] }).catch(() => null) : Promise.resolve(null),
-    yahooFinance.quote("^TNX").catch(() => null),
+    !isCrypto ? yahooFinance.quoteSummary(ticker, { modules: ['summaryDetail', 'financialData', 'defaultKeyStatistics', 'assetProfile'] }, { validateResult: false }).catch(() => null) : Promise.resolve(null),
+    yahooFinance.quote("^TNX", {}, { validateResult: false }).catch(() => null),
     fetchHistoryWithInterval(ticker, '1h', 14 * 86400).catch(() => []), // 2 weeks of 1h
     fetchHistoryWithInterval(ticker, '15m', 5 * 86400).catch(() => [])   // 5 days of 15m
   ]);

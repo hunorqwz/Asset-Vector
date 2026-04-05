@@ -28,7 +28,8 @@ export interface AlpacaPosition {
 
 async function alpacaFetch<T>(endpoint: string, options: RequestInit = {}, retries = 3, baseUrl = BASE_URL): Promise<T> {
   if (!API_KEY || !SECRET_KEY) {
-    throw new Error("Alpaca API keys are missing. Integration inactive.");
+    // console.warn("Alpaca API keys are missing. Integration inactive.");
+    return Promise.reject(new Error("ALPACA_MISSING_KEYS"));
   }
 
   const response = await fetch(`${baseUrl}${endpoint}`, {
@@ -108,8 +109,10 @@ export async function getAlpacaQuote(symbol: string) {
   try {
     const data: any = await alpacaFetch(`/stocks/${symbol}/quotes/latest`, {}, 3, DATA_URL);
     return data.quote; // { ap: ask_price, as: ask_size, bp: bid_price, bs: bid_size, t: timestamp }
-  } catch (err) {
-    console.error(`Failed to fetch Alpaca quote for ${symbol}:`, err);
+  } catch (err: any) {
+    if (err.message !== "ALPACA_MISSING_KEYS") {
+      console.error(`Failed to fetch Alpaca quote for ${symbol}:`, err);
+    }
     return null;
   }
 }

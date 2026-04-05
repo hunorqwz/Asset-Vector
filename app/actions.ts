@@ -105,11 +105,15 @@ export async function getMarketSignals(): Promise<MarketSignal[]> {
 export async function searchAssets(query: string) {
   if (!query || query.length < 2) return [];
   try {
-    const res = await yahooFinance.search(query) as any;
-    return res.quotes.filter((q: any) => q.isYahooFinance).map((q: any) => ({
+    const res = await yahooFinance.search(query, {}, { validateResult: false }) as any;
+    const filtered = res.quotes.filter((q: any) => q.isYahooFinance);
+    return filtered.map((q: any) => ({
       ticker: q.symbol, name: q.shortname || q.longname || q.symbol, exch: q.exchange, type: q.quoteType
     })).slice(0, 5);
-  } catch { return []; }
+  } catch (err: any) { 
+    console.error(`[Search] Error:`, err.message);
+    return []; 
+  }
 }
 
 export async function addAsset(ticker: string, name: string) {
