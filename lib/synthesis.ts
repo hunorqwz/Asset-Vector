@@ -3,6 +3,7 @@ import { SentimentReport } from "./sentiment";
 import { MarketRegime } from "./regime";
 import { RollingCorrelation } from "./market-data";
 import { QualityScore } from "./quality-engine";
+import { PredictionResult } from "./inference";
 
 export interface MarketSynthesis {
   score: number; // 0-100
@@ -23,7 +24,9 @@ export function generateSynthesis(
   regime: MarketRegime,
   snr: number,
   benchmark?: RollingCorrelation,
-  quality?: QualityScore
+  quality?: QualityScore,
+  prediction?: PredictionResult,
+  currentPrice?: number
 ): MarketSynthesis {
   // 1. Calculate Core Weights based on Predictability
   // If predictability is low (Hurst < 0.45), we discount technicals and favor sentiment or neutral
@@ -82,9 +85,36 @@ export function generateSynthesis(
     if (benchmark.alpha < -5) baseScore -= 5; // Performance Laggard Penalty
   }
 
-  // 5. SNR Penalty
-  // High noise (Low SNR) causes a "confidence haircut"
-  const finalScore = Math.max(0, Math.min(100, Math.round(baseScore)));
+  // 4.5. Quantitative Forecast Adjuster
+  let forecastPenalty = 0;
+  let forecastBoost = 0;
+  let hasForecastImpact = false;
+  let forecastReturn = 0;
+
+  if (prediction && currentPrice && currentPrice > 0) {
+    forecastReturn = ((prediction.p50 - currentPrice) / currentPrice) * 100;
+    hasForecastImpact = true;
+    
+    if (forecastReturn < -5) {
+      forecastPenalty = 25;
+    } else if (forecastReturn < -2) {
+      forecastPenalty = 15;
+    } else if (forecastReturn < 0) {
+      forecastPenalty = 8;
+    } else if (forecastReturn > 10) {
+      forecastBoost = 10;
+    } else if (forecastReturn > 5) {
+      forecastBoost = 5;
+    }
+  }
+
+  // 5. SNR & Forecast Adjustments
+  let adjustedScore = baseScore;
+  if (hasForecastImpact) {
+    adjustedScore = adjustedScore - forecastPenalty + forecastBoost;
+  }
+
+  const finalScore = Math.max(0, Math.min(100, Math.round(adjustedScore)));
 
   // 6. Signal Logic
   let signal: MarketSynthesis['signal'] = "NEUTRAL";
@@ -114,7 +144,11 @@ export function generateSynthesis(
   // 8. Driver Logic
   let primaryDriver = sentiment.isInsufficientData ? "Technicals (Narrative Lag)" : "Balanced Multi-Factor Assessment";
   
-  if (quality && quality.score > 80) {
+  if (hasForecastImpact && forecastPenalty >= 15) {
+    primaryDriver = `Downside Risk: Negative Quantitative Forecast (${forecastReturn.toFixed(1)}% expected)`;
+  } else if (hasForecastImpact && forecastBoost >= 5) {
+    primaryDriver = `Upside Opportunity: Positive Quantitative Forecast (+${forecastReturn.toFixed(1)}% expected)`;
+  } else if (quality && quality.score > 80) {
       primaryDriver = "Institutional Quality & Structural Strength";
   } else if (benchmark && Math.abs(benchmark.alpha) > 15) {
       primaryDriver = benchmark.alpha > 0 ? "Exceptional Idiosyncratic Alpha" : "Severe Market Underperformance";

@@ -460,7 +460,9 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     regimeInfo.regime,
     kf.getSNR(),
     benchmark,
-    quality
+    quality,
+    ai,
+    currentPrice
   );
 
   // 4. Sentiment-Price Divergence Logic (v2.5)
