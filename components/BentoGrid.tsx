@@ -79,6 +79,7 @@ function HeaderWithTooltip({ label, tooltip, align = 'left' }: { label: string; 
 
 export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: MarketSignal, alpha: boolean }[], onRemoveAction: (ticker: string) => void }) => {
     const [range, setRange] = useState<"1M" | "3M" | "6M" | "1Y">("1M");
+    const [forecastHorizon, setForecastHorizon] = useState<"1D" | "3D" | "1W" | "1M">("1D");
     const [filter, setFilter] = useState("");
 
     const filteredItems = items.filter(item => 
@@ -99,24 +100,38 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
                     onChange={(e) => setFilter(e.target.value)}
                     className="w-full max-w-sm bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/20 transition-colors"
                  />
-                 <div className="flex items-center gap-1 bg-black/20 border border-white/10 rounded-md p-0.5">
-                     {(["1M", "3M", "6M", "1Y"] as const).map(r => (
-                         <button 
-                            key={r} 
-                            onClick={() => setRange(r)} 
-                            className={`text-[10px] font-medium px-2.5 py-1 rounded-sm transition-colors ${range === r ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                         >
-                            {r}
-                         </button>
-                     ))}
-                 </div>
              </div>
              <div className="flex items-center px-6 py-2.5 border-b border-white/5 text-[11px] font-medium text-zinc-500 bg-white/[0.01] uppercase tracking-wider">
                 <div className="w-[100px] shrink-0">Asset</div>
                 <div className="w-[100px] shrink-0 hidden md:block">Sector</div>
                 <div className="w-[100px] shrink-0">Price</div>
-                <div className="flex-1 min-w-[100px] px-6">
+                <div className="flex-1 min-w-[100px] px-6 flex items-center gap-2 flex-wrap">
                     <HeaderWithTooltip label="Trend" tooltip="Smoothed price action over the selected timeframe." />
+                    <div className="flex items-center gap-0.5 bg-black/30 border border-white/5 rounded px-1 py-0.5 ml-1">
+                         {(["1M", "3M", "6M", "1Y"] as const).map(r => (
+                             <button 
+                                key={r} 
+                                onClick={(e) => { e.stopPropagation(); setRange(r); }} 
+                                className={`text-[8px] font-bold px-1 py-0.5 rounded-sm transition-colors ${range === r ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                             >
+                                {r}
+                             </button>
+                         ))}
+                    </div>
+                </div>
+                <div className="w-[120px] shrink-0 pl-6 flex flex-col gap-0.5">
+                    <HeaderWithTooltip label="Proj. Return" tooltip="Ensemble quantitative price target projections." />
+                    <div className="flex items-center gap-0.5">
+                         {(["1D", "3D", "1W", "1M"] as const).map(h => (
+                             <button 
+                                key={h} 
+                                onClick={(e) => { e.stopPropagation(); setForecastHorizon(h); }} 
+                                className={`text-[8px] font-bold px-1.5 py-0.5 rounded-sm transition-colors ${forecastHorizon === h ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                             >
+                                {h}
+                             </button>
+                         ))}
+                    </div>
                 </div>
                 <div className="w-[100px] shrink-0 hidden md:block pl-6">
                     <HeaderWithTooltip label="Technicals" tooltip="Algorithmic confluence score (0-100) combining momentum, volatility, and structural support levels." />
@@ -149,6 +164,7 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
                             alpha={item.alpha}
                             onRemove={() => onRemoveAction(item.signal.ticker)}
                             range={range}
+                            forecastHorizon={forecastHorizon}
                           />
                         );
                      })}
@@ -165,9 +181,10 @@ export interface WatchlistItemProps {
   onRemove?: () => void;
   alpha?: boolean;
   range?: "1M" | "3M" | "6M" | "1Y";
+  forecastHorizon?: "1D" | "3D" | "1W" | "1M";
 }
 
-export function WatchlistItem({ signal, onRemove, alpha, range = "1M" }: WatchlistItemProps) {
+export function WatchlistItem({ signal, onRemove, alpha, range = "1M", forecastHorizon = "1D" }: WatchlistItemProps) {
   
   const change = signal.changePercent ?? (signal.history.length >= 2 ? ((signal.price - signal.history[signal.history.length-2].close) / signal.history[signal.history.length-2].close) * 100 : 0);
   
@@ -183,6 +200,24 @@ export function WatchlistItem({ signal, onRemove, alpha, range = "1M" }: Watchli
   // Compute Tags
   const isTechBullish = signal.tech.macd.histogram > 0 && signal.tech.rsi14 > 40;
   const sentScore = signal.sentiment.score;
+
+  // Retrieve selected forecast
+  const forecast = forecastHorizon === "1D" && signal.prediction 
+    ? signal.prediction 
+    : signal.multiHorizonPrediction?.[forecastHorizon];
+
+  let expectedPct: number | null = null;
+  let p10Pct: number | null = null;
+  let p90Pct: number | null = null;
+  if (forecast && signal.price) {
+    expectedPct = ((forecast.p50 - signal.price) / signal.price) * 100;
+    p10Pct = ((forecast.p10 - signal.price) / signal.price) * 100;
+    p90Pct = ((forecast.p90 - signal.price) / signal.price) * 100;
+  }
+
+  const fmtExpected = expectedPct !== null ? `${expectedPct >= 0 ? '+' : ''}${expectedPct.toFixed(2)}%` : "N/A";
+  const fmtP10 = p10Pct !== null ? `${p10Pct >= 0 ? '+' : ''}${p10Pct.toFixed(1)}%` : "--";
+  const fmtP90 = p90Pct !== null ? `${p90Pct >= 0 ? '+' : ''}${p90Pct.toFixed(1)}%` : "--";
 
   return (
       <div 
@@ -231,7 +266,23 @@ export function WatchlistItem({ signal, onRemove, alpha, range = "1M" }: Watchli
                />
           </div>
 
-          {/* COL 5: TECHNICALS */}
+          {/* COL 5: PROJ. RETURN */}
+          <div className="w-[120px] shrink-0 flex flex-col justify-center pl-6">
+               {expectedPct !== null ? (
+                    <>
+                        <span className={`text-[12px] font-bold font-mono tracking-tight tabular-nums leading-none ${expectedPct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {fmtExpected}
+                        </span>
+                        <span className="text-[9px] font-mono text-zinc-500 mt-1 tabular-nums leading-none">
+                            [{fmtP10} / {fmtP90}]
+                        </span>
+                    </>
+               ) : (
+                    <span className="text-[11px] font-mono text-zinc-500">N/A</span>
+               )}
+          </div>
+
+          {/* COL 6: TECHNICALS */}
           <div className="w-[100px] shrink-0 hidden md:flex flex-col justify-center pl-6">
                <div className="flex items-center gap-2">
                    <span className={`text-[11px] font-bold uppercase tracking-wider ${signal.tech.signal.includes('BUY') ? 'text-green-500' : signal.tech.signal.includes('SELL') ? 'text-red-500' : 'text-zinc-500'}`}>
@@ -240,7 +291,7 @@ export function WatchlistItem({ signal, onRemove, alpha, range = "1M" }: Watchli
                </div>
            </div>
 
-          {/* COL 6: SENTIMENT */}
+          {/* COL 7: SENTIMENT */}
           <div className="w-[120px] shrink-0 hidden lg:flex flex-col justify-center pl-6">
                <div className="flex items-center gap-1.5">
                   <div className={`w-1.5 h-1.5 rounded-full ${
