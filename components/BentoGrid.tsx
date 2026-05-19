@@ -78,8 +78,8 @@ function HeaderWithTooltip({ label, tooltip, align = 'left' }: { label: string; 
 }
 
 export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: MarketSignal, alpha: boolean }[], onRemoveAction: (ticker: string) => void }) => {
-    const [range, setRange] = useState<"1M" | "3M" | "6M" | "1Y">("1M");
-    const [forecastHorizon, setForecastHorizon] = useState<"1D" | "3D" | "1W" | "1M">("1D");
+    const [range, setRange] = useState<"1M" | "3M" | "6M" | "1Y" | "2Y" | "5Y" | "ALL">("1M");
+    const [forecastHorizon, setForecastHorizon] = useState<"4H" | "1D" | "3D" | "1W" | "1M">("1D");
     const [filter, setFilter] = useState("");
 
     const filteredItems = items.filter(item => 
@@ -107,31 +107,33 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
                 <div className="w-[100px] shrink-0">Price</div>
                 <div className="flex-1 min-w-[100px] px-6 flex items-center gap-2 flex-wrap">
                     <HeaderWithTooltip label="Trend" tooltip="Smoothed price action over the selected timeframe." />
-                    <div className="flex items-center gap-0.5 bg-black/30 border border-white/5 rounded px-1 py-0.5 ml-1">
-                         {(["1M", "3M", "6M", "1Y"] as const).map(r => (
-                             <button 
-                                key={r} 
-                                onClick={(e) => { e.stopPropagation(); setRange(r); }} 
-                                className={`text-[8px] font-bold px-1 py-0.5 rounded-sm transition-colors ${range === r ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                             >
-                                {r}
-                             </button>
-                         ))}
-                    </div>
+                    <select
+                        value={range}
+                        onChange={(e) => setRange(e.target.value as any)}
+                        className="bg-black/30 border border-white/10 text-zinc-400 text-[8px] font-bold uppercase rounded px-1.5 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors ml-1"
+                    >
+                        <option value="1M" className="bg-zinc-950 text-zinc-300">1M</option>
+                        <option value="3M" className="bg-zinc-950 text-zinc-300">3M</option>
+                        <option value="6M" className="bg-zinc-950 text-zinc-300">6M</option>
+                        <option value="1Y" className="bg-zinc-950 text-zinc-300">1Y</option>
+                        <option value="2Y" className="bg-zinc-950 text-zinc-300">2Y</option>
+                        <option value="5Y" className="bg-zinc-950 text-zinc-300">5Y</option>
+                        <option value="ALL" className="bg-zinc-950 text-zinc-300">ALL</option>
+                    </select>
                 </div>
                 <div className="w-[120px] shrink-0 pl-6 flex flex-col gap-0.5">
                     <HeaderWithTooltip label="Proj. Return" tooltip="Ensemble quantitative price target projections." />
-                    <div className="flex items-center gap-0.5">
-                         {(["1D", "3D", "1W", "1M"] as const).map(h => (
-                             <button 
-                                key={h} 
-                                onClick={(e) => { e.stopPropagation(); setForecastHorizon(h); }} 
-                                className={`text-[8px] font-bold px-1.5 py-0.5 rounded-sm transition-colors ${forecastHorizon === h ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                             >
-                                {h}
-                             </button>
-                         ))}
-                    </div>
+                    <select
+                        value={forecastHorizon}
+                        onChange={(e) => setForecastHorizon(e.target.value as any)}
+                        className="bg-black/30 border border-white/10 text-zinc-400 text-[8px] font-bold uppercase rounded px-1.5 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors mt-0.5 w-16"
+                    >
+                        <option value="4H" className="bg-zinc-950 text-zinc-300">4H</option>
+                        <option value="1D" className="bg-zinc-950 text-zinc-300">1D</option>
+                        <option value="3D" className="bg-zinc-950 text-zinc-300">3D</option>
+                        <option value="1W" className="bg-zinc-950 text-zinc-300">1W</option>
+                        <option value="1M" className="bg-zinc-950 text-zinc-300">1M</option>
+                    </select>
                 </div>
                 <div className="w-[100px] shrink-0 hidden md:block pl-6">
                     <HeaderWithTooltip label="Technicals" tooltip="Algorithmic confluence score (0-100) combining momentum, volatility, and structural support levels." />
@@ -180,8 +182,8 @@ export interface WatchlistItemProps {
   signal: MarketSignal;
   onRemove?: () => void;
   alpha?: boolean;
-  range?: "1M" | "3M" | "6M" | "1Y";
-  forecastHorizon?: "1D" | "3D" | "1W" | "1M";
+  range?: "1M" | "3M" | "6M" | "1Y" | "2Y" | "5Y" | "ALL";
+  forecastHorizon?: "4H" | "1D" | "3D" | "1W" | "1M";
 }
 
 export function WatchlistItem({ signal, onRemove, alpha, range = "1M", forecastHorizon = "1D" }: WatchlistItemProps) {
@@ -260,7 +262,14 @@ export function WatchlistItem({ signal, onRemove, alpha, range = "1M", forecastH
           {/* COL 4: SPARKLINE */}
           <div className="flex-1 px-6 h-8 flex items-center" role="img">
                <Sparkline 
-                  data={signal.history.slice(-(range === "1Y" ? 252 : range === "6M" ? 126 : range === "3M" ? 63 : 21)).map(h => h.close)} 
+                  data={signal.history.slice(-(
+                      range === "ALL" ? 2500 : 
+                      range === "5Y" ? 1260 : 
+                      range === "2Y" ? 504 : 
+                      range === "1Y" ? 252 : 
+                      range === "6M" ? 126 : 
+                      range === "3M" ? 63 : 21
+                  )).map(h => h.close)} 
                   color={color} 
                   height={32} 
                />
