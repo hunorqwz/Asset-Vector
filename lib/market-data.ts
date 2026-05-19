@@ -50,6 +50,8 @@ export type MarketSignal = {
   benchmark?: RollingCorrelation;
   quality?: QualityScore;
   sector?: string;
+  companyName?: string;
+  changePercent?: number;
   structuralProbability?: LevelTouchProbability[];
   orderBlocks?: OrderBlock[];
   darkPoolBlocks?: { price: number; volume: number }[];
@@ -253,7 +255,7 @@ async function fetchHeadlines(ticker: string): Promise<NarrativeArticle[]> {
   try {
     // Robust parsing: Strip -USD, .T, .SI suffixes but keep the primary symbol
     const cleanSym = ticker.replace(/-USD$|\.[A-Z]+$/i, '').split('-')[0];
-    const res = await yahooFinance.search(cleanSym, { newsCount: 5 }, { validateResult: false }) as any;
+    const res = await yahooFinance.search(cleanSym, { newsCount: 20 }, { validateResult: false }) as any;
     
     if (!res.news?.length) {
        return [];
@@ -340,7 +342,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   // Fetch higher resolution buffers for short-term precision (4H/1D)
   const [news, fundamentals, tnxQuote, history1h, history15m] = await Promise.all([
     fetchHeadlines(ticker),
-    !isCrypto ? yahooFinance.quoteSummary(ticker, { modules: ['summaryDetail', 'financialData', 'defaultKeyStatistics', 'assetProfile'] }).catch(() => null) : Promise.resolve(null),
+    !isCrypto ? yahooFinance.quoteSummary(ticker, { modules: ['summaryDetail', 'financialData', 'defaultKeyStatistics', 'assetProfile', 'price'] }).catch(() => null) : Promise.resolve(null),
     yahooFinance.quote("^TNX").catch(() => null),
     fetchHistoryWithInterval(ticker, '1h', 14 * 86400).catch(() => []), // 2 weeks of 1h
     fetchHistoryWithInterval(ticker, '15m', 5 * 86400).catch(() => [])   // 5 days of 15m
@@ -391,9 +393,17 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
 
   let quality: QualityScore | undefined = undefined;
   let sector: string | undefined = undefined;
+  let companyName: string | undefined = undefined;
+  let changePercent: number | undefined = undefined;
+
   if (fundamentals) {
     const f = fundamentals as any;
     sector = f.assetProfile?.sector;
+    companyName = f.price?.shortName || f.price?.longName;
+    changePercent = f.price?.regularMarketChangePercent !== undefined 
+        ? f.price.regularMarketChangePercent * 100 
+        : undefined;
+
     quality = calculateQualityScore({
         profitability: {
             operatingMargins: f.financialData?.operatingMargins,
@@ -483,6 +493,8 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     benchmark,
     quality,
     sector,
+    companyName,
+    changePercent,
     structuralProbability,
     orderBlocks,
     darkPoolBlocks

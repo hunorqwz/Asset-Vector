@@ -41,6 +41,7 @@ export interface RiskIntelligence {
   regimeAlignment: number; // 0-100 indicating how well the portfolio fits the current macro regime
   regimeLabel: string;
   horizonConflicts: HorizonConflict[];
+  systemWarnings?: string[];
 }
 
 /**
@@ -59,7 +60,8 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
       regimeAlignment: 50,
       regimeLabel: "N/A",
       correlationMatrix: { tickers: [], matrix: [] },
-      horizonConflicts: []
+      horizonConflicts: [],
+      systemWarnings: []
     };
   }
 
@@ -90,7 +92,8 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
        regimeAlignment: 50,
        regimeLabel: "Insufficient History",
        correlationMatrix: { tickers: positions.map(p => p.ticker), matrix: [] },
-       horizonConflicts: []
+       horizonConflicts: [],
+       systemWarnings: []
     };
   }
 
@@ -153,25 +156,40 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
   const activeTickers = positions.map(p => p.ticker);
   const matrix: number[][] = Array(activeTickers.length).fill(0).map(() => Array(activeTickers.length).fill(1));
   
+  // PRE-CALCULATE VARIANCES TO PREVENT O(N^2) REDUNDANT CALLS (Node.js Math Bottleneck Fix)
+  const variancesMap: Record<string, number> = {};
+  for (const t of activeTickers) {
+    if (assetReturnsMap[t]) {
+      variancesMap[t] = calculateVariance(assetReturnsMap[t]);
+    }
+  }
+
   for (let i = 0; i < activeTickers.length; i++) {
-    for (let j = 0; j < activeTickers.length; j++) {
-      if (i === j) continue;
-      
+    for (let j = i + 1; j < activeTickers.length; j++) {
+      // Yield to event loop occasionally to prevent blocking Node.js on large portfolios
+      if ((i * activeTickers.length + j) % 25 === 0) {
+         await new Promise(r => setImmediate(r));
+      }
+
       const t1 = activeTickers[i];
       const t2 = activeTickers[j];
       const r1 = assetReturnsMap[t1];
       const r2 = assetReturnsMap[t2];
       
-      if (r1 && r2) {
-        const corr = calculateCorrelation(r1, r2);
-        matrix[i][j] = Number(corr.toFixed(4));
+      if (r1 && r2 && variancesMap[t1] > 1e-12 && variancesMap[t2] > 1e-12) {
+        const cov = calculateCovariance(r1, r2);
+        const corr = cov / (Math.sqrt(variancesMap[t1]) * Math.sqrt(variancesMap[t2]));
+        const fixedCorr = Number(corr.toFixed(4));
         
-        // Only add alerts once per pair
-        if (i < j && corr > 0.85) {
+        matrix[i][j] = fixedCorr;
+        matrix[j][i] = fixedCorr; // Symmetric matrix logic avoids second loop pass
+        
+        if (corr > 0.85) {
           alerts.push(`High Correlation: ${t1} & ${t2} (${Math.round(corr * 100)}%). They move in lockstep, increasing hidden risk.`);
         }
       } else {
         matrix[i][j] = 0;
+        matrix[j][i] = 0;
       }
     }
   }
@@ -305,6 +323,7 @@ export async function computePortfolioRisk(positions: { ticker: string; weight: 
     },
     regimeAlignment: Math.max(0, Math.min(100, regimeAlignment)),
     regimeLabel,
-    horizonConflicts
+    horizonConflicts,
+    systemWarnings: []
   };
 }

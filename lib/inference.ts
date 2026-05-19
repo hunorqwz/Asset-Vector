@@ -218,9 +218,56 @@ export async function predictNextHorizon(
   const cached = await getFromCache<PredictionResult>(cacheKey);
   if (cached) return cached;
 
-  // Tiered Inference Logic
-  // (In v4.0 we prioritize Local Precision Engine for all the specific horizons 
-  // until the ML Server is updated to support multi-horizon requests).
+  // ── Tier 1: External ML Server (Circuit Breaker Protected) ────────────────
+  const isTripped = (await getFromCache<boolean>("ml_circuit_tripped")) || false;
+  
+  if (!isTripped) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000); // 2s timeout
+      
+      const res = await fetch(process.env.ML_VECTOR_URL || "http://localhost:5000/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker, horizon, sequence: inputSequence.slice(-60) }),
+        signal: controller.signal
+      }).catch(err => {
+        clearTimeout(timeout);
+        throw err;
+      });
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const data = await res.json();
+        // Reset the breaker on a successful response
+        await setInCache("ml_failure_count", 0, 0); 
+        
+        const result: PredictionResult = {
+          p10: Number(data.p10),
+          p50: Number(data.p50),
+          p90: Number(data.p90),
+          source: "Neural Ensemble Multi-Horizon",
+          horizon,
+          confidence: data.confidence || 0.85
+        };
+        await setInCache(cacheKey, result, CACHE_TTL.PREDICTION);
+        return result;
+      } else {
+        throw new Error(`ML Server Error: ${res.status}`);
+      }
+    } catch (err) {
+      // Circuit Breaker Tracker
+      const currentFails = (await getFromCache<number>("ml_failure_count")) || 0;
+      const newFails = currentFails + 1;
+      await setInCache("ml_failure_count", newFails, 5 * 60 * 1000); // TTL 5 mins
+      
+      if (newFails >= 3) {
+        await setInCache("ml_circuit_tripped", true, 5 * 60 * 1000); // TTL 5 min cooldown
+      }
+    }
+  }
+
+  // ── Tier 2: Local Precision Engine Fallback ──────────────────────────────
   
   const pulse = await fetchMarketPulse().catch(() => null);
   const vix = pulse?.macro?.vix?.value;

@@ -7,6 +7,7 @@ import { systemKv } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { SentimentAnalyzer, SentimentReport, SentimentFallback } from "@/lib/sentiment";
 import { ForensicEarningsReport } from "@/lib/types";
+import { calculateReturns, calculateVariance } from "@/lib/math";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
 const activeRequests = new Map<string, Promise<StrategicInsight | null>>();
@@ -19,8 +20,8 @@ async function getGlobalCache<T>(key: string): Promise<T | null> {
     if (!row) return null;
     if (new Date(row.expiresAt).getTime() < Date.now()) return null;
     return row.value as T;
-  } catch (e) {
-    console.error("Global Cache Read Error:", e);
+  } catch (e: any) {
+    console.warn("Global Cache Read Error:", e?.message || "Unknown Error");
     return null;
   }
 }
@@ -30,8 +31,8 @@ async function setGlobalCache<T>(key: string, value: T, ttlMs: number) {
     const expiresAt = new Date(Date.now() + ttlMs);
     await db.insert(systemKv).values({ key, value: value as any, expiresAt })
       .onConflictDoUpdate({ target: systemKv.key, set: { value: value as any, expiresAt } });
-  } catch (e) {
-    console.error("Global Cache Write Error:", e);
+  } catch (e: any) {
+    console.warn("Global Cache Write Error:", e?.message || "Unknown Error");
   }
 }
 
@@ -59,7 +60,21 @@ export async function generateStrategicAnalysis(ticker: string, history: OHLCV[]
     while (retries <= 2) {
       try {
         const model = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: "Institutional Quant Analyst. Output strictly valid JSON." });
-        const recent = history.slice(-30).map(h => ({ d: new Date(h.time * 1000).toISOString().split('T')[0], c: h.close, v: h.volume }));
+        
+        const recentHistory = history.slice(-30);
+        const currentPrice = recentHistory[recentHistory.length - 1].close;
+        const price30DaysAgo = recentHistory[0].close;
+        const price5DaysAgo = recentHistory.length >= 5 ? recentHistory[recentHistory.length - 5].close : price30DaysAgo;
+        
+        const return30D = ((currentPrice - price30DaysAgo) / price30DaysAgo * 100).toFixed(2);
+        const return5D = ((currentPrice - price5DaysAgo) / price5DaysAgo * 100).toFixed(2);
+        
+        const prices = recentHistory.map(h => h.close);
+        const high30D = Math.max(...prices);
+        const distanceFromHigh = ((currentPrice - high30D) / high30D * 100).toFixed(2);
+        const vol30D = (Math.sqrt(calculateVariance(calculateReturns(prices)) * 252) * 100).toFixed(2);
+        
+        const statsStr = `30D Return: ${return30D}%, 5D Return: ${return5D}%, Volatility (Ann): ${vol30D}%, Distance from 30D High: ${distanceFromHigh}%, Current Price: ${currentPrice}`;
         
         const responseSchema = {
           type: SchemaType.OBJECT,
@@ -79,7 +94,7 @@ export async function generateStrategicAnalysis(ticker: string, history: OHLCV[]
           required: ["patternRecognition", "sentiment", "scenarios", "riskAnalysis"]
         } as any;
 
-        const prompt = `Analyze ${ticker}. Data: ${JSON.stringify(recent)}. News: ${news.slice(0, 5).map(n => n.title).join(" | ")}. Limit to highly precise answers.`;
+        const prompt = `Analyze ${ticker}. Quantitative Profile: ${statsStr}. Recent Headlines: ${news.slice(0, 8).map(n => n.title).join(" | ")}. Provide a highly precise strategic analysis.`;
         const res = await model.generateContent({
            contents: [{ role: "user", parts: [{ text: prompt }] }],
            generationConfig: { temperature: 0.1, responseMimeType: "application/json", responseSchema }
@@ -88,7 +103,7 @@ export async function generateStrategicAnalysis(ticker: string, history: OHLCV[]
         await setGlobalCache(cacheKey, parsed, 86400000); // 24 HOURS TTL
         return parsed;
       } catch (err: any) {
-        console.error("generateStrategicAnalysis error:", err);
+        console.warn("generateStrategicAnalysis error:", err?.message || "Unknown Error");
         const msg = (err?.message || "").toLowerCase();
         if (err?.status === 429 || msg.includes("rate limit") || msg.includes("quota")) {
           retries++;
@@ -190,7 +205,7 @@ export async function generateForensicEarningsAnalysis(ticker: string, news: Nar
       await setGlobalCache(cacheKey, parsed, 86400000); // 24 HOURS
       return parsed;
     } catch (err: any) {
-      console.error("generateForensicEarningsAnalysis error:", err);
+      console.warn("generateForensicEarningsAnalysis error:", err?.message || "Unknown Error");
       // Fallback to cooldown if rate limited
       if (err?.status === 429) await setGlobalCache(cacheKey, "COOLDOWN", 60000);
       return null;

@@ -59,14 +59,14 @@ export function calculateGARCHVolatility(returns: number[]): number {
 export function calculateCovariance(data1: number[], data2: number[]): number {
   const minLen = Math.min(data1.length, data2.length);
   if (minLen < 2) return 0;
-  const d1 = data1.slice(-minLen);
-  const d2 = data2.slice(-minLen);
-  const mean1 = d1.reduce((a, b) => a + b, 0) / minLen;
-  const mean2 = d2.reduce((a, b) => a + b, 0) / minLen;
+  
+  // CRITICAL: Caller MUST ensure data1 and data2 are aligned by time before passing.
+  const mean1 = data1.slice(0, minLen).reduce((a, b) => a + b, 0) / minLen;
+  const mean2 = data2.slice(0, minLen).reduce((a, b) => a + b, 0) / minLen;
   
   let cov = 0;
   for (let i = 0; i < minLen; i++) {
-    cov += (d1[i] - mean1) * (d2[i] - mean2);
+    cov += (data1[i] - mean1) * (data2[i] - mean2);
   }
   return cov / (minLen - 1);
 }
@@ -99,39 +99,56 @@ export function calculateJensensAlpha(
   
   const scaledRf = riskFreeRate * (windowDays / 252);
   
-  // Alpha Gap Fine-Tuning: Time-Weighted Structural Decay
-  // Apply an exponential decay to prioritize recent structural outperformance
-  let assetWeightedCumRet = 0;
-  let benchWeightedCumRet = 0;
-  let weightSum = 0;
-  const decayFactor = 0.96; // 4% daily decay in relevance
-  
   const aSlice = assetPriceHistory.slice(-windowDays);
   const bSlice = benchmarkPriceHistory.slice(-windowDays);
-  
-  for (let i = 1; i < windowDays; i++) {
-    const aPrev = aSlice[i - 1].close;
-    const bPrev = bSlice[i - 1].close;
-    
-    if (aPrev > 0 && bPrev > 0) {
-      const aRet = (aSlice[i].close - aPrev) / aPrev;
-      const bRet = (bSlice[i].close - bPrev) / bPrev;
+
+  // Use Continuous Compounding (Log Returns) for accurate institutional risk calculation
+  if (aSlice.length > 0 && bSlice.length > 0) {
+    const aFirst = aSlice[0].close;
+    const aLast = aSlice[aSlice.length - 1].close;
+    const bFirst = bSlice[0].close;
+    const bLast = bSlice[bSlice.length - 1].close;
+
+    if (aFirst > 0 && bFirst > 0) {
+      const assetLogRet = Math.log(aLast / aFirst);
+      const benchLogRet = Math.log(bLast / bFirst);
       
-      // Weight increases as `i` approaches the current day
-      const weight = Math.pow(decayFactor, windowDays - i - 1);
+      // Annualize the returns
+      const assetAnnRet = (assetLogRet / windowDays) * 252;
+      const benchAnnRet = (benchLogRet / windowDays) * 252;
       
-      assetWeightedCumRet += aRet * weight;
-      benchWeightedCumRet += bRet * weight;
-      weightSum += weight;
+      // alpha = R_p - [R_f + Beta * (R_m - R_f)]
+      return assetAnnRet - (riskFreeRate + beta * (benchAnnRet - riskFreeRate));
     }
   }
+  return 0;
+}
+
+export function alignAndCalculateReturns(
+  data1: { time: number; close: number }[],
+  data2: { time: number; close: number }[]
+): { returns1: number[]; returns2: number[] } {
+  const map2 = new Map(data2.map(d => [d.time, d.close]));
+  const sync1: number[] = [];
+  const sync2: number[] = [];
   
-  // Normalize sum of decayed daily returns back to a cumulative timeframe equivalent
-  const assetCumRet = weightSum > 0 ? (assetWeightedCumRet / weightSum) * windowDays : 0;
-  const benchCumRet = weightSum > 0 ? (benchWeightedCumRet / weightSum) * windowDays : 0;
-  
-  // alpha = R_p - [R_f + Beta * (R_m - R_f)]
-  return assetCumRet - (scaledRf + beta * (benchCumRet - scaledRf));
+  for (let i = 1; i < data1.length; i++) {
+    const t = data1[i].time;
+    const prevT = data1[i-1].time;
+    
+    if (map2.has(t) && map2.has(prevT)) {
+      const p1 = data1[i].close;
+      const prevP1 = data1[i-1].close;
+      const p2 = map2.get(t)!;
+      const prevP2 = map2.get(prevT)!;
+      
+      if (prevP1 > 0 && prevP2 > 0) {
+        sync1.push(Math.log(p1 / prevP1));
+        sync2.push(Math.log(p2 / prevP2));
+      }
+    }
+  }
+  return { returns1: sync1, returns2: sync2 };
 }
 
 export interface ARIMAProjection {
@@ -175,9 +192,19 @@ export function validateAndCleanData(prices: number[], threshold: number = 5): n
     }
 
     if (Math.abs(modifiedZ) > threshold) {
-      // Data Corruption Detected: Interpolate from neighbors to maintain continuity
-      // institutional-grade gap filling
-      cleanPrices[i] = (prices[i - 1] + prices[i + 1]) / 2;
+      // True Bad Tick Detection: Check if price immediately reverts.
+      // If it stays at the new level, it's a structural move (e.g. gap down) and should be preserved.
+      const prevPrice = cleanPrices[i - 1];
+      const nextPrice = prices[i + 1];
+      const revertThreshold = mad * 2; 
+
+      if (Math.abs(nextPrice - prevPrice) < revertThreshold || mad === 0) {
+        // It's a bad tick (bounced back). Interpolate to fix corruption.
+        cleanPrices[i] = (prevPrice + nextPrice) / 2;
+      } else {
+        // Structural move, keep it.
+        cleanPrices[i] = p;
+      }
     }
   }
 
@@ -195,7 +222,15 @@ export function runARIMAForecast(prices: number[], periods: number = 5): ARIMAPr
   // 2. Estimate AR(1) coefficient (ϕ) using simple OLS or autocorrelation
   // For a fast, stable client-side forecast, we use the lag-1 autocorrelation
   const n = returns.length;
-  const meanRet = returns.reduce((a, b) => a + b, 0) / n;
+  
+  // Use Exponentially Weighted Moving Average (EWMA) for the mean return
+  // This makes the ARIMA anchor much more responsive to recent trend shifts
+  const alpha = 0.15; // 15% decay factor for localized momentum
+  let ewmaMean = returns[0];
+  for (let i = 1; i < n; i++) {
+    ewmaMean = alpha * returns[i] + (1 - alpha) * ewmaMean;
+  }
+  const meanRet = ewmaMean;
   
   let num = 0, den = 0;
   for (let i = 1; i < n; i++) {
@@ -204,9 +239,11 @@ export function runARIMAForecast(prices: number[], periods: number = 5): ARIMAPr
   }
   
   const phi = den !== 0 ? num / den : 0;
+  // Guard phi! AR models must be stationary (|phi| < 1)
+  const clampedPhi = Math.max(-0.99, Math.min(0.99, phi)); 
   const variance = calculateVariance(returns);
   // Std error of residuals = sqrt(variance * (1 - phi^2))
-  const stdError = Math.sqrt(variance * (1 - Math.pow(phi, 2)));
+  const stdError = Math.sqrt(Math.max(1e-10, variance * (1 - Math.pow(clampedPhi, 2))));
 
   // 3. Project future returns and reconstruct prices
   const forecastPrices: number[] = [];

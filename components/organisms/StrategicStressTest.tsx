@@ -149,9 +149,27 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
               </div>
             )}
 
-            {displayRisk.correlationAlerts.length > 0 && (
-              <div>
+            {displayRisk.systemWarnings && displayRisk.systemWarnings.length > 0 && (
+              <div className="pt-4 border-t border-white/5">
                 <p className="text-[10px] font-bold text-bear uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 17c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  System Degradation
+                </p>
+                <div className="space-y-3">
+                  {displayRisk.systemWarnings.map((warning, i) => (
+                    <div key={i} className="text-[10px] text-zinc-400 font-medium leading-relaxed border-l-2 border-bear/50 pl-3">
+                      {warning}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {displayRisk.correlationAlerts.length > 0 && (
+              <div className="pt-4 border-t border-white/5">
+                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                     <path d="M12 9v4m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 17c-.77 1.333.192 3 1.732 3z" />
                   </svg>
@@ -159,7 +177,7 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
                 </p>
                 <div className="space-y-3">
                   {displayRisk.correlationAlerts.slice(0, 2).map((alert, i) => (
-                    <div key={i} className="text-[10px] text-zinc-400 font-medium leading-relaxed border-l-2 border-bear/30 pl-3">
+                    <div key={i} className="text-[10px] text-zinc-400 font-medium leading-relaxed border-l-2 border-amber-500/30 pl-3">
                       {alert}
                     </div>
                   ))}

@@ -97,7 +97,9 @@ export function generateSynthesis(
 
   // 7. Confidence Labeling
   let confidence: MarketSynthesis['confidence'] = "Moderate";
-  const combinedReliability = (predictabilityUnits * 0.7) + (Math.min(snr, 100) / 100 * 0.3);
+  // Normalize predictability: realistic Hurst exponents in efficient markets cap out around 0.65 (predictability 0.3)
+  const normalizedPredictability = Math.min(predictabilityUnits / 0.25, 1.0);
+  const combinedReliability = (normalizedPredictability * 0.7) + (Math.min(snr, 100) / 100 * 0.3);
   
   if (combinedReliability > 0.6) confidence = "Institutional";
   else if (combinedReliability > 0.5) confidence = "High";

@@ -195,19 +195,19 @@ Limit output to 3 primary drivers maximum. Make drivers sound extremely professi
         type: SchemaType.OBJECT,
         properties: {
           score: { type: SchemaType.NUMBER },
-          label: { type: SchemaType.STRING },
+          label: { type: SchemaType.STRING, enum: ["BULLISH", "BEARISH", "NEUTRAL"] },
           drivers: { 
             type: SchemaType.ARRAY, 
             items: { 
               type: SchemaType.OBJECT, 
               properties: { 
                 driver: { type: SchemaType.STRING }, 
-                impact: { type: SchemaType.STRING } 
+                impact: { type: SchemaType.STRING, enum: ["BULLISH", "BEARISH", "NEUTRAL"] } 
               }, 
               required: ["driver", "impact"] 
             } 
           },
-          drift: { type: SchemaType.STRING }
+          drift: { type: SchemaType.STRING, enum: ["STABLE", "ACCELERATING_BULL", "ACCELERATING_BEAR", "REVERSAL"] }
         },
         required: ["score", "label", "drivers", "drift"]
       } as any;
@@ -235,8 +235,8 @@ Limit output to 3 primary drivers maximum. Make drivers sound extremely professi
         isConflicted: SentimentFallback.analyze(heads).isConflicted
       };
 
-    } catch (error) {
-       console.error("Narrative Extraction AI Error, falling back to heuristic:", error);
+    } catch (error: any) {
+       console.warn("Narrative Extraction AI Error, falling back to heuristic:", error?.message || "Unknown Error");
        return SentimentFallback.analyze(heads);
     }
   }

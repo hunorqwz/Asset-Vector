@@ -105,11 +105,33 @@ export async function getMarketSignals(): Promise<MarketSignal[]> {
 export async function searchAssets(query: string) {
   if (!query || query.length < 2) return [];
   try {
-    const res = await yahooFinance.search(query) as any;
-    return res.quotes.filter((q: any) => q.isYahooFinance).map((q: any) => ({
-      ticker: q.symbol, name: q.shortname || q.longname || q.symbol, exch: q.exchange, type: q.quoteType
-    })).slice(0, 5);
-  } catch { return []; }
+    // We bypass yahoo-finance2 here because Yahoo frequently updates its schema payload, 
+    // causing the library's internal Zod schema validation to crash (returning zero results).
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const response = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=6&newsCount=0`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    
+    if (!response.ok) return [];
+    
+    const res = await response.json();
+    if (!res || !res.quotes) return [];
+
+    return res.quotes
+      .filter((q: any) => q.symbol && !q.symbol.includes('=')) 
+      .map((q: any) => ({
+        ticker: String(q.symbol).toUpperCase(), 
+        name: q.shortname || q.longname || q.symbol, 
+        exch: q.exchange || 'N/A', 
+        type: q.quoteType || 'EQUITY'
+      }))
+      .slice(0, 5);
+  } catch (err) { 
+    console.error(`[SearchAssets] Failed to search for ${query}:`, err);
+    return []; 
+  }
 }
 
 export async function addAsset(ticker: string, name: string) {

@@ -187,7 +187,16 @@ export async function getPortfolioRiskIntelligence(): Promise<RiskIntelligence |
       weight
     }));
 
-    return await computePortfolioRisk(positionsForRisk);
+    const risk = await computePortfolioRisk(positionsForRisk);
+    if (risk) {
+      const failedSignals = tickers.filter((t, i) => signals[i] === null);
+      if (failedSignals.length > 0) {
+        console.warn(`[Telemetry] AI Signal Intelligence unavailable for: ${failedSignals.join(', ')}`);
+        risk.systemWarnings = risk.systemWarnings || [];
+        risk.systemWarnings.push(`Intelligence Features Degraded: Multi-Horizon models offline for ${failedSignals.length} asset(s).`);
+      }
+    }
+    return risk;
   } catch (err) {
     console.error("Risk Intelligence error:", err);
     return null;
@@ -230,7 +239,16 @@ export async function simulateHedge(simTicker: string, amountUsd: number): Promi
       weight
     }));
 
-    return await computePortfolioRisk(positionsForRisk);
+    const risk = await computePortfolioRisk(positionsForRisk);
+    if (risk) {
+      const failedSignals = tickers.filter((t, i) => signals[i] === null);
+      if (failedSignals.length > 0) {
+        console.warn(`[Telemetry] AI Signal Intelligence unavailable for: ${failedSignals.join(', ')}`);
+        risk.systemWarnings = risk.systemWarnings || [];
+        risk.systemWarnings.push(`Intelligence Features Degraded: Multi-Horizon models offline for ${failedSignals.length} asset(s).`);
+      }
+    }
+    return risk;
   } catch (err) {
     console.error("Simulation error:", err);
     return null;

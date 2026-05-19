@@ -3,7 +3,6 @@ import { WatchlistGrid, WatchlistItem } from "@/components/BentoGrid";
 import { getMarketSignals, removeAsset } from "@/app/actions";
 import { EmptyWatchlist } from "@/components/EmptyWatchlist";
 import { LiveTime } from "@/components/LiveTime";
-import { IntegrityBars, StealthTooltip } from "@/components/LiveTelemetry";
 import { auth } from "@/auth";
 import { AlertBell } from "@/components/AlertBell";
 import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
@@ -48,25 +47,20 @@ export default async function Home() {
 
       <main className="overflow-y-auto scrollbar-hide px-8 py-10">
         <div className="max-w-[1600px] mx-auto">
-          <div className="mb-12 flex items-end justify-between border-b border-white/5 pb-10">
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-4 group cursor-crosshair">
-                <div className="h-[2px] w-8 bg-matrix" />
-                <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.2em] uppercase text-zinc-500">
-                  <span className="text-matrix">Command Center</span>
-                  <span>/</span>
-                  <span className="text-zinc-500 group-hover:text-zinc-300 transition-colors">Overview</span>
-                </div>
-              </div>
-              <h1 className="text-5xl sm:text-6xl font-bold tracking-tightest leading-[1]">
-                System Overview
+          <div className="mb-10 flex items-end justify-between border-b border-white/10 pb-6">
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-none">
+                Overview
               </h1>
             </div>
-            <div className="flex flex-col items-end gap-3">
-              <p className="text-[12px] font-bold text-zinc-500 text-right tracking-[0.15em] uppercase leading-relaxed">
-                <span className="text-zinc-300">{signals.length} ACTIVE ASSETS</span> TRACKED<br/>
-                SYNCED <span className="text-matrix font-mono font-bold tracking-normal"><LiveTime /></span>
-              </p>
+            <div className="flex items-center gap-4">
+              <div className="text-[13px] font-medium text-zinc-400">
+                {signals.length} Assets Tracked
+              </div>
+              <div className="h-4 w-px bg-white/10" />
+              <div className="text-[13px] font-mono text-zinc-500">
+                <LiveTime />
+              </div>
             </div>
           </div>
 
@@ -79,19 +73,16 @@ export default async function Home() {
             {/* CENTER COLUMN: HIGH DENSITY WATCHLIST */}
             <div className="xl:col-span-8">
               {signals.length > 0 ? (
-                <WatchlistGrid>
-                  {signals.map((s, i) => {
-                    const isAlpha = detectSectorAlpha(s.ticker, ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100, pulseData, s.sector);
-                    return (
-                      <WatchlistItem 
-                        key={i} 
-                        signal={s}
-                        alpha={isAlpha}
-                        onRemove={removeAsset.bind(null, s.ticker)}
-                      />
-                    );
-                  })}
-                </WatchlistGrid>
+                <WatchlistGrid 
+                   items={signals.map(s => {
+                     const change = s.changePercent ?? (s.history.length >= 2 ? ((s.price - s.history[s.history.length-2].close) / s.history[s.history.length-2].close) * 100 : 0);
+                     return {
+                       signal: s,
+                       alpha: detectSectorAlpha(s.ticker, change, pulseData, s.sector)
+                     };
+                   })}
+                   onRemoveAction={removeAsset} 
+                />
               ) : (
                 <EmptyWatchlist />
               )}
@@ -99,24 +90,26 @@ export default async function Home() {
 
             {/* RIGHT COLUMN: VELOCITY / NEWS */}
             <div className="xl:col-span-2 flex flex-col gap-6">
-              <div className="glass-card p-6 border border-white/10 h-full relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-[1px] h-full bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-                <h2 className="text-[10px] font-bold text-zinc-500 tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+              <div className="p-6 bg-white/[0.01] rounded-xl border border-white/5 h-full">
+                <h2 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-6">
                   Latest News
                 </h2>
                 <div className="flex flex-col gap-5">
                   {signals.flatMap(s => s.news.map(n => ({ ...n, ticker: s.ticker }))).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((news, i) => (
                      <a key={i} href={news.url} target="_blank" rel="noopener noreferrer" className="group block focus:outline-none">
                         <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[9px] font-bold font-mono px-1.5 border border-white/20 text-zinc-400 group-hover:border-matrix group-hover:text-matrix transition-colors uppercase tracking-widest">{news.ticker}</span>
-                            <span className="text-[9px] text-zinc-600 font-mono">{new Date(news.date).toLocaleDateString()}</span>
+                            <span className="text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded-sm bg-white/5 text-zinc-300 group-hover:bg-white/10 transition-colors uppercase">{news.ticker}</span>
+                            <span className="text-[10px] text-zinc-500 font-mono">{new Date(news.date).toLocaleDateString()}</span>
                         </div>
-                        <p className="text-[12px] font-medium text-white/80 leading-tight group-hover:text-white transition-colors">{news.title}</p>
+                        <p className="text-[13px] font-medium text-zinc-300 leading-snug group-hover:text-white transition-colors">{news.title}</p>
                      </a>
                   ))}
                   {signals.length === 0 && (
-                      <p className="text-[11px] text-zinc-500 leading-relaxed">No active signals routing to the narrative engine.</p>
+                      <div className="text-center py-10">
+                        <p className="text-[13px] font-medium text-zinc-500 leading-relaxed">
+                          Add assets to your watchlist to generate real-time intelligence feeds.
+                        </p>
+                      </div>
                   )}
                 </div>
               </div>
@@ -125,53 +118,14 @@ export default async function Home() {
         </div>
       </main>
 
-      <footer className="glass-panel z-[100] px-8 py-4 border-t border-white/5 bg-black/60 backdrop-blur-md">
-        <div className="w-full flex items-center justify-between">
-          <div className="flex gap-12">
-            <StealthTooltip content="Platform version 1.0">
-              <div className="flex items-center">
-                <Stat label="Version" value="v1.0" color="text-zinc-500" />
-              </div>
-            </StealthTooltip>
-            {session?.user && (
-              <StealthTooltip content={`Verified for ${session.user.email}`}>
-                <div className="flex items-center">
-                  <Stat label="Identity" value={session.user.name || session.user.email || "Verified"} color="text-matrix" />
-                </div>
-              </StealthTooltip>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="h-[1px] w-12 bg-white/5" />
-            <StealthTooltip content="Exchange WebSockets secure & streaming">
-              <div className="flex items-center gap-3 px-5 py-1.5 bg-matrix/5 border border-matrix/20 rounded-full">
-                <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" />
-                <span className="text-[11px] text-matrix font-bold tracking-widest uppercase">Connected</span>
-              </div>
-            </StealthTooltip>
-            <div className="h-[1px] w-12 bg-white/5" />
-          </div>
-          <div className="flex items-center gap-10">
-            <div className="flex items-center gap-4 border-r border-white/5 pr-10 h-10">
-              <StealthTooltip content="AI model connection status">
-                <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest">System Status</span>
-              </StealthTooltip>
-              <IntegrityBars />
-            </div>
-            <LogoutButton />
-          </div>
+      <footer className="px-8 py-6 flex justify-between items-center text-zinc-500 text-[12px] border-t border-white/5">
+        <div>Asset Vector © {new Date().getFullYear()}</div>
+        <div className="flex items-center gap-6">
+          {session?.user && <span>{session.user.email}</span>}
+          <LogoutButton />
         </div>
       </footer>
     </>
-  );
-}
-
-function Stat({ label, value, color }: { label: string, value: string, color: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-[12px] font-bold text-zinc-500 uppercase tracking-wider">{label}</span>
-      <span className={`${color} font-mono font-bold text-[12px]`}>{value}</span>
-    </div>
   );
 }
 

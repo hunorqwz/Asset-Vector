@@ -24,17 +24,10 @@ export interface AlphaPick {
   hasFreshOrderBlock?: boolean;
 }
 
-const DISCOVERY_TICKERS = [
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 
-  'AVGO', 'COST', 'AMD', 'NFLX', 'QCOM', 'ADBE', 'INTC', 'TXN', 'AMAT',
-  'JPM', 'GS', 'MS', 'V', 'MA', 
-  'LLY', 'UNH', 'JNJ', 'PFE',
-  'XOM', 'CVX', 'TSM', 'ASML',
-  'SQ', 'PYPL', 'SHOP', 'SNOW', 'PLTR', 'U' // Added growth names for variety
-];
+import { getScreenerCandidates } from "@/lib/screener";
 
 export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
-  const CACHE_KEY = "institutional_alpha_picks_v2";
+  const CACHE_KEY = "institutional_alpha_picks_v5";
   const cached = await getFromCache<AlphaPick[]>(CACHE_KEY);
   if (cached) return cached;
 
@@ -45,6 +38,8 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
   const portfolioTickers = positions.map(p => p.ticker);
 
   let portfolioReturns: number[] | null = null;
+  let timeMaster: number[] = [];
+
   if (positions.length > 0) {
     try {
       const tickers = positions.map(p => p.ticker);
@@ -57,7 +52,7 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
       
       // Use the earliest common date or a 1Y lookback
       const spyHist = await fetchHistoryWithInterval('SPY', '1d');
-      const timeMaster = spyHist.map(h => h.time);
+      timeMaster = spyHist.map(h => h.time);
       
       const weightedRet: number[] = new Array(timeMaster.length - 1).fill(0);
 
@@ -72,7 +67,8 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
           const prevP = priceMap.get(prevT);
           
           if (p !== undefined && prevP !== undefined && prevP > 0) {
-            const r = (p - prevP) / prevP;
+            // Using log returns for mathematical consistency
+            const r = Math.log(p / prevP);
             weightedRet[i-1] += r * pos.shares * prevP; // Value-weighted contribution
           }
         }
@@ -84,12 +80,17 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
     }
   }
 
-  // 2. Throttled Batch Scanner (Institutional Stability)
+  // 1.5. Stage 1 Inverted Funnel (Bulk Baseline Pruning)
+  // Instead of testing thousands of stocks, we hit a cheap API to get the mathematically
+  // best 25 baseline candidates, drastically protecting our heavy AI inference limits.
+  const discoveryTargets = await getScreenerCandidates();
+
+  // 2. Throttled Surgical AI Scanner (Institutional Deep Scan)
   const signals: (MarketSignal & { prediction: PredictionResult; stockDetails: StockDetails })[] = [];
   const CHUNK_SIZE = 5;
   
-  for (let i = 0; i < DISCOVERY_TICKERS.length; i += CHUNK_SIZE) {
-    const chunk = DISCOVERY_TICKERS.slice(i, i + CHUNK_SIZE);
+  for (let i = 0; i < discoveryTargets.length; i += CHUNK_SIZE) {
+    const chunk = discoveryTargets.slice(i, i + CHUNK_SIZE);
     const batchResults = await Promise.allSettled(
       chunk.map(t => getMinimalAssetDetails(t))
     );
@@ -101,7 +102,7 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
     });
     
     // Delay between chunks to respect API rate limits (500ms is much safer than 50ms)
-    if (i + CHUNK_SIZE < DISCOVERY_TICKERS.length) {
+    if (i + CHUNK_SIZE < discoveryTargets.length) {
       await new Promise(res => setTimeout(res, 500));
     }
   }
@@ -133,10 +134,29 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
 
       // Correlation Check
       let correlation: number | undefined = undefined;
-      if (portfolioReturns && s.history.length > 20) {
+      if (portfolioReturns && timeMaster.length > 0 && s.history.length > 20) {
         try {
-          const assetReturns = calculateReturns(s.history.map(h => h.close));
-          correlation = calculateCorrelation(assetReturns, portfolioReturns);
+          const sHistoryMap = new Map<number, number>(s.history.map(h => [h.time, h.close]));
+          const alignedAssetReturns: number[] = [];
+          const alignedPortReturns: number[] = [];
+
+          for (let k = 1; k < timeMaster.length; k++) {
+            const t = timeMaster[k];
+            const prevT = timeMaster[k-1];
+            
+            if (sHistoryMap.has(t) && sHistoryMap.has(prevT)) {
+               const p = sHistoryMap.get(t)!;
+               const prevP = sHistoryMap.get(prevT)!;
+               if (prevP > 0) {
+                 alignedAssetReturns.push(Math.log(p / prevP));
+                 alignedPortReturns.push(portfolioReturns[k-1]);
+               }
+            }
+          }
+          
+          if (alignedAssetReturns.length > 10) {
+            correlation = calculateCorrelation(alignedAssetReturns, alignedPortReturns);
+          }
         } catch {}
       }
 

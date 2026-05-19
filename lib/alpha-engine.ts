@@ -14,70 +14,60 @@ export function calculateAlphaScore(signal: MarketSignal, details: StockDetails)
   let bestScore = 0;
   let bestScanner: AlphaScanner | null = null;
 
-  // 1. SURGICAL ALPHA: High Signal + High Confidence + High Alpha
-  if (synthesis.score > 75 && synthesis.confidence === 'Institutional' && (signal.benchmark?.alpha ?? 0) > 5) {
-    const surgicalScore = (synthesis.score + (signal.benchmark?.alpha ?? 0)) / 1.1;
-    if (surgicalScore > bestScore) {
-      bestScore = surgicalScore;
-      bestScanner = 'SURGICAL_ALPHA';
-    }
+  // Dynamic Scoring System: We calculate all scores and take the highest one, 
+  // ensuring we always identify the best setup without rigid binary cutoffs.
+  
+  // 1. SURGICAL ALPHA
+  const alphaVal = signal.benchmark?.alpha ?? 0;
+  const surgicalScore = (synthesis.score + Math.max(0, alphaVal * 2));
+  if (surgicalScore > bestScore && synthesis.score > 50) {
+    bestScore = surgicalScore;
+    bestScanner = 'SURGICAL_ALPHA';
   }
 
-  // 2. MOMENTUM: Strong trend + High Predictability (Hurst)
-  if (tech.rsi14 > 60 && tech.macd.histogram > 0 && price.current > price.fiftyDayAverage && predictability > 0.5) {
-    const momentumScore = Math.min(100, (tech.rsi14 + (tech.macd.histogram * 10)) / 1.5);
-    if (momentumScore > bestScore) {
-      bestScore = momentumScore;
-      bestScanner = 'MOMENTUM';
-    }
+  // 2. MOMENTUM
+  const momentumScore = (tech.rsi14 + (tech.macd.histogram > 0 ? 10 : 0) + (predictability * 100)) / 1.5;
+  if (momentumScore > bestScore && tech.rsi14 > 50) {
+    bestScore = momentumScore;
+    bestScanner = 'MOMENTUM';
   }
 
-  // 3. VALUE: Low PE + Institutional Quality + Bullish Sentiment
+  // 3. VALUE
   const fpe = valuation.forwardPE;
-  const qscore = signal.quality?.score || 0;
-  if (fpe !== null && fpe !== undefined && fpe < 18 && qscore > 70 && sentiment.score > 0.1) {
-    const valueScore = ( qscore + (50 - (fpe / 2)) ) / 1.5;
+  const qscore = signal.quality?.score || 50; // Fallback if data is missing
+  if (fpe !== null && fpe !== undefined && fpe > 0) {
+    const valueScore = ( qscore + (Math.max(0, 30 - fpe) * 2) ) / 1.5;
     if (valueScore > bestScore) {
       bestScore = valueScore;
       bestScanner = 'VALUE';
     }
   }
 
-  // 4. REGIME FIT: Perfect alignment with current market structure
-  if (regime === 'MOMENTUM' && tech.adx > 25 && tech.confluenceScore > 70) {
-    const regimeScore = (tech.adx + tech.confluenceScore) / 1.8;
-    if (regimeScore > bestScore) {
-       bestScore = regimeScore;
-       bestScanner = 'REGIME_FIT';
-    }
-  } else if (regime === 'MEAN_REVERSION' && tech.rsi14 < 35 && synthesis.score > 45) {
-    const regimeScore = 80 + (35 - tech.rsi14);
-    if (regimeScore > bestScore) {
-        bestScore = regimeScore;
-        bestScanner = 'REGIME_FIT';
-    }
+  // 4. REGIME FIT
+  const regimeScore = regime === 'MOMENTUM' ? (tech.adx + tech.confluenceScore) / 1.8 : 50 + (50 - tech.rsi14);
+  if (regimeScore > bestScore) {
+     bestScore = regimeScore;
+     bestScanner = 'REGIME_FIT';
   }
 
-  // 5. VOL SQUEEZE: Calm before the storm (Low SNR but High Predictability)
-  if (snr < 3 && predictability > 0.6) {
-    const squeezeScore = 85; 
-    if (squeezeScore > bestScore) {
-      bestScore = squeezeScore;
-      bestScanner = 'VOL_SQUEEZE';
-    }
+  // 5. VOL SQUEEZE
+  const squeezeScore = snr < 5 ? 70 + (predictability * 100) : 0;
+  if (squeezeScore > bestScore) {
+    bestScore = squeezeScore;
+    bestScanner = 'VOL_SQUEEZE';
   }
 
-  // 6. UNCORRELATED: Low Beta + Performance Outlier
+  // 6. UNCORRELATED
   const fiveDayMomentum = history.length >= 5 ? ((price.current - history[history.length - 5].close) / history[history.length - 5].close) * 100 : 0;
-  if (keyStats.beta !== null && keyStats.beta < 0.75 && fiveDayMomentum > 4) {
-    const uncorrScore = 75 + (fiveDayMomentum * 2);
+  if (keyStats.beta !== null && keyStats.beta < 0.9) {
+    const uncorrScore = 60 + (fiveDayMomentum * 3) + ((1 - keyStats.beta) * 20);
     if (uncorrScore > bestScore) {
       bestScore = uncorrScore;
       bestScanner = 'UNCORRELATED';
     }
   }
 
-  return { score: Math.round(bestScore), scanner: bestScanner };
+  return { score: Math.round(Math.min(100, bestScore)), scanner: bestScanner || 'REGIME_FIT' };
 }
 
 export function calculateCatalystRisk(details: StockDetails): { expectedMovePct: number; momentum: 'BULLISH' | 'BEARISH' | 'NEUTRAL' } {

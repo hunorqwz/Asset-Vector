@@ -31,14 +31,11 @@ export function GlobalHeader({ alerts, insights, regimeBreakout }: GlobalHeaderP
       <div className="flex items-center justify-between py-4 relative">
         {/* LEFT: Logo & Tickers */}
         <div className="flex items-center gap-6 xl:gap-12">
-          <Link href="/" className="flex items-center gap-3.5 group shrink-0">
-            <div className="w-9 h-9 glass-card rounded-xl flex items-center justify-center glow-matrix bg-matrix/5 border-matrix/20">
-              <div className="w-2.5 h-2.5 bg-matrix rounded-sm rotate-45 shadow-[0_0_12px_hsla(var(--matrix)/0.6)]" />
+          <Link href="/" className="flex items-center gap-3 group shrink-0">
+            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center border border-white/5">
+              <div className="w-3 h-3 bg-white rounded-sm rotate-45" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold tracking-tightest text-[16px] text-white uppercase leading-none mb-1">Vector</span>
-              <span className="text-[12px] font-bold text-zinc-500 tracking-[0.2em] uppercase leading-none">Intelligence</span>
-            </div>
+            <span className="font-semibold tracking-tight text-lg text-white">Asset Vector</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -69,18 +66,9 @@ export function GlobalHeader({ alerts, insights, regimeBreakout }: GlobalHeaderP
            {/* Alerts & Live Status */}
            <div className="flex items-center gap-4">
               <AlertBell alerts={alerts} insights={insights} regimeBreakout={regimeBreakout} />
-              <div className="hidden sm:flex flex-col items-end">
-                <StealthTooltip content="Data pipeline is streaming." position="bottom">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse shadow-[0_0_8px_hsla(var(--matrix)/0.6)]" aria-hidden="true" />
-                    <span className="text-[12px] font-bold text-matrix uppercase tracking-[0.15em]">Live</span>
-                  </div>
-                </StealthTooltip>
-                <StealthTooltip content="WebSocket market feed delay" position="bottom">
-                  <span className="text-[11px] font-mono font-bold text-zinc-500 mt-1 uppercase tracking-widest whitespace-nowrap">
-                    LATENCY: <LiveLatency />
-                  </span>
-                </StealthTooltip>
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" aria-hidden="true" />
+                <span className="text-[11px] font-medium text-zinc-300">Connected</span>
               </div>
            </div>
 
@@ -108,8 +96,7 @@ export function GlobalHeader({ alerts, insights, regimeBreakout }: GlobalHeaderP
               <AssetCommand />
            </div>
            
-           <nav className="flex flex-col gap-6">
-              <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest border-b border-white/5 pb-4">Terminal Navigation</p>
+           <nav className="flex flex-col gap-6 pt-4">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
@@ -123,14 +110,6 @@ export function GlobalHeader({ alerts, insights, regimeBreakout }: GlobalHeaderP
                 </Link>
               ))}
            </nav>
-
-
-
-           <div className="mt-4 p-4 bg-white/[0.03] border border-white/5 rounded-sm">
-              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-relaxed">
-                Surgical Intelligence Platform <br/> Locked & Streaming.
-              </p>
-           </div>
         </div>
       )}
     </header>
