@@ -72,7 +72,7 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
   };
 
   try {
-    const chain = await yahooFinance.options(ticker);
+    const chain = await yahooFinance.options(ticker, {}, { validateResult: false }) as any;
     if (!chain || !chain.options || chain.options.length === 0) return emptyResult;
 
     // Pick the expiration that is closest to 30 days out to represent a standardized 1-month expected move.

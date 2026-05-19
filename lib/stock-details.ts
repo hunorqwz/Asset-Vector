@@ -56,7 +56,7 @@ export async function fetchStockDetails(ticker: string): Promise<StockDetails> {
     fetchHistoryWithInterval(benchmark, '1d', 365 * 86400).catch(() => []),
     yahooFinance.recommendationsBySymbol(sym).then(r => r?.recommendedSymbols?.[0]?.symbol).then(s => s ? yahooFinance.quoteSummary(s, { modules: ['price', 'defaultKeyStatistics', 'financialData'] }, { validateResult: false }).then(q => ({ symbol: s, summary: q as any })) : null).catch(() => null),
     Promise.race([
-       yahooFinance.options(sym),
+       yahooFinance.options(sym, {}, { validateResult: false }),
        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000))
     ]).catch(() => null)
   ]);
