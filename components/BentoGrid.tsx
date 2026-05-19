@@ -188,7 +188,22 @@ export interface WatchlistItemProps {
 
 export function WatchlistItem({ signal, onRemove, alpha, range = "1M", forecastHorizon = "1D" }: WatchlistItemProps) {
   
-  const change = signal.changePercent ?? (signal.history.length >= 2 ? ((signal.price - signal.history[signal.history.length-2].close) / signal.history[signal.history.length-2].close) * 100 : 0);
+  // Dynamically compute cumulative return for the selected trend range
+  const sliceLength = range === "ALL" ? 2500 : 
+                      range === "5Y" ? 1260 : 
+                      range === "2Y" ? 504 : 
+                      range === "1Y" ? 252 : 
+                      range === "6M" ? 126 : 
+                      range === "3M" ? 63 : 21;
+  const historySlice = signal.history.slice(-sliceLength);
+  
+  let change = 0;
+  if (historySlice.length > 0) {
+    const startPrice = historySlice[0].close;
+    change = ((signal.price - startPrice) / startPrice) * 100;
+  } else {
+    change = signal.changePercent ?? 0;
+  }
   
   React.useEffect(() => {
     // Pulse effect removed to ensure a stable, static interface as per institutional requirements.
@@ -254,7 +269,7 @@ export function WatchlistItem({ signal, onRemove, alpha, range = "1M", forecastH
                </div>
                <div className="mt-1">
                    <span className={`inline-flex items-center text-[11px] font-medium font-mono px-1.5 py-0.5 rounded-sm tabular-nums ${isBull ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                       {isBull ? '+' : ''}{change.toFixed(2)}%
+                       {isBull ? '+' : ''}{change.toFixed(2)}% <span className="opacity-50 text-[8px] ml-1 font-sans font-normal tracking-wide">{range}</span>
                    </span>
                </div>
           </div>
