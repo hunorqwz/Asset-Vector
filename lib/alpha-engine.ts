@@ -19,10 +19,12 @@ export function calculateAlphaScore(signal: MarketSignal, details: StockDetails)
   
   // 1. SURGICAL ALPHA
   const alphaVal = signal.benchmark?.alpha ?? 0;
-  const surgicalScore = (synthesis.score + Math.max(0, alphaVal * 2));
-  if (surgicalScore > bestScore && synthesis.score > 50) {
-    bestScore = surgicalScore;
-    bestScanner = 'SURGICAL_ALPHA';
+  if (synthesis.score > 50 && alphaVal > 0) {
+    const surgicalScore = (synthesis.score + Math.max(0, alphaVal * 2));
+    if (surgicalScore > bestScore) {
+      bestScore = surgicalScore;
+      bestScanner = 'SURGICAL_ALPHA';
+    }
   }
 
   // 2. MOMENTUM
@@ -35,7 +37,7 @@ export function calculateAlphaScore(signal: MarketSignal, details: StockDetails)
   // 3. VALUE
   const fpe = valuation.forwardPE;
   const qscore = signal.quality?.score || 50; // Fallback if data is missing
-  if (fpe !== null && fpe !== undefined && fpe > 0) {
+  if (fpe !== null && fpe !== undefined && fpe > 0 && fpe < 30) {
     const valueScore = ( qscore + (Math.max(0, 30 - fpe) * 2) ) / 1.5;
     if (valueScore > bestScore) {
       bestScore = valueScore;
@@ -44,8 +46,13 @@ export function calculateAlphaScore(signal: MarketSignal, details: StockDetails)
   }
 
   // 4. REGIME FIT
-  const regimeScore = regime === 'MOMENTUM' ? (tech.adx + tech.confluenceScore) / 1.8 : 50 + (50 - tech.rsi14);
-  if (regimeScore > bestScore) {
+  let regimeScore = 0;
+  if (regime === 'MOMENTUM') {
+    regimeScore = (tech.adx + tech.confluenceScore) / 1.8;
+  } else if (regime === 'MEAN_REVERSION') {
+    regimeScore = 50 + (50 - tech.rsi14);
+  }
+  if (regimeScore > 0 && regimeScore > bestScore) {
      bestScore = regimeScore;
      bestScanner = 'REGIME_FIT';
   }
@@ -67,7 +74,7 @@ export function calculateAlphaScore(signal: MarketSignal, details: StockDetails)
     }
   }
 
-  return { score: Math.round(Math.min(100, bestScore)), scanner: bestScanner || 'REGIME_FIT' };
+  return { score: Math.round(Math.min(100, bestScore)), scanner: bestScore > 0 ? bestScanner : null };
 }
 
 export function calculateCatalystRisk(details: StockDetails): { expectedMovePct: number; momentum: 'BULLISH' | 'BEARISH' | 'NEUTRAL' } {

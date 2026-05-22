@@ -14,7 +14,7 @@ export const SentimentForeman = React.memo(function SentimentForeman({ news, rep
   return (
     <section className="bg-[#0a0a0a] border border-white/10 overflow-hidden group">
       <div className="flex items-center justify-between p-4 border-b border-white/10 bg-transparent">
-        <h3 className="text-[12px] font-bold text-zinc-300 tracking-[0.2em] uppercase">Intelligence Core</h3>
+        <h3 className="text-[12px] font-bold text-zinc-300 tracking-[0.2em] uppercase">Sentiment Analysis</h3>
         <div className="flex items-center gap-3">
           {report.velocity !== 0 && (
             <span className={`text-[10px] font-mono font-bold px-2 py-0.5 border ${report.velocity > 0 ? 'border-bull/20 text-bull' : 'border-bear/20 text-bear'}`}>
@@ -83,14 +83,14 @@ export const SentimentForeman = React.memo(function SentimentForeman({ news, rep
            </div>
             <div className="space-y-1.5 flex-1">
               <div className="flex justify-between items-center">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Structural Projection</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">Sentiment Assessment</span>
                 {divergence && divergence !== 'NONE' && (
                   <span className={`text-[9px] font-bold px-2 py-0.5 border animate-pulse ${divergence === 'BULLISH_DIVERGENCE' ? 'border-bull/50 text-bull bg-bull/10' : 'border-bear/50 text-bear bg-bear/10'}`}>
                     {divergence.replace('_', ' ')}
                   </span>
                 )}
               </div>
-              <p className="text-[12px] text-zinc-400 leading-relaxed font-medium">Headlines analysis confirms local {report.label.toLowerCase()} momentum. Neural variance indicates high confidence in active frame trajectory.</p>
+              <p className="text-[12px] text-zinc-400 leading-relaxed font-medium">Headlines analysis confirms local {report.label.toLowerCase()} momentum. Calculated news sentiment indicates a steady trend with high confidence.</p>
             </div>
         </div>
       </div>

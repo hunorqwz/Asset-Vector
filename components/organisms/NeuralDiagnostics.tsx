@@ -21,7 +21,7 @@ export function NeuralDiagnostics({ history }: NeuralDiagnosticsProps) {
       <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 bg-matrix rounded-full animate-pulse" />
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300">Neural Diagnostics (Time Series Layer)</h3>
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300">Inference & Time Series Diagnostics</h3>
         </div>
         <button 
           onClick={() => setShowTheory(!showTheory)}

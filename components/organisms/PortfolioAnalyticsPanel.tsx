@@ -20,17 +20,17 @@ function fmtCurrency(n: number) {
 function AllocationBar({ pos, isTop }: { pos: PositionAnalytics; isTop: boolean }) {
   const isPositive = pos.pnl >= 0;
   return (
-    <div className="flex items-center gap-3 py-2.5 group">
+    <div className="flex items-center gap-3 py-3 group">
       <div className="w-[52px] shrink-0">
         <span className="text-[11px] font-bold font-mono text-white uppercase tracking-tight">{pos.ticker}</span>
       </div>
-      <div className="flex-1 relative h-5 bg-white/5 overflow-hidden">
+      <div className="flex-1 relative h-5 bg-white/5 rounded-full overflow-hidden border border-white/[0.03]">
         <div
-          className={`absolute left-0 top-0 h-full transition-all duration-700 ${isPositive ? "bg-bull/40" : "bg-bear/30"} ${isTop ? "opacity-100" : "opacity-70"}`}
+          className={`absolute left-0 top-0 h-full transition-all duration-700 rounded-full ${isPositive ? "bg-bull/40" : "bg-bear/30"} ${isTop ? "opacity-100" : "opacity-70"}`}
           style={{ width: `${pos.allocationPct}%` }}
         />
-        <div className="absolute inset-0 flex items-center px-2">
-          <span className="text-[10px] font-mono font-bold text-white/80 relative z-10">
+        <div className="absolute inset-0 flex items-center px-3">
+          <span className="text-[10.5px] font-mono font-bold text-white/95 relative z-10 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
             {fmt(pos.allocationPct, 1)}%
           </span>
         </div>
@@ -51,16 +51,16 @@ function AllocationBar({ pos, isTop }: { pos: PositionAnalytics; isTop: boolean 
 
 // ── Metric Card ────────────────────────────────────────────────────────────
 function MetricCard({
-  label, value, sub, color = "text-white", borderColor = "border-white/10"
+  label, value, sub, color = "text-white", borderColor = "border-white/5"
 }: {
   label: string; value: string; sub?: string; color?: string; borderColor?: string;
 }) {
   return (
-    <div className={`p-5 border ${borderColor} bg-black/40 relative overflow-hidden`}>
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-3">{label}</p>
+    <div className={`p-5 rounded-xl border ${borderColor} bg-black/40 backdrop-blur-md relative overflow-hidden shadow-lg transition-all duration-300 hover:bg-black/50 hover:border-white/20`}>
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-3">{label}</p>
       <p className={`text-xl font-bold font-mono tabular-nums ${color}`}>{value}</p>
-      {sub && <p className="text-[10px] text-zinc-500 font-medium mt-1">{sub}</p>}
+      {sub && <p className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider">{sub}</p>}
     </div>
   );
 }
@@ -148,13 +148,13 @@ export function PortfolioAnalyticsPanel({ analytics }: PortfolioAnalyticsPanelPr
       </div>
 
       {/* Allocation Breakdown */}
-      <div className="border border-white/10 bg-[#0a0a0a] overflow-hidden">
-        <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+      <div className="glass-card overflow-hidden border border-white/5 rounded-xl bg-black/40 backdrop-blur-md">
+        <div className="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-white/[0.01]">
           <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+            <span className="w-1.5 h-1.5 rounded-full bg-matrix glow-matrix" />
             Allocation Breakdown
           </h3>
-          <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest text-zinc-600">
+          <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
             <span>Ticker</span>
             <span>Weight</span>
             <span>Return</span>
@@ -167,8 +167,8 @@ export function PortfolioAnalyticsPanel({ analytics }: PortfolioAnalyticsPanelPr
           ))}
         </div>
         {positions.length > 8 && (
-          <div className="px-6 py-3 border-t border-white/5">
-            <span className="text-[10px] text-zinc-600 font-mono">
+          <div className="px-6 py-3 border-t border-white/5 bg-white/[0.005]">
+            <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">
               +{positions.length - 8} more positions not shown
             </span>
           </div>
@@ -176,13 +176,13 @@ export function PortfolioAnalyticsPanel({ analytics }: PortfolioAnalyticsPanelPr
       </div>
 
       {/* Risk Interpretation */}
-      <div className={`border ${concentrationColor.border} p-5 bg-black/40 flex items-start gap-4`}>
-        <div className={`w-1 self-stretch ${concentrationColor.text.replace('text-', 'bg-')} shrink-0`} />
+      <div className={`glass-card rounded-xl border border-white/5 p-5 bg-black/40 backdrop-blur-md flex items-start gap-4 relative overflow-hidden`}>
+        <div className={`w-1 self-stretch ${concentrationColor.text.replace('text-', 'bg-')} rounded-full shrink-0`} />
         <div>
-          <p className={`text-[11px] font-bold uppercase tracking-widest ${concentrationColor.text} mb-1`}>
+          <p className={`text-[11px] font-bold uppercase tracking-widest ${concentrationColor.text} mb-1.5`}>
             Concentration Risk: {concentrationLabel}
           </p>
-          <p className="text-[11px] text-zinc-400 leading-relaxed">
+          <p className="text-[11.5px] text-zinc-400 leading-relaxed">
             {concentrationLabel === "High Risk" && `HHI of ${concentrationHHI.toLocaleString()} indicates extreme single-asset concentration. A decline in your top position could severely impact total portfolio returns.`}
             {concentrationLabel === "Concentrated" && `HHI of ${concentrationHHI.toLocaleString()} indicates significant concentration. Consider rebalancing to reduce dependency on your top holdings.`}
             {concentrationLabel === "Moderate" && `HHI of ${concentrationHHI.toLocaleString()} indicates moderate diversification. Portfolio has meaningful exposure to leading positions but maintains reasonable spread.`}

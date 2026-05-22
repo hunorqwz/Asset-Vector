@@ -6,7 +6,7 @@ import { OHLCV } from '@/lib/market-data';
 import { fetchChartData } from '@/app/actions';
 import { CHART_COLORS } from '@/lib/chart-config';
 import { fmtCount } from '@/lib/format';
-import { GlassBoxTheory, THEORY_CONTENT } from './organisms/GlassBoxTheory';
+
 import { OptionsIntelligence } from '@/lib/options-pricing';
 import { MultiHorizonPrediction, PredictionHorizon } from '@/lib/inference';
 
@@ -45,7 +45,7 @@ export const VectorChart = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAnalysisMenu, setShowAnalysisMenu] = useState(false);
   const [activeHorizon, setActiveHorizon] = useState<PredictionHorizon>('1D');
-  const [activeTheory, setActiveTheory] = useState<string | null>(null);
+
   const [hoveredData, setHoveredData] = useState<any>(null);
   const [hoveredIndicators, setHoveredIndicators] = useState<Record<string, number | null>>({});
   
@@ -588,8 +588,8 @@ export const VectorChart = ({
               low: chartData[chartData.length-1].low.toFixed(2),
               price: chartData[chartData.length-1].close.toFixed(2),
               volume: fmtCount(chartData[chartData.length-1].volume),
-              changePercent: (((chartData[chartData.length-1].close - chartData[chartData.length-1].open) / chartData[chartData.length-1].open) * 100).toFixed(2),
-              isPositive: chartData[chartData.length-1].close >= chartData[chartData.length-1].open
+              changePercent: (((chartData[chartData.length-1].close - chartData[0].close) / chartData[0].close) * 100).toFixed(2),
+              isPositive: chartData[chartData.length-1].close >= chartData[0].close
             } : null);
 
             const indDisplay = hoveredData ? hoveredIndicators : {
@@ -616,25 +616,24 @@ export const VectorChart = ({
                     <span className="text-zinc-500">Open<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.open}</span></span>
                     <span className="text-zinc-500">High<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.high}</span></span>
                     <span className="text-zinc-500">Low<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.low}</span></span>
-                    <span className="text-zinc-500">Close<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.price}</span></span>
+                    <span className="text-zinc-500">Close<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.price} ({Number(display.changePercent) >= 0 ? '+' : ''}{display.changePercent}%)</span></span>
                     <span className="text-zinc-500">Volume<span className="ml-1 text-white">{display.volume}</span></span>
                   </div>
                 </div>
                 
                 {/* ACTIVE INDICATORS LEGEND */}
                 <div className="flex flex-wrap items-center gap-3 mt-1">
-                  {indicators.sma20 && <GlassBoxLegendItem label="SMA 20" value={indDisplay.sma20?.toFixed(2)} theoryKey="SMA" color={CHART_COLORS.SMA_20} />}
+                  {indicators.sma20 && <GlassBoxLegendItem label="SMA 20" value={indDisplay.sma20?.toFixed(2)} color={CHART_COLORS.SMA_20} />}
                   {indicators.vwap && <GlassBoxLegendItem label="VWAP" value={indDisplay.vwap?.toFixed(2)} color="#38bdf8" />}
-                  {indicators.sma50 && <GlassBoxLegendItem label="SMA 50" value={indDisplay.sma50?.toFixed(2)} theoryKey="SMA" color={CHART_COLORS.SMA_50} />}
-                  {indicators.ema200 && <GlassBoxLegendItem label="EMA 200" value={indDisplay.ema200?.toFixed(2)} theoryKey="EMA" color={CHART_COLORS.EMA_200} />}
+                  {indicators.sma50 && <GlassBoxLegendItem label="SMA 50" value={indDisplay.sma50?.toFixed(2)} color={CHART_COLORS.SMA_50} />}
+                  {indicators.ema200 && <GlassBoxLegendItem label="EMA 200" value={indDisplay.ema200?.toFixed(2)} color={CHART_COLORS.EMA_200} />}
                   {indicators.arima && <GlassBoxLegendItem label="ARIMA" value={indDisplay.arima?.toFixed(2)} color="#a855f7" isDashed />}
-                  {indicators.bollinger && <GlassBoxLegendItem label="BB" theoryKey="Bollinger" color={CHART_COLORS.BOLLINGER_BANDS_LEGEND} />}
+                  {indicators.bollinger && <GlassBoxLegendItem label="BB" color={CHART_COLORS.BOLLINGER_BANDS_LEGEND} />}
                   {indicators.kalman && (
                     <>
                       <GlassBoxLegendItem 
                         label={`Vector (${activeHorizon})`} 
                         value={indDisplay.p50?.toFixed(2)} 
-                        theoryKey="Kalman" 
                         color={CHART_COLORS.NEURAL_VECTOR} 
                         isDashed 
                       />

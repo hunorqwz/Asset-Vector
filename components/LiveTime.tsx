@@ -6,8 +6,13 @@ export function LiveTime() {
   const [time, setTime] = useState<string>("");
 
   useEffect(() => {
-    setTime(new Date().toISOString().split('T')[1].split('.')[0]);
+    const updateTime = () => {
+      setTime(new Date().toISOString().split('T')[1].split('.')[0]);
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  return <span>{time || "--:--:--"}</span>;
+  return <span className="font-mono tracking-tight">{time || "--:--:--"}</span>;
 }

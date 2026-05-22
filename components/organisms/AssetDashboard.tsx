@@ -130,14 +130,14 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
       </div>
 
       {/* TABS BUTTON BAR */}
-      <div className="flex items-center glass-card border border-white/10 bg-gradient-to-br from-zinc-900/60 to-black/80 backdrop-blur-md w-full mb-8 overflow-x-auto scrollbar-hide rounded-xl rounded-b-none border-b-0 p-1">
+      <div className="flex items-center glass-card border border-white/10 bg-gradient-to-br from-zinc-900/60 to-black/80 backdrop-blur-md w-full mb-8 overflow-x-auto scrollbar-hide rounded-t-xl border-b-0 p-1">
         {TABS.map(tab => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 
             className={`flex-1 py-3 px-6 text-[10.5px] font-bold tracking-[0.2em] transition-all uppercase rounded-lg whitespace-nowrap block text-center ${
               activeTab === tab 
-                ? 'bg-matrix/10 text-matrix shadow-[0_0_12px_rgba(59,130,246,0.15)] glow-matrix' 
+                ? 'bg-matrix/10 text-matrix border border-matrix/20' 
                 : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
@@ -153,23 +153,22 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
           <>
             <div className="lg:col-span-8 space-y-12">
               {!isNeuralEngaged && (
-                 <div className="glass-card border border-bull/30 bg-bull/5 p-6 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-bull shadow-bull" />
-                    <div>
-                      <h3 className="text-[13px] font-bold text-white uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-bull animate-pulse" />
-                        AI Analysis Inactive
-                      </h3>
-                      <p className="text-[12px] text-zinc-400 max-w-lg leading-relaxed">Enable AI analysis to extract live sentiment summaries and 90-day price scenarios powered by Gemini 2.0.</p>
-                    </div>
-                    <button 
-                      onClick={() => setIsNeuralEngaged(true)} 
-                      className="whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-white text-black text-[11px] font-bold uppercase tracking-widest transition-opacity active:opacity-80"
-                    >
-                      <div className="w-2 h-2 bg-black rounded-full" />
-                      Enable AI Analysis
-                    </button>
-                 </div>
+                  <div className="glass-card border border-zinc-800 bg-zinc-950/40 p-6 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+                     <div className="absolute top-0 left-0 w-1 h-full bg-matrix" />
+                     <div>
+                       <h3 className="text-[13px] font-bold text-white uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-zinc-500" />
+                         Portfolio Optimization Model Standby
+                       </h3>
+                       <p className="text-[12px] text-zinc-400 max-w-lg leading-relaxed">Enable the optimization model to extract live sentiment summaries and 90-day price scenarios powered by Gemini 2.5 Flash-Lite.</p>
+                     </div>
+                     <button 
+                       onClick={() => setIsNeuralEngaged(true)} 
+                       className="whitespace-nowrap flex items-center gap-3 px-6 py-3 bg-white text-black text-[11px] font-bold uppercase tracking-widest transition-opacity active:opacity-80"
+                     >
+                       Run Model Optimization
+                     </button>
+                  </div>
               )}
 
               <ExecutionPlanner ticker={ticker} signal={signal} />
@@ -191,7 +190,7 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
 
                 <div className="flex items-center gap-3 mb-2">
                   <span className="w-1 h-3.5 bg-white shadow-none" />
-                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">Intelligent Intent</h2>
+                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">Institutional Flow & Ownership</h2>
                 </div>
                 <WhaleRadarPanel 
                   intelligence={calculateWhaleIntelligence(d)} 
@@ -201,7 +200,7 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
 
                 <div className="flex items-center gap-3 mb-2">
                   <span className="w-1 h-3.5 bg-white shadow-none" />
-                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">AI Analysis</h2>
+                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">AI Portfolio & Optimization Matrix</h2>
                 </div>
                 <StrategicOracle 
                   ticker={ticker} 

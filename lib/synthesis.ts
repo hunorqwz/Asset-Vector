@@ -3,7 +3,7 @@ import { SentimentReport } from "./sentiment";
 import { MarketRegime } from "./regime";
 import { RollingCorrelation } from "./market-data";
 import { QualityScore } from "./quality-engine";
-import { PredictionResult } from "./inference";
+import { PredictionResult, MultiHorizonPrediction } from "./inference";
 
 export interface MarketSynthesis {
   score: number; // 0-100
@@ -26,7 +26,8 @@ export function generateSynthesis(
   benchmark?: RollingCorrelation,
   quality?: QualityScore,
   prediction?: PredictionResult,
-  currentPrice?: number
+  currentPrice?: number,
+  multiPrediction?: MultiHorizonPrediction
 ): MarketSynthesis {
   // 1. Calculate Core Weights based on Predictability
   // If predictability is low (Hurst < 0.45), we discount technicals and favor sentiment or neutral
@@ -106,6 +107,28 @@ export function generateSynthesis(
     } else if (forecastReturn > 5) {
       forecastBoost = 5;
     }
+  }
+
+  // Factor in longer-term horizons if available (e.g. 1W and 1M)
+  if (multiPrediction && currentPrice && currentPrice > 0) {
+    hasForecastImpact = true;
+    
+    const horizonsToCheck: ("1W" | "1M")[] = ["1W", "1M"];
+    horizonsToCheck.forEach(h => {
+      const pred = multiPrediction[h];
+      if (pred) {
+        const ret = ((pred.p50 - currentPrice) / currentPrice) * 100;
+        if (ret < 0) {
+          if (ret < -5) {
+            forecastPenalty += 25;
+          } else if (ret < -2) {
+            forecastPenalty += 15;
+          } else {
+            forecastPenalty += 8;
+          }
+        }
+      }
+    });
   }
 
   // 5. SNR & Forecast Adjustments

@@ -29,16 +29,15 @@ export function GlobalCorrelationLab({ data }: GlobalCorrelationLabProps) {
   };
 
   return (
-    <div className="glass-card border border-white/10 overflow-hidden group">
+    <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden group">
       <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
         <div>
-          <h2 className="text-[12px] font-bold text-white uppercase tracking-[0.2em] mb-1">Global Correlation Lab</h2>
-          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-relaxed">Systemic Redundancy & Diversification Matrix</p>
+          <h2 className="text-sm font-bold text-white tracking-wide mb-1">Asset Price Correlation Matrix</h2>
         </div>
         <div className="flex items-center gap-6">
            <div className="text-right">
-             <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-1">Redundancy Risk</span>
-             <span className={`text-[13px] font-mono font-bold ${highCorrCount > 0 ? 'text-bear animate-pulse' : 'text-matrix'}`}>
+             <span className="text-xs font-medium text-zinc-400 block mb-1">Redundancy Risk</span>
+             <span className={`text-[13px] font-mono font-bold ${highCorrCount > 0 ? 'text-bear' : 'text-matrix'}`}>
                {highCorrCount > 0 ? `CRITICAL (${highCorrCount} PAIRS)` : 'LOW / OPTIMIZED'}
              </span>
            </div>
@@ -59,7 +58,7 @@ export function GlobalCorrelationLab({ data }: GlobalCorrelationLabProps) {
             <div className="h-10" />
             {tickers.map(t => (
               <div key={t} className="h-10 flex items-center justify-center">
-                <span className="text-[9px] font-bold font-mono text-zinc-500 uppercase rotate-45 origin-center">{t}</span>
+                <span className="text-[11px] font-medium font-mono text-zinc-400 rotate-45 origin-center">{t}</span>
               </div>
             ))}
 
@@ -67,16 +66,16 @@ export function GlobalCorrelationLab({ data }: GlobalCorrelationLabProps) {
             {tickers.map((tRow, i) => (
               <React.Fragment key={tRow}>
                 <div className="h-10 flex items-center pr-4">
-                  <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase">{tRow}</span>
+                  <span className="text-[11px] font-medium font-mono text-zinc-400">{tRow}</span>
                 </div>
                 {tickers.map((tCol, j) => {
                   const val = matrix[i][j];
                   return (
                     <StealthTooltip key={`${i}-${j}`} content={`${tRow} vs ${tCol}: ${val.toFixed(2)}`}>
                       <div 
-                        className={`h-10 w-full rounded-[2px] flex items-center justify-center transition-all cursor-crosshair hover:scale-110 hover:z-10 shadow-sm ${getCellColor(val)}`}
+                        className={`h-10 w-full rounded-[2px] flex items-center justify-center transition-all hover:scale-110 hover:z-10 shadow-sm ${getCellColor(val)}`}
                       >
-                        <span className="text-[8px] font-bold font-mono opacity-0 group-hover:opacity-40">{val.toFixed(1)}</span>
+                        <span className="text-[10px] font-mono text-white/80">{val.toFixed(1)}</span>
                       </div>
                     </StealthTooltip>
                   );
@@ -92,7 +91,7 @@ export function GlobalCorrelationLab({ data }: GlobalCorrelationLabProps) {
              <LegendItem color="bg-zinc-800" label="Neutral" />
              <LegendItem color="bg-bull" label="Alpha (<0.0)" />
           </div>
-          <p className="max-w-xs text-[10px] text-zinc-500 font-medium leading-relaxed italic text-right">
+          <p className="max-w-xs text-[11px] text-zinc-400 font-medium italic text-right">
              High correlation increases systemic risk. Seek "Alpha" cells (blue) to maximize portfolio resilience.
           </p>
         </div>
@@ -105,7 +104,7 @@ function LegendItem({ color, label }: { color: string, label: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className={`w-2.5 h-2.5 rounded-sm ${color}`} />
-      <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">{label}</span>
+      <span className="text-[11px] font-medium text-zinc-400">{label}</span>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { fmt, fmtChange } from "@/lib/format";
 import { Badge } from "@/components/atoms/Badge";
 import { AssetDashboard } from "@/components/organisms/AssetDashboard";
 import { LiveHeader } from "@/components/organisms/LiveHeader";
+import { GlobalFooter } from "@/components/organisms/GlobalFooter";
 import { AccuracyScorecard } from "@/components/organisms/AccuracyScorecard";
 import { getAccuracyScorecard } from "@/app/actions/signals";
 import { AlpacaTerminal } from "@/components/organisms/AlpacaTerminal";
@@ -96,10 +97,10 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
             <OptionsProbabilityPanel data={optionsData} />
             
              {/* Quick Metrics */}
-             <div className="glass-card mt-10 p-6 border border-white/10 relative overflow-hidden group">
+             <div className="glass-card mt-10 p-6 border border-white/5 bg-black/40 backdrop-blur-md relative overflow-hidden group rounded-xl">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-1.5 h-6 bg-matrix" />
-                  <h3 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Profile Stats</h3>
+                  <h3 className="text-[11px] font-bold text-zinc-500 uppercase tracking-[0.15em]">Profile Stats</h3>
                 </div>
                 <div className="space-y-5">
                   <MetricRow label="Industry" value={d.profile.industry || d.profile.sector || "N/A"} />
@@ -119,20 +120,7 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
       {/* ═══════════════════════════════════════════════════════ */}
       {/* FOOTER                                                 */}
       {/* ═══════════════════════════════════════════════════════ */}
-      <footer className="glass-panel z-[100] px-8 py-3 flex items-center bg-black/60 backdrop-blur-md border-t border-white/5">
-        <div className="w-full flex items-center justify-between">
-          <div className="flex gap-10">
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Source</span>
-              <span className="text-[12px] font-mono font-bold text-zinc-400">Yahoo Finance</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Updated</span>
-              <span className="text-[12px] font-mono font-bold text-zinc-300">{new Date(d.fetchedAt).toLocaleTimeString()}</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <GlobalFooter source="Yahoo Finance" updatedAt={d.fetchedAt} />
     </>
   );
 }
@@ -141,7 +129,7 @@ function MetricRow({ label, value }: { label: string, value?: string }) {
   if (!value) return null;
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tight">{label}</span>
+      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{label}</span>
       <span className="text-[11px] font-mono font-bold text-zinc-300">{value}</span>
     </div>
   );

@@ -39,12 +39,13 @@ export function LivePriceCard({
   const isBull = currentChange >= 0;
 
   return (
-    <div className={`p-4 flex flex-col justify-between h-full bg-[#0a0a0a] border border-white/10 -ml-px -mt-px first:ml-0 transition-all duration-300 ${
-      pulse === "UP" ? "bg-bull/10" : pulse === "DOWN" ? "bg-bear/10" : "hover:bg-[#111111]"
-    }`}>
+    <div className="group p-5 flex flex-col justify-between h-full border border-white/5 -ml-px -mt-px first:ml-0 relative overflow-hidden transition-all duration-300 bg-[#070707] hover:bg-[#0c0c0c]">
+      {/* Top Accent Bar */}
+      <div className={`absolute top-0 left-0 w-full h-[2px] transition-transform duration-500 scale-x-0 group-hover:scale-x-100 ${isBull ? 'bg-bull' : 'bg-bear'}`} />
+
       <div className="flex flex-col">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest block">{label}</span>
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block group-hover:text-zinc-400 transition-colors">{label}</span>
           {lastTick && (
              <div className="flex items-center gap-1.5">
                <span className="relative flex h-1.5 w-1.5">
@@ -55,13 +56,13 @@ export function LivePriceCard({
              </div>
           )}
         </div>
-        <span className={`text-[17px] font-mono font-bold tabular-nums tracking-tight block leading-none transition-colors duration-300 ${
+        <span className={`text-[18px] font-mono font-bold tabular-nums tracking-tighter block leading-none transition-colors duration-300 ${
           pulse === "UP" ? "text-bull" : pulse === "DOWN" ? "text-bear" : "text-white"
         }`}>
           {fmt(displayPrice)}
         </span>
       </div>
-      <span className={`text-[11px] font-mono font-bold mt-2 tabular-nums ${isBull ? 'text-bull' : 'text-bear'}`}>
+      <span className={`text-[10px] font-mono font-bold mt-3 tabular-nums uppercase tracking-widest ${isBull ? 'text-bull' : 'text-bear'}`}>
         {isBull ? `+${fmt(currentChange)}` : fmt(currentChange)}
       </span>
     </div>

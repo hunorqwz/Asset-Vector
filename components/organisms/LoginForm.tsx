@@ -51,7 +51,7 @@ export function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full bg-[#0a0a0a] border border-white/5 px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:bg-matrix/5 transition-all transition-duration-300 placeholder-zinc-800"
+            className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 transition-all placeholder-zinc-800"
             placeholder="you@example.com"
           />
         </div>
@@ -66,7 +66,7 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="w-full bg-[#0a0a0a] border border-white/5 px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:bg-matrix/5 transition-all transition-duration-300 placeholder-******"
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 transition-all placeholder-zinc-700"
           placeholder="••••••••"
         />
       </div>
@@ -83,7 +83,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="relative py-4 bg-matrix text-black font-black uppercase text-[12px] tracking-[0.3em] overflow-hidden group hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale transition-duration-300 mt-2 cursor-crosshair"
+        className="relative py-4 bg-matrix text-black font-black uppercase text-[12px] tracking-[0.3em] overflow-hidden group hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale transition-duration-300 mt-2"
       >
         <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
         <span className="relative">
@@ -93,7 +93,7 @@ export function LoginForm() {
 
       <div className="flex items-center justify-center gap-4 mt-2 opacity-50">
         <div className="h-[1px] flex-1 bg-white/5" />
-        <span className="text-[9px] font-bold text-zinc-800 uppercase tracking-widest whitespace-nowrap">
+        <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest whitespace-nowrap">
            v2.4.0
         </span>
         <div className="h-[1px] flex-1 bg-white/5" />

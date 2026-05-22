@@ -123,7 +123,7 @@ export function AlphaPerformanceDashboard({ data }: Props) {
               className={`text-[10px] font-bold uppercase tracking-widest px-4 py-2 transition-all ${
                 tab === t
                   ? "bg-white text-black"
-                  : "bg-white/5 text-zinc-500 hover:text-white border border-white/10"
+                  : "bg-white/5 text-zinc-500 hover:text-white border border-white/5"
               }`}
             >
               {t}
@@ -143,16 +143,16 @@ export function AlphaPerformanceDashboard({ data }: Props) {
               { label: "Total Signals", value: data.totalPicks.toString(), color: "text-white" },
               { label: "Pending", value: data.pendingCount.toString(), color: "text-zinc-400" },
             ].map(kpi => (
-              <div key={kpi.label} className="glass-card border border-white/10 p-6 relative overflow-hidden">
+              <div key={kpi.label} className="glass-card border border-white/5 bg-black/40 backdrop-blur-md p-6 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-3">{kpi.label}</p>
+                <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3">{kpi.label}</p>
                 <p className={`text-2xl font-bold font-mono tabular-nums ${kpi.color}`}>{kpi.value}</p>
               </div>
             ))}
           </div>
 
           {/* Equity Curve */}
-          <div className="glass-card border border-white/10 p-8 relative overflow-hidden">
+          <div className="glass-card border border-white/5 bg-black/40 backdrop-blur-md p-8 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-matrix/40 to-transparent" />
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -164,7 +164,7 @@ export function AlphaPerformanceDashboard({ data }: Props) {
               </span>
             </div>
             <EquityCurve data={data.equityCurve} />
-            <div className="flex justify-between mt-3 text-[9px] font-bold text-zinc-700 uppercase tracking-widest">
+            <div className="flex justify-between mt-3 text-[10px] font-bold text-zinc-700 uppercase tracking-widest">
               <span>Oldest Signal</span>
               <span>Latest Evaluated</span>
             </div>
@@ -181,9 +181,9 @@ export function AlphaPerformanceDashboard({ data }: Props) {
       )}
 
       {tab === "picks" && (
-        <div className="glass-card border border-white/10 overflow-hidden">
+        <div className="glass-card border border-white/5 bg-black/40 backdrop-blur-md overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-matrix/30 to-transparent" />
-          <div className="border-b border-white/5 px-6 py-4 grid grid-cols-12 text-[9px] font-bold text-zinc-600 uppercase tracking-widest gap-2">
+          <div className="border-b border-white/5 px-6 py-4 grid grid-cols-12 text-[10px] font-bold text-zinc-600 uppercase tracking-widest gap-2">
             <span className="col-span-2">Ticker</span>
             <span className="col-span-2">Scanner</span>
             <span className="col-span-1 text-right">Entry</span>
@@ -196,7 +196,7 @@ export function AlphaPerformanceDashboard({ data }: Props) {
             {data.recentPicks.map((pick, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 px-6 py-3 hover:bg-white/[0.02] transition-colors text-[11px] font-mono items-center">
                 <span className="col-span-2 font-bold text-white tracking-wider">{pick.ticker}</span>
-                <span className={`col-span-2 text-[9px] font-bold uppercase tracking-widest ${getScannerColor(pick.scanner)}`}>{pick.scanner.slice(0, 10)}</span>
+                <span className={`col-span-2 text-[10px] font-bold uppercase tracking-widest ${getScannerColor(pick.scanner)}`}>{pick.scanner.slice(0, 10)}</span>
                 <span className="col-span-1 text-right text-zinc-400">${pick.entry.toFixed(2)}</span>
                 <span className="col-span-1 text-right text-zinc-500">{pick.exit ? `$${pick.exit.toFixed(2)}` : "—"}</span>
                 <span className={`col-span-2 text-right font-bold ${pick.alpha !== null ? (pick.alpha >= 0 ? "text-bull" : "text-bear") : "text-zinc-600"}`}>
@@ -204,7 +204,7 @@ export function AlphaPerformanceDashboard({ data }: Props) {
                 </span>
                 <span className="col-span-2 text-right text-zinc-500">{pick.betaAtGeneration.toFixed(2)}β</span>
                 <span className="col-span-2 text-right">
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider ${STATUS_STYLES[pick.status]}`}>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider ${STATUS_STYLES[pick.status]}`}>
                     {pick.status}
                   </span>
                 </span>
@@ -223,7 +223,7 @@ export function AlphaPerformanceDashboard({ data }: Props) {
             const total = stats.wins + stats.losses;
             const wr = total > 0 ? (stats.wins / total) * 100 : 0;
             return (
-              <div key={scanner} className="glass-card border border-white/10 p-6 relative overflow-hidden">
+              <div key={scanner} className="glass-card border border-white/5 bg-black/40 backdrop-blur-md p-6 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 <div className="flex items-center justify-between mb-4">
                   <span className={`text-[10px] font-bold uppercase tracking-widest ${getScannerColor(scanner)}`}>{scanner}</span>
@@ -232,11 +232,11 @@ export function AlphaPerformanceDashboard({ data }: Props) {
                   </span>
                 </div>
                 <p className={`text-3xl font-bold font-mono mb-1 ${wr >= 50 ? "text-white" : "text-zinc-500"}`}>{wr.toFixed(0)}%</p>
-                <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-4">Win Rate</p>
+                <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-4">Win Rate</p>
                 <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-4">
                   <div className={`h-full ${wr >= 50 ? "bg-bull" : "bg-bear"} transition-all duration-1000`} style={{ width: `${wr}%` }} />
                 </div>
-                <div className="flex justify-between text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+                <div className="flex justify-between text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
                   <span className="text-bull">{stats.wins}W</span>
                   <span>{total} total</span>
                   <span className="text-bear">{stats.losses}L</span>
@@ -252,7 +252,7 @@ export function AlphaPerformanceDashboard({ data }: Props) {
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-4 border-t border-white/5 text-[9px] font-bold text-zinc-700 uppercase tracking-widest">
+      <div className="flex items-center justify-between pt-4 border-t border-white/5 text-[10px] font-bold text-zinc-700 uppercase tracking-widest">
         <span>Last {data.totalPicks} signals · {data.evaluatedCount} evaluated · {data.pendingCount} pending</span>
         <span>Beta-Neutral Jensen Alpha Evaluation</span>
       </div>
@@ -262,15 +262,15 @@ export function AlphaPerformanceDashboard({ data }: Props) {
 
 function PickHighlight({ pick, label, accent, border }: { pick: PickRecord; label: string; accent: string; border: string }) {
   return (
-    <div className={`glass-card border ${border} p-6 relative overflow-hidden`}>
-      <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-4 ${accent}`}>{label}</p>
+    <div className={`glass-card border ${border} bg-black/40 backdrop-blur-md p-6 relative overflow-hidden`}>
+      <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${accent}`}>{label}</p>
       <div className="flex items-baseline justify-between">
         <span className="text-2xl font-bold font-mono text-white">{pick.ticker}</span>
         <span className={`text-xl font-bold font-mono ${accent}`}>
           {pick.alpha !== null ? `${pick.alpha >= 0 ? "+" : ""}${(pick.alpha * 100).toFixed(2)}%` : "—"} α
         </span>
       </div>
-      <div className="mt-3 flex gap-4 text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+      <div className="mt-3 flex gap-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
         <span>Entry ${pick.entry.toFixed(2)}</span>
         {pick.exit && <span>Exit ${pick.exit.toFixed(2)}</span>}
         <span className={getScannerColor(pick.scanner)}>{pick.scanner.slice(0, 10)}</span>

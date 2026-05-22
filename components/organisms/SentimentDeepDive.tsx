@@ -41,7 +41,7 @@ export function SentimentDeepDive({ ticker, news, sentiment, divergence, globalT
       <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 bg-bull rounded-full shadow-bull" />
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300">Sentimental Narrative Layer</h3>
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300">Sentiment Narrative Analysis</h3>
         </div>
         <button 
           onClick={() => setShowLogic(!showLogic)}
@@ -59,8 +59,8 @@ export function SentimentDeepDive({ ticker, news, sentiment, divergence, globalT
             <div>
               <h4 className="text-[12px] font-bold text-white uppercase tracking-widest mb-2">Narrative Velocity Extraction</h4>
               <p className="text-[12px] text-zinc-400 leading-relaxed">
-                Price follows narrative. Our NLP engine performs a "Forensic Sentiment Scan" using <span className="text-bull">Gemini 2.0 Flash</span> to parse institutional news cycles. 
-                Instead of simple positive/negative word counts, we extract actual Marco Drivers and measure <span className="text-bull">Narrative Drift</span>.
+                Price follows narrative. Our NLP engine performs a "Sentiment Narrative Scan" using <span className="text-bull">Gemini 2.5 Flash-Lite</span> to parse institutional news cycles. 
+                Instead of simple positive/negative word counts, we extract actual Macro Drivers and measure <span className="text-bull">Narrative Drift</span>.
               </p>
             </div>
             
@@ -113,20 +113,20 @@ export function SentimentDeepDive({ ticker, news, sentiment, divergence, globalT
                 <div key={i} className="group/news p-3 bg-white/[0.02] border border-white/5 hover:border-white/20 transition-all">
                   <p className="text-[12px] font-bold text-zinc-300 group-hover/news:text-white transition-colors leading-snug mb-1">{d.driver}</p>
                   <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-widest">
-                    <span className="text-zinc-500">Gemini 2.0 extraction</span>
+                    <span className="text-zinc-500">Gemini 2.5 extraction</span>
                     <span className={d.impact === 'BULLISH' ? 'text-bull' : d.impact === 'BEARISH' ? 'text-bear' : 'text-zinc-400'}>{d.impact}</span>
                   </div>
                 </div>
               )) : (
                  <div className="flex flex-col items-center justify-center p-6 bg-white/[0.01] border border-white/5 border-dashed gap-3">
-                   <div className="text-[11px] text-zinc-500 italic text-center">Awaiting deep driver extraction via Gemini 2.0.</div>
+                   <div className="text-[11px] text-zinc-500 italic text-center">Awaiting deep driver extraction via Gemini 2.5.</div>
                    <button 
                      onClick={handleExtraction}
                      disabled={isExtracting}
                      className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all text-white border border-bull/50 bg-bull/10 hover:bg-bull hover:text-black disabled:opacity-50 flex items-center gap-2"
                    >
                      {isExtracting && <div className="w-1.5 h-1.5 bg-current rounded-full animate-ping" />}
-                     {isExtracting ? 'Extracting Narratives...' : 'Run Neural Extraction'}
+                     {isExtracting ? 'Extracting Narratives...' : 'Run Sentiment Analysis'}
                    </button>
                  </div>
               )}

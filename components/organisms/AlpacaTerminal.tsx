@@ -82,15 +82,15 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
   }
 
   return (
-    <div className="glass-card mt-10 p-6 border border-white/10 relative overflow-hidden">
+    <div className="glass-card mt-10 p-6 border border-white/5 bg-black/40 backdrop-blur-md relative overflow-hidden rounded-xl">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-6 bg-bull" />
-          <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.2em]">Institutional Executive</h3>
+          <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.15em]">Institutional Executive</h3>
         </div>
         <div className="flex items-center gap-2">
           <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-bull' : 'bg-zinc-600'}`} />
-          <span className="text-[9px] font-black text-zinc-500 tracking-widest uppercase">
+          <span className="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">
             {isConnected ? 'LIVE TAPE' : 'STANDBY'}
           </span>
         </div>
@@ -98,13 +98,13 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
 
       <div className="grid grid-cols-2 gap-6 mb-8">
         <div>
-          <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-tighter block mb-1">Buying Power</span>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Buying Power</span>
           <span className="text-sm font-mono font-bold text-zinc-200">
             {account ? `$${Number(account.buying_power).toLocaleString()}` : '---'}
           </span>
         </div>
         <div className="text-right">
-          <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-tighter block mb-1">Current Position</span>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Current Position</span>
           <span className="text-sm font-mono font-bold text-zinc-200">
             {position ? `${position.qty} @ ${Number(position.avg_entry_price).toFixed(2)}` : '0'}
           </span>
@@ -114,14 +114,14 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
       <div className="bg-white/5 rounded-lg p-5 border border-white/5 mb-8">
         <div className="flex justify-between items-center mb-4">
            <div className="text-center flex-1">
-              <span className="text-[8px] font-bold text-zinc-500 block mb-1 uppercase">BID</span>
+              <span className="text-[10px] font-bold text-zinc-500 block mb-1 uppercase">BID</span>
               <span className="text-lg font-mono font-black text-zinc-200">
                 {quote?.bp || lastTick?.price || '---'}
               </span>
            </div>
            <div className="w-px h-8 bg-white/10 mx-4" />
            <div className="text-center flex-1">
-              <span className="text-[8px] font-bold text-zinc-500 block mb-1 uppercase">ASK</span>
+              <span className="text-[10px] font-bold text-zinc-500 block mb-1 uppercase">ASK</span>
               <span className="text-lg font-mono font-black text-zinc-200">
                 {quote?.ap || lastTick?.price || '---'}
               </span>
@@ -137,12 +137,12 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
 
       <div className="space-y-6">
         <div className="relative">
-           <label className="text-[9px] font-black text-zinc-600 absolute -top-2 left-3 bg-black px-1.5 z-10 tracking-[0.2em] uppercase">USD Notional</label>
+           <label className="text-[10px] font-bold text-zinc-500 absolute -top-2.5 left-3 bg-zinc-950 px-1.5 z-10 tracking-wider uppercase">USD Notional</label>
            <input 
               type="number" 
               value={notional}
               onChange={(e) => setNotional(e.target.value)}
-              className="w-full bg-transparent border border-white/10 rounded-lg px-4 py-3 text-sm font-mono font-bold text-white focus:outline-none focus:border-bull/50 transition-colors"
+              className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm font-mono font-bold text-white focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 transition-all"
            />
         </div>
 

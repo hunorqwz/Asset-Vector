@@ -9,8 +9,8 @@ describe('Inference Engine - Circuit Breaker (lib/inference)', () => {
 
   beforeEach(async () => {
     // Clear failure count and circuit state
-    await setInCache("ml_failure_count", 0, 0);
-    await setInCache("ml_circuit_tripped", false, 0);
+    await setInCache("ml_failure_count", 0, 60000);
+    await setInCache("ml_circuit_tripped", false, 60000);
     // Deep clear the internal cache map if possible, but at least clear relevant keys
     // By providing 0 TTL it clears on next get, but we need to ensure the Map is fresh.
     // Since we can't easily reach the internal 'cache' Map in lib/cache from here without exports,

@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from 'react';
 import { StrategicInsight } from '@/app/actions/ai';
-import { GlassBoxTheory } from '@/components/organisms/GlassBoxTheory';
 import { OHLCV } from '@/lib/market-data';
 
 import { NarrativeArticle } from '@/lib/types';
@@ -28,7 +27,6 @@ export const StrategicOracle = ({
 }: StrategicOracleProps) => {
   const [activeTab, setActiveTab] = useState<'SHORT' | 'MID' | 'LONG'>('SHORT');
   const [activeScenario, setActiveScenario] = useState<'conservative' | 'balanced' | 'aggressive'>('balanced');
-  const [isTheoryOpen, setIsTheoryOpen] = useState(false);
 
   if (!insight) {
     const isQuota = error === 'CAPACITY_LIMIT';
@@ -38,15 +36,14 @@ export const StrategicOracle = ({
            {isQuota ? "!" : "Σ"}
         </div>
         <h3 className="text-base font-bold text-white mb-3 uppercase tracking-[0.25em]">
-          {isQuota ? 'Resource Exhausted' : 'Intelligence Offline'}
+          {isQuota ? 'Resource Limit Reached' : 'AI Analysis Standby'}
         </h3>
         <p className="text-xs text-zinc-500 max-w-sm mb-10 leading-relaxed font-medium">
           {isQuota 
-            ? 'Our neural processing engines are currently at maximum capacity. Reset incoming in 60s.'
-            : 'Initialize the strategic intelligence core for deep-market pattern recognition and automated forecasting.'}
+            ? 'Our inference processing engines are currently at maximum capacity. Reset incoming in 60s.'
+            : 'Generate institutional-grade price projections, pattern analysis, and market sentiment overlays using the AI engine.'}
         </p>
         <div className="flex gap-10">
-          <button onClick={() => setIsTheoryOpen(true)} className="text-[10px] text-zinc-500 hover:text-white transition-all uppercase font-bold tracking-[0.2em] border-b border-transparent hover:border-white/20 pb-1">Theory Mode</button>
           <button 
             onClick={onExtract}
             disabled={isExtracting}
@@ -58,10 +55,10 @@ export const StrategicOracle = ({
                  <div className="w-1.5 h-1.5 bg-zinc-900 rounded-full animate-bounce [animation-delay:-0.15s]" />
                  <div className="w-1.5 h-1.5 bg-zinc-900 rounded-full animate-bounce" />
                </div>
-            ) : isQuota ? 'System Re-Sync' : 'Engage Neural Extraction'}
+            ) : isQuota ? 'System Re-Sync' : 'Generate AI Projections'}
           </button>
         </div>
-        <GlassBoxTheory indicator="Oracle" isOpen={isTheoryOpen} onClose={() => setIsTheoryOpen(false)} currentData={history} />
+
       </div>
     );
   }
@@ -76,7 +73,7 @@ export const StrategicOracle = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-white/5 pb-6">
         <div className="flex items-center gap-4">
            <div className="w-2 h-2 rounded-full bg-bull animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.4)]" />
-           <h3 className="text-sm font-bold text-white uppercase tracking-[0.25em]">Strategic Oracle</h3>
+           <h3 className="text-sm font-bold text-white uppercase tracking-[0.25em]">AI Projections & Analytics</h3>
         </div>
         
         <div className="flex items-center bg-black/40 border border-white/5 p-1 rounded-lg">
@@ -97,7 +94,7 @@ export const StrategicOracle = ({
       {/* CORE INSIGHTS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/5 border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
         <div className="p-8 bg-black/40 backdrop-blur-md">
-           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block mb-4">Core Structural Pattern</span>
+           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block mb-4">Identified Technical Pattern</span>
            <h3 className="text-lg font-bold text-white mb-4 tracking-tight">{insight.patternRecognition.form}</h3>
            <p className="text-[13px] text-zinc-400 leading-relaxed font-medium pl-5 border-l border-zinc-700">
              {insight.patternRecognition.implication}
@@ -106,7 +103,7 @@ export const StrategicOracle = ({
         
         <div className="p-8 bg-black/30 backdrop-blur-md">
            <div className="flex justify-between items-start mb-4">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Market Sentiment Bias</span>
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Sentiment Indicator</span>
               <span className={`text-[10px] font-bold font-mono tracking-[0.2em] px-3 py-1 rounded-md border ${
                 insight.sentiment.bias === 'BULLISH' ? 'bg-bull/10 text-bull border-bull/20' : 
                 insight.sentiment.bias === 'BEARISH' ? 'bg-bear/10 text-bear border-bear/20' : 
@@ -145,7 +142,7 @@ export const StrategicOracle = ({
            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-12">
               <div className="shrink-0 space-y-6">
                  <div>
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block mb-2">Projected Model Target</span>
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block mb-2">Projected Target</span>
                     <div className="text-5xl font-extrabold text-white tracking-tighter font-mono tabular-nums">
                       ${currentHorizon.priceTarget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
@@ -153,7 +150,7 @@ export const StrategicOracle = ({
                  
                  <div className="space-y-3">
                     <div className="flex justify-between items-center text-[10px] font-bold text-zinc-400 font-mono tracking-widest">
-                       <span>PROBABILITY ENGINE</span>
+                       <span>CONFIDENCE INTERVAL</span>
                        <span>{(currentHorizon.probability * 100).toFixed(0)}%</span>
                     </div>
                     <div className="w-full lg:w-64 h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -183,16 +180,14 @@ export const StrategicOracle = ({
          <div className="flex items-center gap-4">
             <div className="w-2 h-2 rounded-full bg-bear animate-pulse" />
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-2">
-               <span className="text-[10px] font-bold text-bear/80 uppercase tracking-[0.2em]">Risk Vector Analysis</span>
+               <span className="text-[10px] font-bold text-bear/80 uppercase tracking-[0.2em]">Risk Assessment</span>
                <span className="text-xs text-zinc-300 font-medium">{insight.riskAnalysis}</span>
             </div>
          </div>
-         <button onClick={() => setIsTheoryOpen(true)} className="text-zinc-600 hover:text-white transition-colors opacity-0 group-hover:opacity-100 text-xs">
-           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-         </button>
+
       </div>
 
-      <GlassBoxTheory indicator="Oracle" isOpen={isTheoryOpen} onClose={() => setIsTheoryOpen(false)} currentData={history} />
+
     </div>
   );
 };

@@ -21,7 +21,7 @@ export const NeuralAnomalyReport = ({ history, technicals, insight }: NeuralAnom
       <div className="p-5 border border-white/5 bg-black/20 rounded-xl flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-1.5 h-1.5 bg-bull shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-mono">Structural Resonance: Nominal</span>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-mono">Model Anomalies: Nominal</span>
         </div>
         <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest">No Active Divergence</span>
       </div>
@@ -31,10 +31,10 @@ export const NeuralAnomalyReport = ({ history, technicals, insight }: NeuralAnom
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 px-1">
-        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Neural Divergence Monitor</h3>
+        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Inference Divergence Monitor</h3>
         <div className="h-px flex-1 bg-white/5 mx-4" />
         <span className="text-[10px] bg-bear/10 text-bear border border-bear/20 px-3 py-1 rounded-sm font-bold uppercase tracking-[0.2em]">
-          {anomalies.length} Anomaly Detectors Tripped
+          {anomalies.length} Anomalies Detected
         </span>
       </div>
 

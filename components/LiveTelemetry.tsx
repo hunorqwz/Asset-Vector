@@ -61,7 +61,7 @@ export function StealthTooltip({
     : "top-full mt-3 right-0";
 
   return (
-    <div className="relative group cursor-crosshair flex items-center">
+    <div className="relative group flex items-center">
       {children}
       <div className={`absolute ${posClass} px-3 py-1.5 bg-[#0a0a0a] border border-white/10 rounded-sm text-[10px] font-mono text-zinc-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[150] shadow-xl`}>
         {content}

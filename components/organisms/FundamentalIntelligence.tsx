@@ -159,7 +159,7 @@ function IntelligenceCard({ title, metrics, insightKey, peerValue }: Intelligenc
               
               <div className="space-y-2">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Key Insight</span>
-                <p className="text-[12px] text-zinc-400 leading-relaxed italic border-l border-matrix/50 pl-4">{insight.surgicalTake}</p>
+                <p className="text-[12px] text-zinc-400 leading-relaxed italic border-l border-matrix/50 pl-4">{insight.keyTakeaway}</p>
               </div>
 
               <div className="space-y-3">

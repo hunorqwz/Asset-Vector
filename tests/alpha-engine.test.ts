@@ -5,7 +5,7 @@ import { StockDetails } from '@/lib/stock-details';
 
 describe('Alpha Engine Scoring Scanners', () => {
 
-  const mockSignal = (rsi14: number, macdHist: number, priceChange5d: number): MarketSignal => ({
+  const mockSignal = (rsi14: number, macdHist: number, priceChange5d: number, synthesisScore: number = 80): MarketSignal => ({
     ticker: 'TEST',
     price: 150,
     time: 0,
@@ -22,7 +22,7 @@ describe('Alpha Engine Scoring Scanners', () => {
     sentiment: { score: 0.5, label: 'BULLISH', headlineCount: 1, drivers: [], drift: 'ACCELERATING_BULL', velocity: 0.2 },
     regime: 'TRENDING_UP',
     predictability: 0.8,
-    synthesis: { score: 80, signal: 'STRONG BUY', confidence: 'HIGH' }
+    synthesis: { score: synthesisScore, signal: 'STRONG BUY', confidence: 'HIGH' }
   } as unknown as MarketSignal);
 
   const mockDetails = (forwardPE: number, pegRatio: number, beta: number): StockDetails => ({
@@ -45,7 +45,7 @@ describe('Alpha Engine Scoring Scanners', () => {
 
   it('triggers the VALUE scanner for inexpensive assets with high sentiment', () => {
     // RSI Neutral, Low forward PE (12), Low PEG (0.8), High Sentiment (>0.1 already in mockSignal)
-    const signal = mockSignal(50, 0, 0); 
+    const signal = mockSignal(50, 0, 0, 30); 
     signal.quality = { score: 80, profitability: "A", health: "A", valuation: "A" } as any; // Trigger VALUE scanner req
     const details = mockDetails(12, 0.8, 1.2);
 
@@ -69,7 +69,7 @@ describe('Alpha Engine Scoring Scanners', () => {
   });
 
   it('returns score 0 and no scanner if no criteria met', () => {
-      const signal = mockSignal(30, -2, -5); // Bearish
+      const signal = mockSignal(30, -2, -5, 30); // Bearish, low synthesis
       const details = mockDetails(50, 5, 2.0); // Expensive, High beta
 
       const result = calculateAlphaScore(signal, details);

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono, VT323 } from "next/font/google";
+import { Inter, Geist_Mono, Outfit } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -13,18 +13,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const pixelFont = VT323({
-  variable: "--font-pixel",
-  weight: "400",
+const displayFont = Outfit({
+  variable: "--font-display",
   subsets: ["latin"],
+  display: "swap",
 });
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://vector.surgical'),
+  metadataBase: new URL('https://assetvector.app'),
   title: {
-    default: "Asset Vector | Surgical Market Intelligence",
+    default: "Asset Vector | Premium Market Intelligence",
     template: "%s | Asset Vector"
   },
-  description: "Professional-grade market telemetry and AI-driven asset intelligence for the surgical investor.",
+  description: "Professional-grade market telemetry and AI-driven asset intelligence.",
   keywords: ["market intelligence", "AI trading", "financial dashboard", "asset tracking", "telemetry"],
   authors: [{ name: "Vector Systems" }],
   creator: "Vector Systems",
@@ -35,9 +36,9 @@ export const metadata: Metadata = {
     telephone: false,
   },
   openGraph: {
-    title: "Asset Vector | Surgical Market Intelligence",
-    description: "High-precision market telemetry and AI-driven forecasting.",
-    url: "https://vector.surgical",
+    title: "Asset Vector | Premium Market Intelligence",
+    description: "High-precision market analysis and AI-driven forecasting.",
+    url: "https://assetvector.app",
     siteName: "Asset Vector",
     images: [
       {
@@ -52,8 +53,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Asset Vector | Surgical Market Intelligence",
-    description: "High-precision market telemetry and AI-driven forecasting.",
+    title: "Asset Vector | Premium Market Intelligence",
+    description: "High-precision market analysis and AI-driven forecasting.",
     creator: "@vectorsystems",
     images: ["/og-image.png"],
   },
@@ -74,12 +75,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${geistMono.variable} ${pixelFont.variable} antialiased select-none`}
+        className={`${inter.variable} ${geistMono.variable} ${displayFont.variable} antialiased select-none`}
       >
         <AuthProvider>
           <AlpacaProvider>
-            <div className="animate-scanline" />
-            <div className="vignette" />
             <div className="app-grid bg-background overflow-hidden relative">
               {children}
             </div>

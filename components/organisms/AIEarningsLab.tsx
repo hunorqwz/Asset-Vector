@@ -63,8 +63,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
   if (!upcomingCatalysts?.earningsDate) return null;
 
   return (
-    <section className="glass-card border border-white/10 overflow-hidden group">
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-matrix/40 to-transparent" />
+    <section className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden group">
       
       <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
         <div className="flex items-center gap-4">
@@ -72,8 +71,8 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
             <EarningsIcon />
           </div>
           <div>
-            <h2 className="text-[12px] font-bold text-white uppercase tracking-[0.2em] mb-1">AI Earnings Lab</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Catalyst & Volatility Projections</p>
+            <h2 className="text-sm font-bold text-white tracking-wide mb-1">AI Earnings Analysis</h2>
+            <p className="text-xs text-zinc-400">Catalyst & Volatility Projections</p>
           </div>
         </div>
         {!insight && !isLoading ? (
@@ -82,17 +81,17 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
             className="flex items-center gap-2 px-4 py-2 bg-matrix/5 border border-matrix/20 hover:bg-matrix/10 text-matrix rounded-lg transition-all"
           >
             <AIIcon />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Neural Deep Dive</span>
+            <span className="text-xs font-bold">Analyze Transcripts</span>
           </button>
         ) : isLoading ? (
           <div className="flex items-center gap-2 px-4 py-2 text-zinc-500">
              <div className="w-3 h-3 border-2 border-matrix/40 border-t-matrix rounded-full animate-spin" />
-             <span className="text-[10px] font-bold uppercase tracking-widest">Analyzing Transcripts...</span>
+             <span className="text-xs font-bold">Analyzing transcripts...</span>
           </div>
         ) : (
           <div className="text-right">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Next Release</span>
-            <span className="text-[13px] font-mono font-bold text-white uppercase">{upcomingCatalysts.earningsDate}</span>
+            <span className="text-[11px] font-medium text-zinc-400 block mb-1">Next Release</span>
+            <span className="text-[13px] font-mono font-bold text-white">{upcomingCatalysts.earningsDate}</span>
           </div>
         )}
       </div>
@@ -100,7 +99,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/5">
         {/* Surprise Momentum */}
         <div className="p-8">
-          <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+          <h3 className="text-xs font-medium text-zinc-400 mb-6 flex items-center gap-2">
             <StatsIcon />
             Surprise Momentum
           </h3>
@@ -122,7 +121,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
 
         {/* Expected Reaction */}
         <div className="p-8">
-          <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+          <h3 className="text-xs font-medium text-zinc-400 mb-6 flex items-center gap-2">
             <EarningsIcon />
             Est. Reaction Risk
           </h3>
@@ -142,20 +141,20 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
 
         {/* Fundamental Targets */}
         <div className="p-8 bg-white/[0.01]">
-          <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-6">Institutional Consensus</h3>
+          <h3 className="text-xs font-medium text-zinc-400 mb-6">Institutional Consensus</h3>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tight">Est. EPS</span>
+              <span className="text-[11px] font-medium text-zinc-400">Est. EPS</span>
               <span className="text-[12px] font-mono font-bold text-white">${upcomingCatalysts.earningsAverage?.toFixed(2) || '—'}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tight">Est. Revenue</span>
+              <span className="text-[11px] font-medium text-zinc-400">Est. Revenue</span>
               <span className="text-[12px] font-mono font-bold text-white">{fmtBigNum(upcomingCatalysts.revenueAverage || 0)}</span>
             </div>
             <div className="pt-4 border-t border-white/5">
                <div className="flex items-center gap-2">
                  <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse" />
-                 <span className="text-[9px] font-bold text-matrix uppercase tracking-widest">Alpha Strategy</span>
+                 <span className="text-[9px] font-bold text-matrix uppercase tracking-widest">AI Interpretation</span>
                </div>
                <p className="mt-2 text-[10px] text-zinc-500 font-medium italic leading-relaxed">
                  {analysis?.momentum === 'BULLISH' 
@@ -174,7 +173,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className={`w-1.5 h-4 ${insight.sentimentShift.direction === 'IMPROVING' ? 'bg-bull' : 'bg-bear'}`} />
-                  <h3 className="text-[11px] font-bold text-white uppercase tracking-[0.2em]">Forensic Sentiment Shift</h3>
+                  <h3 className="text-[11px] font-bold text-white uppercase tracking-[0.2em]">Earnings Sentiment Shift</h3>
                 </div>
                 <p className="text-[13px] text-zinc-400 leading-relaxed font-medium">
                   <span className={insight.sentimentShift.direction === 'IMPROVING' ? 'text-bull' : 'text-bear'}>
@@ -184,15 +183,15 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                 <div>
-                    <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-2">Guidance Quality</span>
+                  <div>
+                    <span className="text-[11px] font-medium text-zinc-400 block mb-2">Guidance Quality</span>
                     <div className="flex items-center gap-3">
                        <span className="text-xl font-mono font-bold text-white">{insight.guidanceQuality.score}/10</span>
                        <span className="text-[10px] text-zinc-500 font-bold uppercase">{insight.guidanceQuality.tone}</span>
                     </div>
                  </div>
                  <div>
-                    <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-2">Mgmt Confidence</span>
+                    <span className="text-[11px] font-medium text-zinc-400 block mb-2">Mgmt Confidence</span>
                     <div className="flex items-center gap-3">
                        <span className="text-xl font-mono font-bold text-white">{insight.managementConfidence}%</span>
                        <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
@@ -205,7 +204,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
 
            <div className="space-y-6">
               <div>
-                <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-4">Detected Obstacles (Non-Financial)</span>
+                <span className="text-[11px] font-medium text-zinc-400 block mb-4">Detected Obstacles (Non-Financial)</span>
                 <div className="space-y-2">
                   {insight.hiddenRisks.map((risk, i) => (
                     <div key={i} className="flex gap-3 items-start group/risk">
@@ -216,7 +215,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
                 </div>
               </div>
               <div>
-                <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest block mb-4">Under-the-Radar Dry Powder</span>
+                <span className="text-[11px] font-medium text-zinc-400 block mb-4">Growth Drivers & Strengths</span>
                 <div className="flex flex-wrap gap-2">
                   {insight.keyAlphaDrivers.map((driver, i) => (
                     <span key={i} className="px-2 py-1 bg-white/5 border border-white/10 text-[10px] text-zinc-400 font-bold uppercase tracking-wide rounded">
@@ -232,7 +231,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
       {/* Historical Surprise Grid */}
       <div className="px-8 py-5 bg-black/40 border-t border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Prior Accuracy</span>
+          <span className="text-xs font-medium text-zinc-400">Prior Accuracy</span>
           <div className="flex gap-2">
             {analysis?.recent.map((h, i) => (
               <div 

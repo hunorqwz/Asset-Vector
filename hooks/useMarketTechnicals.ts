@@ -223,12 +223,12 @@ function calculateExecutionBounds(data: OHLCV[], levels: PivotLevel[]): Executio
   const recent = data.slice(-20);
   const avgRange = recent.reduce((a, b) => a + (b.high - b.low), 0) / recent.length;
 
-  // Surgical TP Zone: Align with nearest structural resistance
+  // Target TP Zone: Align with nearest structural resistance
   const resistances = levels.filter(l => l.type === 'RESISTANCE' && l.price > lastPrice).sort((a,b) => a.price - b.price);
   const R1 = resistances[0]?.price || lastPrice + (avgRange * 2);
   const R2 = resistances[1]?.price || R1 + avgRange;
 
-  // Surgical SL Zone: Align with nearest structural support
+  // Target SL Zone: Align with nearest structural support
   const supports = levels.filter(l => l.type === 'SUPPORT' && l.price < lastPrice).sort((a,b) => b.price - a.price);
   const S1 = supports[0]?.price || lastPrice - (avgRange * 2);
   const S2 = supports[1]?.price || S1 - avgRange;

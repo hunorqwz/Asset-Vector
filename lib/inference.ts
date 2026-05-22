@@ -240,7 +240,7 @@ export async function predictNextHorizon(
       if (res.ok) {
         const data = await res.json();
         // Reset the breaker on a successful response
-        await setInCache("ml_failure_count", 0, 0); 
+        await setInCache("ml_failure_count", 0, 5 * 60 * 1000); 
         
         const result: PredictionResult = {
           p10: Number(data.p10),

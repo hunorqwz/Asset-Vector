@@ -1,42 +1,38 @@
 /* 
  * ASSET VECTOR DESIGN SYSTEM 
- * Centralized Design Tokens for Surgical Market Intelligence
+ * Centralized Design Tokens for Asset Vector
  */
 
 :root {
-    /* Core Palette (HSL) */
-    --background: 240 10% 2%;
-    --foreground: 0 0% 98%;
+    /* Premium Core Palette (HSL) */
+    --background: 224 25% 4%;            /* Deep obsidian-navy canvas (#07090e) */
+    --foreground: 210 40% 98%;           /* Crisp high-contrast white (#f8fafc) */
 
-    --card: 240 10% 4%;
-    --card-foreground: 0 0% 98%;
+    --card: 224 20% 7%;                 /* Deep slate-indigo card base (#0e111a) */
+    --card-foreground: 210 40% 95%;      /* Clean light-gray body (#f1f5f9) */
 
-    --border: 240 5% 12%;
-    --border-light: 255 255 255 / 0.08;
+    --border: 224 15% 12%;               /* Sleek border color (#1d2230) */
+    --border-light: 255 255 255 / 0.06;
 
-    /* Brand Colors - Developer Terminal Palette */
-    --bull: 156 72% 48%;
-    /* IDE Pass Green */
-    --warning: 45 93% 47%;
-    /* IDE Warning Yellow */
-    --bear: 0 85% 62%;
-    /* IDE Error Red */
-    --matrix: 204 100% 40%;
-    /* IDE Primary Blue */
-    --terminal-gray: 240 5% 45%;
+    /* High-Fidelity Signal & Accent Colors */
+    --bull: 142 76% 42%;                 /* Modern Emerald Green (#16a34a) */
+    --warning: 38 92% 50%;               /* Warm Gold/Amber (#d97706) */
+    --bear: 350 89% 60%;                 /* Ruby-Rose Red (#e11d48) */
+    --matrix: 224 86% 62%;               /* Premium Sapphire Blue (#4f73f6) */
+    --terminal-gray: 215 16% 56%;        /* Balanced slate gray (#828da0) */
 
-    /* Glass tokens */
-    --glass-bg: rgba(8, 8, 10, 0.82);
-    --glass-blur: 40px;
-    --glass-border: rgba(255, 255, 255, 0.06);
-    --glass-border-bright: rgba(255, 255, 255, 0.12);
+    /* Advanced Glassmorphism */
+    --glass-bg: rgba(11, 14, 23, 0.85);
+    --glass-blur: 24px;
+    --glass-border: rgba(255, 255, 255, 0.05);
+    --glass-border-bright: rgba(255, 255, 255, 0.1);
 
-    /* Animation Durations */
-    --duration-fast: 150ms;
-    --duration-normal: 300ms;
-    --duration-slow: 500ms;
+    /* Animation Settings */
+    --duration-fast: 120ms;
+    --duration-normal: 250ms;
+    --duration-slow: 400ms;
 
-    /* Layout Spacing */
-    --header-height: 72px;
-    --footer-height: 56px;
+    /* Grid & Layout Constraints */
+    --header-height: 64px;
+    --footer-height: 48px;
 }

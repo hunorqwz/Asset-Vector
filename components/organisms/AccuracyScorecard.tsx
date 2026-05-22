@@ -82,7 +82,7 @@ export function AccuracyScorecard({ data, ticker }: AccuracyScorecardProps) {
             {samples.map((s, i) => (
               <div 
                 key={i} 
-                className={`h-1.5 rounded-sm transition-all duration-300 hover:scale-y-150 transform cursor-crosshair ${
+                className={`h-1.5 rounded-sm transition-all duration-300 hover:scale-y-150 transform ${
                   s.correct ? 'bg-bull drop-shadow-[0_0_4px_rgba(34,197,94,0.6)]' : 'bg-bear/50 hover:bg-bear'
                 }`}
                 title={`${s.ticker}: ${s.label} at $${fmt(s.entry)} -> Final $${fmt(s.outcome)} (${s.correct ? 'VALIDATED' : 'FAILED'})`}

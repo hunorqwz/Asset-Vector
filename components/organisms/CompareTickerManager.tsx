@@ -52,19 +52,21 @@ export function CompareTickerManager({ currentTickers }: CompareTickerManagerPro
   };
 
   return (
-    <div className="border border-white/10 bg-[#0a0a0a] p-5 space-y-5">
+    <div className="glass-card p-6 space-y-5 rounded-xl border border-white/5 relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+      
       {/* Ticker Chips + Input */}
       <div className="flex items-center gap-3 flex-wrap">
         {/* Active tickers */}
         {currentTickers.map(ticker => (
           <div
             key={ticker}
-            className="flex items-center gap-2 px-3 py-1.5 border border-white/20 bg-white/5 group"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/10 bg-white/[0.03] rounded-lg group hover:border-white/25 hover:bg-white/[0.05] transition-all"
           >
             <span className="text-[12px] font-bold font-mono text-white uppercase tracking-tight">{ticker}</span>
             <button
               onClick={() => handleRemove(ticker)}
-              className="text-zinc-600 hover:text-white transition-colors"
+              className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
               title={`Remove ${ticker}`}
             >
               <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -84,12 +86,12 @@ export function CompareTickerManager({ currentTickers }: CompareTickerManagerPro
               onKeyDown={handleKeyDown}
               placeholder={currentTickers.length === 0 ? "Add ticker (e.g. AAPL)" : "+ Add ticker"}
               maxLength={10}
-              className="bg-black border border-white/10 px-3 py-1.5 text-[12px] font-mono text-white focus:outline-none focus:border-white/40 uppercase placeholder:normal-case placeholder:text-zinc-600 w-44"
+              className="bg-black/40 border border-white/10 rounded-lg px-3.5 py-1.5 text-[12px] font-mono text-white focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 uppercase placeholder:normal-case placeholder:text-zinc-600 w-48 transition-all"
             />
             <button
               onClick={handleAdd}
               disabled={!input.trim() || isPending}
-              className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-white/15 text-zinc-400 hover:text-white hover:border-white/40 transition-colors disabled:opacity-30"
+              className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-matrix/10 border border-matrix/30 text-matrix hover:bg-matrix hover:text-black hover:border-matrix transition-all rounded-lg disabled:opacity-30 cursor-pointer"
             >
               {isPending ? (
                 <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
@@ -99,8 +101,8 @@ export function CompareTickerManager({ currentTickers }: CompareTickerManagerPro
         )}
 
         {currentTickers.length >= MAX_TICKERS && (
-          <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
-            Max {MAX_TICKERS} assets
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-3 py-1.5 border border-dashed border-white/5 rounded-lg bg-white/[0.01]">
+            Max {MAX_TICKERS} assets reached
           </span>
         )}
       </div>
@@ -110,13 +112,13 @@ export function CompareTickerManager({ currentTickers }: CompareTickerManagerPro
 
       {/* Preset Quick-Select */}
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-600 shrink-0">Quick Select:</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 shrink-0">Quick Select:</span>
         {PRESETS.map(p => (
           <button
             key={p.label}
             onClick={() => handlePreset(p.tickers)}
             disabled={isPending}
-            className="px-3 py-1 text-[9px] font-bold uppercase tracking-widest border border-white/5 text-zinc-500 hover:text-white hover:border-white/25 transition-colors disabled:opacity-40"
+            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest border border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white hover:bg-white/[0.05] hover:border-white/20 transition-all rounded-md disabled:opacity-40 cursor-pointer"
           >
             {p.label}
           </button>
@@ -125,14 +127,14 @@ export function CompareTickerManager({ currentTickers }: CompareTickerManagerPro
           <button
             onClick={() => navigate([])}
             disabled={isPending}
-            className="px-3 py-1 text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-bear transition-colors"
+            className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest border border-red-950/20 bg-red-950/10 text-zinc-400 hover:text-bear hover:bg-bear/10 hover:border-bear/20 transition-all rounded-md cursor-pointer"
           >
             Clear All
           </button>
         )}
       </div>
 
-      <p className="text-[9px] font-mono text-zinc-700">
+      <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
         Compare up to {MAX_TICKERS} assets · URL is shareable · Press Enter to add
       </p>
     </div>

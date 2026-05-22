@@ -11,11 +11,11 @@ import { GlobalCorrelationLab } from "@/components/organisms/GlobalCorrelationLa
 import { RegimeRadar } from "@/components/organisms/RegimeRadar";
 import { AlertManager } from "@/components/organisms/AlertManager";
 import { getAlerts, checkAndTriggerAlerts, getRegimeBreakout } from "@/app/actions/alerts";
-import { auth } from "@/auth";
 import { GlobalHeader } from "@/components/organisms/GlobalHeader";
+import { GlobalFooter } from "@/components/organisms/GlobalFooter";
 
 export const metadata: Metadata = {
-  title: "Portfolio",
+  title: "Portfolio Analytics Dashboard | Asset Vector",
   description: "Track your holdings and see your performance against AI price targets.",
 };
 
@@ -75,14 +75,10 @@ export default async function PortfolioPage() {
           {/* Page Heading */}
           <div className="mb-12 flex items-end justify-between border-b border-white/5 pb-10">
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-[2px] w-8 bg-matrix" />
-                <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-matrix">Intelligence Hub</span>
-              </div>
-              <h1 className="text-5xl font-bold tracking-tightest leading-[1]">Portfolio Radar</h1>
+              <h1 className="text-5xl font-bold tracking-tightest leading-[1]">Portfolio</h1>
             </div>
-            <p className="text-[12px] font-bold text-zinc-500 text-right tracking-[0.15em] uppercase leading-relaxed">
-              <span className="text-zinc-300">{positions.length} POSITIONS</span> ACTIVE
+            <p className="text-sm text-zinc-400 text-right leading-relaxed">
+              {positions.length} positions
             </p>
           </div>
           {/* Strategic Risk Intelligence Section */}
@@ -122,9 +118,8 @@ export default async function PortfolioPage() {
                   color: riskData ? (riskData.jensensAlpha >= 0 ? "text-matrix" : "text-bear") : "text-zinc-500",
                 },
               ].map((stat) => (
-                <div key={stat.label} className="glass-card p-6 border border-white/10 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">{stat.label}</p>
+                <div key={stat.label} className="bg-white/[0.02] border border-white/5 rounded-xl p-6 relative overflow-hidden">
+                  <p className="text-xs text-zinc-400 font-medium tracking-wide mb-3">{stat.label}</p>
                   <p className={`text-2xl font-bold font-mono tabular-nums ${stat.color}`}>{stat.value}</p>
                 </div>
               ))}
@@ -146,9 +141,9 @@ export default async function PortfolioPage() {
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
             {/* Positions Table */}
             <div className="xl:col-span-8">
-              <div className="glass-card border border-white/10 overflow-hidden">
-                <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-                  <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden">
+                <div className="border-b border-white/5 px-6 py-4 flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-zinc-400 tracking-wide flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
                     Holdings
                   </h2>
@@ -164,13 +159,13 @@ export default async function PortfolioPage() {
                         <path d="M12 5v14m-7-7h14"/>
                       </svg>
                     </div>
-                    <h3 className="text-base font-bold text-white uppercase tracking-tightest mb-2">No positions yet</h3>
-                    <p className="text-[11px] text-zinc-500 font-bold uppercase tracking-widest">Add your first holding using the form on the right.</p>
+                    <h3 className="text-base font-bold text-white tracking-tightest mb-2">No positions yet</h3>
+                    <p className="text-sm text-zinc-400">Add your first holding using the form on the right.</p>
                   </div>
                 ) : (
                   <div>
                     {/* Table Header */}
-                    <div className="grid grid-cols-12 gap-2 px-6 py-3 border-b border-white/5 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                    <div className="grid grid-cols-12 gap-2 px-6 py-3 border-b border-white/5 text-xs font-medium text-zinc-400 tracking-wide uppercase">
                       <span className="col-span-3">Asset</span>
                       <span className="col-span-2 text-right">Shares</span>
                       <span className="col-span-2 text-right">Avg Cost</span>
@@ -199,19 +194,18 @@ export default async function PortfolioPage() {
 
             {/* Add Position Panel */}
             <div className="xl:col-span-4">
-              <div className="glass-card border border-white/10 overflow-hidden sticky top-24">
-                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-matrix/30 to-transparent" />
-                <div className="border-b border-white/10 px-6 py-4">
-                  <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden sticky top-24">
+                <div className="border-b border-white/5 px-6 py-4">
+                  <h2 className="text-xs font-bold text-zinc-400 tracking-wide flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
-                    New Allocation
+                    Add Position
                   </h2>
                 </div>
                 <div className="p-6">
                   <AddPositionForm />
                 </div>
                 <div className="px-6 pb-6">
-                  <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest leading-relaxed">
+                  <p className="text-[11px] text-zinc-500 font-normal leading-relaxed">
                     Beta analysis and stress simulations are calculated against SPY (S&P 500) historical variance.
                   </p>
                 </div>
@@ -221,6 +215,7 @@ export default async function PortfolioPage() {
           </div>
         </div>
       </main>
+      <GlobalFooter />
     </>
   );
 }

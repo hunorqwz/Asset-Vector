@@ -18,89 +18,27 @@
   --color-matrix: hsl(var(--matrix));
   --color-terminal: hsl(var(--terminal-gray));
 
-  /* Layout */
+  /* Layout Custom Variables */
   --spacing-header: var(--header-height);
   --spacing-footer: var(--footer-height);
 
-  /* Typography — Inter for UI, Geist Mono for data, VT323 for terminal vibes */
+  /* Clean Professional Typography — Outfit for Headings, Inter for UI, Geist Mono for Data */
   --font-sans: var(--font-inter), 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, 'Menlo', monospace;
-  --font-pixel: var(--font-pixel), 'VT323', monospace;
+  --font-display: var(--font-display), 'Outfit', 'Inter', sans-serif;
 
-  --tracking-tighter: -0.03em;
-  --tracking-tightest: -0.05em;
-  --tracking-widest: 0.15em;
+  --tracking-tighter: -0.02em;
+  --tracking-tightest: -0.04em;
+  --tracking-widest: 0.12em;
 
-  /* Flat minimal variables, removing neon shadows / animations */
-  --shadow-matrix: none;
-  --shadow-bull: none;
-  --shadow-bear: none;
-
-  /* Utility Animations - Keeping minimal load states if any */
-  --animate-scanline: none;
-  --animate-shimmer: none;
-  --animate-pulse-glow: none;
-
-  @keyframes scanline {
-    0% {
-      transform: translateY(-100%);
-      opacity: 0;
-    }
-
-    30% {
-      opacity: 0.3;
-    }
-
-    70% {
-      opacity: 0.3;
-    }
-
-    100% {
-      transform: translateY(100vh);
-      opacity: 0;
-    }
-  }
-
-  @keyframes shimmer-sweep {
-    0% {
-      transform: translateX(-100%);
-    }
-
-    100% {
-      transform: translateX(100%);
-    }
-  }
-
-  @keyframes pulse-glow {
-
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-
-    50% {
-      opacity: 0.6;
-      transform: scale(0.95);
-    }
-  }
-
-  @keyframes float {
-
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-
-    50% {
-      transform: translateY(-4px);
-    }
-  }
+  --shadow-matrix: 0 0 20px hsla(var(--matrix) / 0.15);
+  --shadow-bull: 0 0 20px hsla(var(--bull) / 0.15);
+  --shadow-bear: 0 0 20px hsla(var(--bear) / 0.15);
 }
 
 @layer base {
   body {
-    background: #000;
+    background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -112,15 +50,28 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  /* Structural Noise Grain */
+  /* Subtly Textured Background with Grain Overlay */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-    opacity: 0.012;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.015;
     pointer-events: none;
     z-index: 1;
+  }
+
+  /* Premium Radial Ambient Light Source */
+  body::after {
+    content: "";
+    position: fixed;
+    top: -15%;
+    left: 25%;
+    width: 50%;
+    height: 45%;
+    background: radial-gradient(circle, hsla(var(--matrix) / 0.04) 0%, transparent 80%);
+    pointer-events: none;
+    z-index: 0;
   }
 }
 
@@ -135,76 +86,62 @@
     z-index: 2;
   }
 
-  /* INSTITUTIONAL BRUTALISM: Flat panels, sharp borders */
+  /* PREMIUM GLASS SYSTEM: Frosted, floating panels and card components */
   .glass-panel {
-    background: #0a0a0a;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
     border-bottom: 1px solid var(--glass-border);
     z-index: 50;
   }
 
   footer.glass-panel {
     border-bottom: none;
-    border-top: 1px dashed var(--glass-border);
+    border-top: 1px solid var(--glass-border);
   }
 
   .glass-card {
-    background: #0a0a0a;
+    background: rgba(14, 17, 26, 0.45);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
-    transition: border-color 0.2s ease;
+    border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transition: border-color var(--duration-normal) cubic-bezier(0.16, 1, 0.3, 1),
+                background-color var(--duration-normal) cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow var(--duration-normal) cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .glass-card:hover {
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--glass-border-bright);
+    background: rgba(14, 17, 26, 0.65);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.02);
   }
 
-  /* LABEL SYSTEM — clean, readable, modern */
-  .label-sm {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+  /* REFINED LABEL SYSTEM — clear, highly readable text */
+  /* REFINED LABEL SYSTEM — clear, highly readable text */
+  .label-primary {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
     color: hsl(var(--terminal-gray));
-    text-transform: uppercase;
   }
 
-  .label-xs {
-    font-family: var(--font-no);
+  .label-secondary {
     font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    color: hsl(var(--terminal-gray) / 0.7);
-    text-transform: uppercase;
-  }
-
-  /* Legacy .text-telemetry — now uses cleaner styling */
-  .text-telemetry {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: hsl(var(--terminal-gray));
+    font-weight: 500;
+    color: hsl(var(--terminal-gray) / 0.85);
   }
 
   .data-value {
     font-family: var(--font-mono);
-    letter-spacing: -0.04em;
+    letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
   }
 
-  .glow-matrix {
-    filter: none;
-  }
+  /* (Removed dead glow classes) */
 
-  .glow-bull {
-    filter: none;
-  }
-
-  .glow-bear {
-    filter: none;
-  }
-
-  /* SCALPEL UTILITIES */
+  /* RADIAL MASKS */
   .mask-radial {
     mask-image: radial-gradient(circle, black 0%, transparent 100%);
   }
@@ -213,14 +150,12 @@
     mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
   }
 
-  /* HAPTIC PRICE PULSES */
+  /* TACTILE PRICE TRANSITION PULSES */
   @keyframes pulse-bull {
     0% {
-      background: hsla(var(--bull) / 0.45);
+      background: hsla(var(--bull) / 0.3);
       color: #fff;
-      text-shadow: 0 0 8px #23d18b;
     }
-
     100% {
       background: transparent;
     }
@@ -228,22 +163,38 @@
 
   @keyframes pulse-bear {
     0% {
-      background: hsla(var(--bear) / 0.45);
+      background: hsla(var(--bear) / 0.3);
       color: #fff;
-      text-shadow: 0 0 8px #f14c4c;
     }
-
     100% {
       background: transparent;
     }
   }
 
   .animate-pulse-bull {
-    animation: pulse-bull 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: pulse-bull 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .animate-pulse-bear {
-    animation: pulse-bear 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: pulse-bear 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* CONSISTENT HEADING SYSTEM */
+  .section-heading {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: hsl(var(--terminal-gray));
+  }
+
+  .page-title {
+    font-family: var(--font-display, var(--font-sans));
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: hsl(var(--foreground));
   }
 }
 

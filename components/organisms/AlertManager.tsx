@@ -38,10 +38,10 @@ function AlertRow({
     : "border-white/10 bg-black/40";
 
   return (
-    <div className={`border ${color} p-4 flex items-start gap-4 group transition-all`}>
+    <div className={`border ${color} p-4 rounded-lg flex items-start gap-4 group transition-all hover:border-white/20`}>
       {/* Direction indicator */}
       <div className="shrink-0 pt-0.5">
-        <div className={`w-6 h-6 flex items-center justify-center border ${
+        <div className={`w-6 h-6 flex items-center justify-center border rounded-md ${
           alert.isTriggered
             ? "border-bull/50 bg-bull/10 text-bull"
             : isAbove
@@ -68,7 +68,7 @@ function AlertRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-[12px] font-bold font-mono text-white uppercase tracking-tight">{alert.ticker}</span>
-          <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 ${
+          <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md ${
             alert.isTriggered
               ? "bg-bull/20 text-bull"
               : "bg-white/5 text-zinc-500"
@@ -101,7 +101,7 @@ function AlertRow({
             onClick={() => onDismiss(alert.id)}
             disabled={isPending}
             title="Dismiss alert"
-            className="p-1.5 text-zinc-500 hover:text-bull hover:bg-bull/10 transition-colors disabled:opacity-40"
+            className="p-1.5 text-zinc-500 hover:text-bull hover:bg-bull/10 transition-colors disabled:opacity-40 rounded-lg"
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M18 6 6 18M6 6l12 12" />
@@ -112,7 +112,7 @@ function AlertRow({
           onClick={() => onDelete(alert.id)}
           disabled={isPending}
           title="Delete alert"
-          className="p-1.5 text-zinc-600 hover:text-bear hover:bg-bear/10 transition-colors disabled:opacity-40"
+          className="p-1.5 text-zinc-600 hover:text-bear hover:bg-bear/10 transition-colors disabled:opacity-40 rounded-lg"
         >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
@@ -178,7 +178,6 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
       if (result.success) setAlerts(prev => prev.filter(a => a.id !== id));
     });
   };
-
   const handleDismiss = (id: string) => {
     startTransition(async () => {
       const result = await dismissAlert(id);
@@ -200,10 +199,10 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Create Form ── */}
-        <div className="border border-white/10 bg-[#0a0a0a] overflow-hidden">
-          <div className="border-b border-white/10 px-5 py-4">
+        <div className="glass-card rounded-xl overflow-hidden border border-white/5">
+          <div className="border-b border-white/10 px-5 py-4 bg-white/[0.01]">
             <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-matrix glow-matrix" />
               Create Alert
             </h3>
           </div>
@@ -219,9 +218,9 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
                     <button
                       key={t}
                       onClick={() => setTicker(t)}
-                      className={`px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-widest border transition-colors ${
+                      className={`px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-widest border rounded-lg transition-all ${
                         ticker === t
-                          ? "border-white/50 bg-white/10 text-white"
+                          ? "border-matrix/50 bg-matrix/10 text-matrix"
                           : "border-white/10 bg-transparent text-zinc-500 hover:text-white hover:border-white/30"
                       }`}
                     >
@@ -235,7 +234,7 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
                   value={ticker}
                   onChange={e => setTicker(e.target.value.toUpperCase())}
                   placeholder="e.g. AAPL"
-                  className="w-full bg-black border border-white/10 px-3 py-2 text-[13px] font-mono text-white focus:outline-none focus:border-white/40 uppercase"
+                  className="w-full bg-black/40 border border-white/10 px-3 py-2 text-[13px] font-mono text-white rounded-lg focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 uppercase"
                 />
               )}
               {watchlistTickers.length > 0 && (
@@ -244,7 +243,7 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
                   value={ticker}
                   onChange={e => setTicker(e.target.value.toUpperCase())}
                   placeholder="Or type a custom ticker"
-                  className="mt-2 w-full bg-black border border-white/5 px-3 py-2 text-[11px] font-mono text-zinc-400 focus:outline-none focus:border-white/30 uppercase placeholder:normal-case"
+                  className="mt-2 w-full bg-black/40 border border-white/10 px-3 py-2 text-[11px] font-mono text-zinc-400 rounded-lg focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 uppercase placeholder:normal-case"
                 />
               )}
             </div>
@@ -259,7 +258,7 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
                   <button
                     key={d}
                     onClick={() => setDirection(d)}
-                    className={`py-2.5 text-[10px] font-bold uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${
+                    className={`py-2.5 text-[10px] font-bold uppercase tracking-widest border rounded-lg transition-all flex items-center justify-center gap-2 ${
                       direction === d
                         ? d === "above"
                           ? "border-bull/50 bg-bull/10 text-bull"
@@ -285,7 +284,7 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
                 placeholder="e.g. 200.00"
                 min="0.01"
                 step="0.01"
-                className="w-full bg-black border border-white/10 px-3 py-2.5 text-[14px] font-mono font-bold text-white focus:outline-none focus:border-white/40 tabular-nums"
+                className="w-full bg-black/40 border border-white/10 px-3 py-2.5 text-[14px] font-mono font-bold text-white rounded-lg focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 tabular-nums"
               />
             </div>
 
@@ -300,7 +299,7 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
                 onChange={e => setNote(e.target.value)}
                 placeholder="e.g. Support level retest"
                 maxLength={100}
-                className="w-full bg-black border border-white/5 px-3 py-2 text-[11px] font-mono text-zinc-300 focus:outline-none focus:border-white/30 placeholder:text-zinc-700"
+                className="w-full bg-black/40 border border-white/10 px-3 py-2 text-[11px] font-mono text-zinc-300 rounded-lg focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 placeholder:text-zinc-700"
               />
             </div>
 
@@ -314,7 +313,7 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
             <button
               onClick={handleCreate}
               disabled={isPending}
-              className={`w-full py-3 text-[11px] font-bold uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${
+              className={`w-full py-3 text-[11px] font-bold uppercase tracking-widest border rounded-lg transition-all flex items-center justify-center gap-2 active:scale-[0.98] ${
                 createSuccess
                   ? "border-bull/50 bg-bull/10 text-bull"
                   : "border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40"
@@ -341,17 +340,17 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
         </div>
 
         {/* ── Alert List ── */}
-        <div className="border border-white/10 bg-[#0a0a0a] overflow-hidden flex flex-col">
-          <div className="border-b border-white/10 px-5 py-4">
+        <div className="glass-card rounded-xl overflow-hidden border border-white/5 flex flex-col">
+          <div className="border-b border-white/10 px-5 py-4 bg-white/[0.01]">
             <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
               Active &amp; Triggered
             </h3>
           </div>
 
           {alerts.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center py-16 text-center px-6">
-              <div className="w-10 h-10 border border-white/10 flex items-center justify-center mb-4">
+              <div className="w-10 h-10 border border-white/10 rounded-lg flex items-center justify-center mb-4">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-600">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
                 </svg>
@@ -360,7 +359,7 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
               <p className="text-[10px] text-zinc-700 mt-1">Create an alert to get notified when a price target is reached.</p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {/* Triggered first */}
               {triggered.map(a => (
                 <AlertRow key={a.id} alert={a} onDelete={handleDelete} onDismiss={handleDismiss} isPending={isPending} />

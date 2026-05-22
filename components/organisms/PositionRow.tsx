@@ -107,7 +107,7 @@ export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, p
               onKeyDown={handleKeyDown}
               min="0.00000001"
               step="any"
-              className="w-full bg-black border border-matrix/50 px-2 py-1.5 text-[13px] text-white font-mono focus:outline-none focus:border-matrix text-right tabular-nums"
+              className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[13px] text-white font-mono focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 text-right tabular-nums transition-all"
             />
           </div>
           <div className="col-span-2 flex justify-end">
@@ -118,7 +118,7 @@ export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, p
               onKeyDown={handleKeyDown}
               min="0.00000001"
               step="any"
-              className="w-full bg-black border border-matrix/50 px-2 py-1.5 text-[13px] text-white font-mono focus:outline-none focus:border-matrix text-right tabular-nums"
+              className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[13px] text-white font-mono focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 text-right tabular-nums transition-all"
             />
           </div>
           <div className="col-span-2 text-right">
@@ -160,7 +160,7 @@ export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, p
           </div>
         )}
         <div className="px-6 pb-3">
-          <span className="text-[9px] font-mono text-zinc-700 uppercase tracking-widest">↵ Save · ESC Cancel</span>
+          <span className="text-[10px] font-mono text-zinc-700 uppercase tracking-widest">↵ Save · ESC Cancel</span>
         </div>
       </div>
     );

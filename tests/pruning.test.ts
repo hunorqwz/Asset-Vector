@@ -1,13 +1,14 @@
 
 import { pruneHistoricalData } from '../app/actions/signals';
 import { db } from '../db';
-import { marketSignals } from '../db/schema';
+import { marketSignals, systemKv } from '../db/schema';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('Data Hygiene - Pruning (app/actions/signals)', () => {
   beforeEach(async () => {
-    // Clear signals
+    // Clear signals and locks
     await db.delete(marketSignals);
+    await db.delete(systemKv);
   });
 
   it('should prune old evaluated signals but keep recent ones', async () => {

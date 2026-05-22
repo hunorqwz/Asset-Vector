@@ -462,7 +462,8 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     benchmark,
     quality,
     ai,
-    currentPrice
+    currentPrice,
+    multiAi
   );
 
   // 4. Sentiment-Price Divergence Logic (v2.5)

@@ -52,7 +52,7 @@ export function LiveHeaderPrice({
         <div className={`flex items-center gap-2 text-[11px] font-bold font-mono tabular-nums ${isBull ? 'text-bull' : 'text-bear'}`}>
           <span>{isBull ? '▲' : '▼'} {fmtChange(currentChange)}</span>
           <span className={`px-2 py-0.5 rounded-md ${isBull ? 'bg-bull/15' : 'bg-bear/15'}`}>
-            {isBull ? '+' : ''}{currentChangePercent.toFixed(2)}%
+            {isBull ? '+' : ''}{currentChangePercent.toFixed(2)}% Today
           </span>
         </div>
       </div>

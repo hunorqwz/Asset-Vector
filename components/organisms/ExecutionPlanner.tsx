@@ -56,7 +56,7 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
         </div>
         <div className="flex items-center gap-2 px-2 py-0.5 border border-white/5 bg-white/5 rounded">
            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Protocol</span>
-           <span className="text-[10px] font-bold text-matrix uppercase tracking-tighter shadow-sm shadow-matrix/20">Surgical Entry</span>
+           <span className="text-[10px] font-bold text-matrix uppercase tracking-tighter shadow-sm shadow-matrix/20">Optimal Entry</span>
         </div>
       </div>
 
@@ -82,7 +82,7 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
           </div>
 
           <div className="flex flex-col gap-1.5 pt-4 border-t border-white/5">
-            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Surgical Stop</span>
+            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Stop Loss</span>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold font-mono text-bear tracking-tighter">${stopLoss.toFixed(2)}</span>
               <span className="text-[11px] font-bold text-bear/60">({(((stopLoss/price)-1)*100).toFixed(1)}%)</span>

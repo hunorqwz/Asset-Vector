@@ -5,8 +5,7 @@ import Link from "next/link";
 import { resolveCanvasColor } from "@/lib/chart-config";
 import { fmt, fmtPct } from "@/lib/format";
 
-// 1. SPARKLINE COMPONENT (Ultra-Minimalist)
-// 1. SPARKLINE COMPONENT (High-Fidelity)
+// SPARKLINE COMPONENT (High-Fidelity)
 const Sparkline = ({ data, color, height = 30 }: { data: number[]; color: string; height?: number }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -110,7 +109,7 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
                     <select
                         value={range}
                         onChange={(e) => setRange(e.target.value as any)}
-                        className="bg-black/30 border border-white/10 text-zinc-400 text-[8px] font-bold uppercase rounded px-1.5 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors ml-1"
+                        className="bg-black/30 border border-white/10 text-zinc-400 text-xs font-medium rounded px-1.5 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors ml-1"
                     >
                         <option value="1M" className="bg-zinc-950 text-zinc-300">1M</option>
                         <option value="3M" className="bg-zinc-950 text-zinc-300">3M</option>
@@ -126,7 +125,7 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
                     <select
                         value={forecastHorizon}
                         onChange={(e) => setForecastHorizon(e.target.value as any)}
-                        className="bg-black/30 border border-white/10 text-zinc-400 text-[8px] font-bold uppercase rounded px-1.5 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors mt-0.5 w-16"
+                        className="bg-black/30 border border-white/10 text-zinc-400 text-xs font-medium rounded px-1.5 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors mt-0.5 w-16"
                     >
                         <option value="4H" className="bg-zinc-950 text-zinc-300">4H</option>
                         <option value="1D" className="bg-zinc-950 text-zinc-300">1D</option>
@@ -148,11 +147,11 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
              </div>
              {isEmpty ? (
                  <div className="py-32 flex flex-col items-center justify-center text-center px-6">
-                     <div className="w-12 h-12 border border-white/10 flex items-center justify-center mb-6">
-                        <div className="w-2 h-2 bg-zinc-500 animate-ping"></div>
+                     <div className="w-12 h-12 border border-white/10 flex items-center justify-center mb-6 rounded-lg">
+                        <div className="w-2 h-2 bg-zinc-500 rounded-full"></div>
                      </div>
-                     <h3 className="text-sm font-semibold text-white mb-2 uppercase tracking-widest">No Matches</h3>
-                     <p className="text-[11px] text-zinc-500 max-w-[220px] leading-relaxed">
+                     <h3 className="text-sm font-semibold text-white mb-2 tracking-wide">No Matches</h3>
+                     <p className="text-sm text-zinc-400 max-w-[220px] leading-relaxed">
                          Could not find any assets matching your filter criteria.
                      </p>
                  </div>
@@ -177,7 +176,7 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
 }
 
 
-// 3. THE "STRICT ROW" (Surgical Density)
+// WATCHLIST ROW ITEM
 export interface WatchlistItemProps {
   signal: MarketSignal;
   onRemove?: () => void;
@@ -238,7 +237,7 @@ export function WatchlistItem({ signal, onRemove, alpha, range = "1M", forecastH
 
   return (
       <div 
-        className="group relative flex items-center px-4 py-2 min-h-[4rem] transition-colors hover:bg-white/[0.02]"
+        className="group relative flex items-center px-4 py-2 min-h-[4rem] transition-all hover:bg-white/[0.02] hover:translate-x-0.5"
       >
           {/* ACTIVE INDICATOR */}
           <div className={`absolute left-0 top-0 bottom-0 w-[2px] opacity-0 transition-opacity group-hover:opacity-100 ${isBull ? 'bg-bull drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-bear drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} aria-hidden="true"></div>

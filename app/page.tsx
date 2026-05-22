@@ -3,7 +3,7 @@ import { WatchlistGrid, WatchlistItem } from "@/components/BentoGrid";
 import { getMarketSignals, removeAsset } from "@/app/actions";
 import { EmptyWatchlist } from "@/components/EmptyWatchlist";
 import { LiveTime } from "@/components/LiveTime";
-import { auth } from "@/auth";
+
 import { AlertBell } from "@/components/AlertBell";
 import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
 import { AccuracyScorecard } from "@/components/organisms/AccuracyScorecard";
@@ -12,7 +12,7 @@ import { getMarketPulse } from "@/app/actions";
 import { MarketPulse } from "@/components/molecules/MarketPulse";
 import { detectSectorAlpha } from "@/lib/market-pulse";
 import { GlobalHeader } from "@/components/organisms/GlobalHeader";
-import { LogoutButton } from "@/components/LogoutButton";
+import { GlobalFooter } from "@/components/organisms/GlobalFooter";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 export default async function Home() {
-  const session = await auth();
+
   
   // Use a single parallel fetch for all initial page data
   const [signals, pulseData, alerts, accuracyData] = await Promise.all([
@@ -49,17 +49,19 @@ export default async function Home() {
         <div className="max-w-[1600px] mx-auto">
           <div className="mb-10 flex items-end justify-between border-b border-white/10 pb-6">
             <div>
-              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-none">
+              <h1 className="text-4xl font-display font-bold tracking-tight text-white leading-none">
                 Overview
               </h1>
+              <p className="text-[13px] text-zinc-500 font-medium mt-2">Watchlist & Market Summary</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-[13px] font-medium text-zinc-400">
                 {signals.length} Assets Tracked
               </div>
               <div className="h-4 w-px bg-white/10" />
-              <div className="text-[13px] font-mono text-zinc-500">
-                <LiveTime />
+              <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-500">
+                <span className="text-zinc-500">UTC:</span>
+                <span className="font-mono text-zinc-400"><LiveTime /></span>
               </div>
             </div>
           </div>
@@ -107,7 +109,7 @@ export default async function Home() {
                   {signals.length === 0 && (
                       <div className="text-center py-10">
                         <p className="text-[13px] font-medium text-zinc-500 leading-relaxed">
-                          Add assets to your watchlist to generate real-time intelligence feeds.
+                          Add assets to your watchlist to generate real-time data feeds.
                         </p>
                       </div>
                   )}
@@ -118,13 +120,7 @@ export default async function Home() {
         </div>
       </main>
 
-      <footer className="px-8 py-6 flex justify-between items-center text-zinc-500 text-[12px] border-t border-white/5">
-        <div>Asset Vector © {new Date().getFullYear()}</div>
-        <div className="flex items-center gap-6">
-          {session?.user && <span>{session.user.email}</span>}
-          <LogoutButton />
-        </div>
-      </footer>
+      <GlobalFooter />
     </>
   );
 }

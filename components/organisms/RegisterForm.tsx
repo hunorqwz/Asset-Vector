@@ -53,7 +53,7 @@ export function RegisterForm() {
         </div>
         <Link 
           href="/login"
-          className="w-full py-4 bg-matrix text-black font-black uppercase text-[12px] tracking-[0.3em] flex items-center justify-center hover:brightness-110 transition-all cursor-crosshair"
+          className="w-full py-4 bg-matrix text-black font-black uppercase text-[12px] tracking-[0.3em] flex items-center justify-center hover:brightness-110 transition-all"
         >
           Proceed to Login
         </Link>
@@ -72,7 +72,7 @@ export function RegisterForm() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="w-full bg-[#0a0a0a] border border-white/5 px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:bg-matrix/5 transition-all placeholder-zinc-800"
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 transition-all placeholder-zinc-800"
           placeholder="Jane Smith"
         />
       </div>
@@ -86,7 +86,7 @@ export function RegisterForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full bg-[#0a0a0a] border border-white/5 px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:bg-matrix/5 transition-all placeholder-identity@vector.io"
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 transition-all placeholder-zinc-800"
           placeholder="you@example.com"
         />
       </div>
@@ -100,7 +100,7 @@ export function RegisterForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="w-full bg-[#0a0a0a] border border-white/5 px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:bg-matrix/5 transition-all placeholder-••••••••"
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-matrix/40 focus:ring-1 focus:ring-matrix/30 transition-all placeholder-zinc-700"
           placeholder="••••••••"
         />
       </div>
@@ -117,7 +117,7 @@ export function RegisterForm() {
       <button
         type="submit"
         disabled={loading}
-        className="relative py-4 bg-matrix text-black font-black uppercase text-[12px] tracking-[0.3em] overflow-hidden group hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale mt-2 cursor-crosshair"
+        className="relative py-4 bg-matrix text-black font-black uppercase text-[12px] tracking-[0.3em] overflow-hidden group hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale mt-2"
       >
         <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
         <span className="relative">

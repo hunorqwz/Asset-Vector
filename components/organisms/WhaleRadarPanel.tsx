@@ -44,14 +44,14 @@ export function WhaleRadarPanel({ intelligence, heldPercentInsiders, heldPercent
             <OwnershipIcon />
           </div>
           <div>
-            <h2 className="text-[12px] font-bold text-white uppercase tracking-[0.2em] mb-1">Whale Radar</h2>
+            <h2 className="text-[12px] font-bold text-white uppercase tracking-[0.2em] mb-1">Institutional & Insider Flows</h2>
             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Institutional & Insider Intent Layer</p>
           </div>
         </div>
         
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest block mb-1">Whale Consensus</span>
+            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest block mb-1">Consensus Flow</span>
             <div className={`px-3 py-1 border text-[11px] font-bold uppercase tracking-widest ${getStatusBg(whaleConsensusScore)} ${getStatusColor(whaleConsensusScore)}`}>
               {whaleConsensus.replace(/_/g, ' ')}
             </div>
@@ -128,8 +128,8 @@ export function WhaleRadarPanel({ intelligence, heldPercentInsiders, heldPercent
       </div>
 
       <div className="px-6 py-4 bg-white/[0.02] border-t border-white/5 text-[9px] text-zinc-600 font-bold uppercase tracking-[0.2em] flex justify-between">
-        <span>Source: SEC Form 4 & 13F Forensic Index</span>
-        <span className="text-zinc-500 italic">Quantitative Intent Calculation active</span>
+        <span>Source: SEC Form 4 & 13F Filings</span>
+        <span className="text-zinc-500 italic">Quantitative Flow Calculation active</span>
       </div>
     </section>
   );
