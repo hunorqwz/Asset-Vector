@@ -2,7 +2,6 @@ import { Metadata } from "next";
 import { WatchlistGrid, WatchlistItem } from "@/components/BentoGrid";
 import { getMarketSignals, removeAsset } from "@/app/actions";
 import { EmptyWatchlist } from "@/components/EmptyWatchlist";
-import { LiveTime } from "@/components/LiveTime";
 
 import { AlertBell } from "@/components/AlertBell";
 import { getAlerts, checkAndTriggerAlerts } from "@/app/actions/alerts";
@@ -59,9 +58,9 @@ export default async function Home() {
                 {signals.length} Assets Tracked
               </div>
               <div className="h-4 w-px bg-white/10" />
-              <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-500">
-                <span className="text-zinc-500">UTC:</span>
-                <span className="font-mono text-zinc-400"><LiveTime /></span>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span>Market Data Active</span>
               </div>
             </div>
           </div>

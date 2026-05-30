@@ -71,7 +71,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
             <EarningsIcon />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-white tracking-wide mb-1">AI Earnings Analysis</h2>
+            <h2 className="text-sm font-bold text-white tracking-wide mb-1">Predictive Earnings Analytics</h2>
             <p className="text-xs text-zinc-400">Catalyst & Volatility Projections</p>
           </div>
         </div>
@@ -97,11 +97,11 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/5">
-        {/* Surprise Momentum */}
+        {/* Earnings Surprise Historical Drift */}
         <div className="p-8">
           <h3 className="text-xs font-medium text-zinc-400 mb-6 flex items-center gap-2">
             <StatsIcon />
-            Surprise Momentum
+            Earnings Surprise Historical Drift
           </h3>
           <div className="flex items-end gap-3 mb-6">
             <span className="text-4xl font-bold font-mono text-white tracking-tighter">{analysis?.beats}/4</span>
@@ -109,7 +109,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
               analysis?.momentum === 'BULLISH' ? 'bg-bull/20 text-bull' : 
               analysis?.momentum === 'BEARISH' ? 'bg-bear/20 text-bear' : 'bg-zinc-800 text-zinc-400'
             }`}>
-              {analysis?.momentum} BEAT TREND
+              {analysis?.momentum} SURPRISE TREND
             </div>
           </div>
           <p className="text-[10px] text-zinc-500 font-bold uppercase leading-relaxed tracking-tight">
@@ -123,7 +123,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
         <div className="p-8">
           <h3 className="text-xs font-medium text-zinc-400 mb-6 flex items-center gap-2">
             <EarningsIcon />
-            Est. Reaction Risk
+            Est. Catalyst Gap Risk
           </h3>
           <div className="flex items-end gap-3 mb-6">
             <span className="text-4xl font-bold font-mono text-white tracking-tighter">±{analysis?.expectedMovePct.toFixed(1)}%</span>
@@ -154,7 +154,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
             <div className="pt-4 border-t border-white/5">
                <div className="flex items-center gap-2">
                  <div className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse" />
-                 <span className="text-[9px] font-bold text-matrix uppercase tracking-widest">AI Interpretation</span>
+                  <span className="text-[9px] font-bold text-matrix uppercase tracking-widest">Quantitative Synthesis</span>
                </div>
                <p className="mt-2 text-[10px] text-zinc-500 font-medium italic leading-relaxed">
                  {analysis?.momentum === 'BULLISH' 
@@ -173,7 +173,7 @@ export function AIEarningsLab({ details, globalTrigger }: AIEarningsLabProps) {
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className={`w-1.5 h-4 ${insight.sentimentShift.direction === 'IMPROVING' ? 'bg-bull' : 'bg-bear'}`} />
-                  <h3 className="text-[11px] font-bold text-white uppercase tracking-[0.2em]">Earnings Sentiment Shift</h3>
+                  <h3 className="text-[11px] font-bold text-white uppercase tracking-[0.2em]">Guidance Sentiment Drift</h3>
                 </div>
                 <p className="text-[13px] text-zinc-400 leading-relaxed font-medium">
                   <span className={insight.sentimentShift.direction === 'IMPROVING' ? 'text-bull' : 'text-bear'}>

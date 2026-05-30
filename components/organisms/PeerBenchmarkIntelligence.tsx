@@ -33,9 +33,9 @@ export function PeerBenchmarkIntelligence({
       <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 bg-indigo-500" />
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300">Forensic Peer Comparison</h3>
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300">Relative Peer Valuation Analysis</h3>
         </div>
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-2 py-0.5 border border-white/10">Competitor: {peer.ticker}</span>
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-2 py-0.5 border border-white/10">Peer Benchmark: {peer.ticker}</span>
       </div>
 
       <div className="p-6 space-y-8">

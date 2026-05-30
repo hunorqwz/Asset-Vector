@@ -5,6 +5,7 @@ import { SentimentReport } from "@/lib/sentiment";
 import { calculateGrahamNumber, calculatePeterLynchFairValue } from "@/lib/valuation";
 import { MarketSynthesis } from "@/lib/synthesis";
 import { StatsIcon } from "@/components/Icons";
+import { InfoTooltip } from "@/components/atoms/InfoTooltip";
 
 interface ConfluenceEngineProps {
   details: StockDetails;
@@ -97,7 +98,10 @@ export function ConfluenceEngine({ details, tech, sentiment, ticker, synthesis }
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 relative z-10">
         <div className="flex items-center gap-3">
           <div className={`w-1 h-6 bg-current shadow-[0_0_15px_currentColor] transition-all duration-700`} />
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.3em] text-white">Institutional Confluence Matrix</h2>
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.3em] text-white flex items-center">
+            Institutional Confluence Matrix
+            <InfoTooltip insightKey="CONFLUENCE_SCORE" />
+          </h2>
         </div>
         <div className={`text-[10px] font-bold font-mono px-4 py-2 border border-current transition-all duration-700 uppercase tracking-widest flex items-center gap-3 bg-black/40 backdrop-blur-sm`}>
            <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse shadow-[0_0_8px_currentColor]" />

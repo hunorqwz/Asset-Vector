@@ -1,10 +1,10 @@
 "use client";
-import React, { useState } from 'react';
+import React from 'react';
 import { OHLCV } from '@/lib/market-data';
 import { PredictionResult } from '@/lib/inference';
 import { MarketRegime } from '@/lib/regime';
-import { AIIcon, StatsIcon, BullIcon, BearIcon } from '@/components/Icons';
 import { SentimentReport } from '@/lib/sentiment';
+import { InfoTooltip } from '@/components/atoms/InfoTooltip';
 
 interface AIIntelligencePanelProps {
   ticker: string;
@@ -15,39 +15,42 @@ interface AIIntelligencePanelProps {
 }
 
 export const AIIntelligencePanel = React.memo(function AIIntelligencePanel({ 
-  ticker, 
   prediction, 
   regime, 
   sentiment, 
   history
 }: AIIntelligencePanelProps) {
-
-
   const spread = ((prediction.p90 - prediction.p10) / prediction.p50) * 100;
 
   return (
     <section className="glass-card bg-black/10 border-white/5 overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/[0.02]">
-        <h3 className="text-[10px] font-bold text-zinc-500 tracking-widest uppercase">AI Price Forecasts</h3>
+        <h3 className="text-[10px] font-bold text-zinc-500 tracking-widest uppercase flex items-center gap-1.5">
+          Quantitative Prediction Engine
+          <InfoTooltip insightKey="MONTE_CARLO" category="QUANT" />
+        </h3>
         <span className="text-[9px] font-mono text-zinc-600 font-bold uppercase tracking-widest">90-Day Horizon</span>
       </div>
 
       <div className="p-4 space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest block">Forecast Direction</span>
+            <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest block">Target Trend Direction</span>
             <span className={`text-[13px] font-bold tracking-tighter block font-mono ${prediction.p50 > history[history.length-1].close ? 'text-bull' : 'text-bear'}`}>
               {prediction.p50 > history[history.length-1].close ? 'BULLISH' : 'BEARISH'}
             </span>
           </div>
           <div className="space-y-1.5 text-right">
-            <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest block">Confidence</span>
+            <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest block">Confidence Interval</span>
             <span className="text-[13px] font-bold text-white block font-mono">{(100 - spread).toFixed(1)}%</span>
           </div>
         </div>
 
         <div className="space-y-4 pt-5 border-t border-white/5">
-          <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest block">Market Regime</span>
+          <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest flex items-center gap-1.5 mb-2">
+            Structural Market Regime
+            <InfoTooltip insightKey="HURST_EXPONENT" category="QUANT" />
+          </span>
           <div className="p-3 bg-white/[0.02] border border-white/10 flex items-center justify-between">
             <span className="text-[10px] font-bold text-zinc-300 uppercase font-mono">{regime.replace('_', ' ')}</span>
             <div className="flex gap-1.5 items-end h-3">
@@ -60,7 +63,10 @@ export const AIIntelligencePanel = React.memo(function AIIntelligencePanel({
 
         <div className="space-y-3 pt-5 border-t border-white/5">
           <div className="flex justify-between items-center text-[9px] text-zinc-600 uppercase font-bold tracking-widest">
-            <span>Sentiment Score</span>
+            <span className="flex items-center gap-1.5">
+              Narrative Sentiment Coefficient
+              <InfoTooltip insightKey="SENTIMENT_VELOCITY" category="QUANT" />
+            </span>
             <span className={`font-mono text-[10px] ${sentiment.score > 0 ? 'text-bull' : 'text-bear'}`}>{sentiment.score > 0 ? '+' : ''}{sentiment.score.toFixed(3)}</span>
           </div>
           <p className="text-[11px] text-zinc-500 leading-relaxed font-normal italic border-l border-white/10 pl-3">
@@ -68,8 +74,6 @@ export const AIIntelligencePanel = React.memo(function AIIntelligencePanel({
           </p>
         </div>
       </div>
-
-
     </section>
   );
 });

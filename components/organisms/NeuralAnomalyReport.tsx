@@ -5,13 +5,15 @@ import { TechnicalIndicators } from '@/lib/technical-analysis';
 import { StrategicInsight } from '@/app/actions/ai';
 import { detectNeuralAnomalies, Anomaly } from '@/lib/anomalies';
 
-interface NeuralAnomalyReportProps {
+import { InfoTooltip } from '@/components/atoms/InfoTooltip';
+
+interface VolatilityDiagnosticsProps {
   history: OHLCV[];
   technicals: TechnicalIndicators;
   insight: StrategicInsight | null;
 }
 
-export const NeuralAnomalyReport = ({ history, technicals, insight }: NeuralAnomalyReportProps) => {
+export const NeuralAnomalyReport = ({ history, technicals, insight }: VolatilityDiagnosticsProps) => {
   const anomalies = useMemo(() => {
     return detectNeuralAnomalies(history, technicals, insight);
   }, [history, technicals, insight]);
@@ -21,7 +23,10 @@ export const NeuralAnomalyReport = ({ history, technicals, insight }: NeuralAnom
       <div className="p-5 border border-white/5 bg-black/20 rounded-xl flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-1.5 h-1.5 bg-bull shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-mono">Model Anomalies: Nominal</span>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-mono flex items-center">
+            Volatility Anomalies: Nominal
+            <InfoTooltip insightKey="ANNUALIZED_VOLATILITY" category="QUANT" />
+          </span>
         </div>
         <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-widest">No Active Divergence</span>
       </div>
@@ -31,10 +36,13 @@ export const NeuralAnomalyReport = ({ history, technicals, insight }: NeuralAnom
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 px-1">
-        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Inference Divergence Monitor</h3>
+        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] flex items-center">
+          Volatility & Divergence Monitor
+          <InfoTooltip insightKey="ANNUALIZED_VOLATILITY" category="QUANT" />
+        </h3>
         <div className="h-px flex-1 bg-white/5 mx-4" />
         <span className="text-[10px] bg-bear/10 text-bear border border-bear/20 px-3 py-1 rounded-sm font-bold uppercase tracking-[0.2em]">
-          {anomalies.length} Anomalies Detected
+          {anomalies.length} Divergences Detected
         </span>
       </div>
 
@@ -53,7 +61,7 @@ export const NeuralAnomalyReport = ({ history, technicals, insight }: NeuralAnom
                 <h4 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${
                   anomaly.severity === 'CRITICAL' ? 'text-bear' : 'text-zinc-200'
                 }`}>
-                  {anomaly.title}
+                  {anomaly.title.replace("Neural ", "Statistical ").replace("AI ", "Model ")}
                 </h4>
                 <div className={`w-1.5 h-1.5 ${anomaly.severity === 'CRITICAL' ? 'bg-bear animate-pulse' : 'bg-zinc-500'}`} />
               </div>
@@ -73,4 +81,5 @@ export const NeuralAnomalyReport = ({ history, technicals, insight }: NeuralAnom
     </div>
   );
 };
+
 

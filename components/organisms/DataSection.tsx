@@ -33,7 +33,7 @@ export function DataSection({ title, icon, children }: { title: string; icon?: R
               <h4 className="text-[11px] font-bold text-zinc-200 uppercase tracking-[0.2em]">Data: {title}</h4>
               <p className="text-[11px] text-zinc-400 leading-relaxed max-w-xl font-medium">
                 Our analytical engine applies multi-stage validation to {title.toLowerCase()}. 
-                This framework utilizes comparative forensic indexing and volatility-weighted consensus 
+                This framework utilizes cross-sectional benchmarking and volatility-weighted consensus 
                 to derive structural insights.
               </p>
             </div>

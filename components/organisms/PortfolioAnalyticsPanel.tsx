@@ -1,6 +1,8 @@
 "use client";
 import React, { useMemo } from "react";
 import { PortfolioAnalytics as Analytics, PositionAnalytics } from "@/lib/portfolio-analytics";
+import { InfoTooltip } from "@/components/atoms/InfoTooltip";
+import { EducationCategory } from "@/components/providers/EducationProvider";
 
 interface PortfolioAnalyticsPanelProps {
   analytics: Analytics;
@@ -51,14 +53,17 @@ function AllocationBar({ pos, isTop }: { pos: PositionAnalytics; isTop: boolean 
 
 // ── Metric Card ────────────────────────────────────────────────────────────
 function MetricCard({
-  label, value, sub, color = "text-white", borderColor = "border-white/5"
+  label, value, sub, color = "text-white", borderColor = "border-white/5", tooltipKey, tooltipCategory = "QUANT"
 }: {
-  label: string; value: string; sub?: string; color?: string; borderColor?: string;
+  label: string; value: string; sub?: string; color?: string; borderColor?: string; tooltipKey?: string; tooltipCategory?: EducationCategory;
 }) {
   return (
     <div className={`p-5 rounded-xl border ${borderColor} bg-black/40 backdrop-blur-md relative overflow-hidden shadow-lg transition-all duration-300 hover:bg-black/50 hover:border-white/20`}>
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-3">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-3 flex items-center gap-1.5">
+        {label}
+        {tooltipKey && <InfoTooltip insightKey={tooltipKey} category={tooltipCategory} />}
+      </p>
       <p className={`text-xl font-bold font-mono tabular-nums ${color}`}>{value}</p>
       {sub && <p className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wider">{sub}</p>}
     </div>
@@ -105,12 +110,16 @@ export function PortfolioAnalyticsPanel({ analytics }: PortfolioAnalyticsPanelPr
           value={`${weightedReturn >= 0 ? "+" : ""}${fmt(weightedReturn, 2)}%`}
           color={weightedReturn >= 0 ? "text-bull" : "text-bear"}
           sub="Across all positions"
+          tooltipKey="WEIGHTED_RETURN"
+          tooltipCategory="FUNDAMENTAL"
         />
         <MetricCard
           label="Win Rate"
           value={`${fmt(winRate, 0)}%`}
           sub={`${winningPositions}W / ${losingPositions}L`}
           color={winRate >= 50 ? "text-bull" : "text-bear"}
+          tooltipKey="PORTFOLIO_WIN_RATE"
+          tooltipCategory="FUNDAMENTAL"
         />
         <MetricCard
           label="Concentration (HHI)"
@@ -118,6 +127,8 @@ export function PortfolioAnalyticsPanel({ analytics }: PortfolioAnalyticsPanelPr
           sub={concentrationLabel}
           color={concentrationColor.text}
           borderColor={concentrationColor.border}
+          tooltipKey="CONCENTRATION_HHI"
+          tooltipCategory="QUANT"
         />
         {topPosition && (
           <MetricCard

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { calculateWhaleIntelligence } from '../lib/whale-radar';
+import { calculateBlockholderIntelligence } from '../lib/blockholder-analytics';
 import { StockDetails } from '../lib/stock-details';
 
-describe('Whale Radar Engine', () => {
+describe('Blockholder Analytics Engine', () => {
   const mockDetails = (insiders: any[], holders: any[], instPct: number): Partial<StockDetails> => ({
     insiderTransactions: insiders,
     topHolders: holders,
@@ -31,10 +31,10 @@ describe('Whale Radar Engine', () => {
     ];
     const holders = [{ name: 'Fund A', pctChange: 2, value: 10000000, pctHeld: 0.05 }];
     
-    const intelligence = calculateWhaleIntelligence(mockDetails(insiders, holders, 0.7) as any);
+    const intelligence = calculateBlockholderIntelligence(mockDetails(insiders, holders, 0.7) as any);
     
     expect(intelligence.insiderSentiment).toBe('BULLISH');
-    expect(intelligence.whaleConsensusScore).toBeGreaterThan(50);
+    expect(intelligence.blockholderConsensusScore).toBeGreaterThan(50);
   });
 
   it('detects a cluster buy (3+ unique buyers)', () => {
@@ -44,10 +44,10 @@ describe('Whale Radar Engine', () => {
       { filerName: 'Buyer 3', transactionText: 'Buy', value: 10000, startDate: new Date().toISOString(), shares: 100 }
     ];
     
-    const intelligence = calculateWhaleIntelligence(mockDetails(insiders, [], 0.5) as any);
+    const intelligence = calculateBlockholderIntelligence(mockDetails(insiders, [], 0.5) as any);
     
     expect(intelligence.clusterBuyDetected).toBe(true);
-    expect(intelligence.whaleConsensus).toBe('HIGH_CONVICTION_BUY');
+    expect(intelligence.blockholderConsensus).toBe('HIGH_CONVICTION_BUY');
   });
 
   it('detects distribution when institutions sell', () => {
@@ -57,16 +57,16 @@ describe('Whale Radar Engine', () => {
       { name: 'Fund B', pctChange: -15, value: 10000000, pctHeld: 0.05 }
     ];
     
-    const intelligence = calculateWhaleIntelligence(mockDetails(insiders, holders, 0.4) as any);
+    const intelligence = calculateBlockholderIntelligence(mockDetails(insiders, holders, 0.4) as any);
     
     expect(intelligence.institutionalSentiment).toBe('BEARISH');
-    expect(intelligence.whaleConsensus).toBe('DISTRIBUTION');
+    expect(intelligence.blockholderConsensus).toBe('DISTRIBUTION');
   });
 
   it('remains neutral with mixed or no data', () => {
-    const intelligence = calculateWhaleIntelligence(mockDetails([], [], 0.5) as any);
+    const intelligence = calculateBlockholderIntelligence(mockDetails([], [], 0.5) as any);
     
-    expect(intelligence.whaleConsensus).toBe('NEUTRAL');
-    expect(intelligence.whaleConsensusScore).toBe(50);
+    expect(intelligence.blockholderConsensus).toBe('NEUTRAL');
+    expect(intelligence.blockholderConsensusScore).toBe(50);
   });
 });

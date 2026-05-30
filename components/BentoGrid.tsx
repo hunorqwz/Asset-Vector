@@ -18,7 +18,8 @@ const Sparkline = ({ data, color, height = 30 }: { data: number[]; color: string
 
         // Account for high-DPI displays
         const dpr = window.devicePixelRatio || 1;
-        const width = 140;
+        const rect = canvas.getBoundingClientRect();
+        const width = rect.width || 120;
         canvas.width = width * dpr;
         canvas.height = height * dpr;
         ctx.scale(dpr, dpr);
@@ -28,8 +29,6 @@ const Sparkline = ({ data, color, height = 30 }: { data: number[]; color: string
         const range = max - min || 1;
         
         ctx.clearRect(0, 0, width, height);
-        
-        // Gradient fill removed for institutional clarity
 
         // DRAW LINE
         ctx.beginPath();
@@ -53,21 +52,31 @@ const Sparkline = ({ data, color, height = 30 }: { data: number[]; color: string
         ctx.stroke();
     }, [data, color, height]);
 
-    return <canvas ref={canvasRef} style={{ width: 140, height }} className="block opacity-100" />;
+    return <canvas ref={canvasRef} style={{ width: "100%", height }} className="block opacity-100" />;
 }
 
 import { MarketSignal } from "@/lib/market-data";
+import { useEducation, EducationCategory } from "@/components/providers/EducationProvider";
 
 // Tooltip Component for Headers
-function HeaderWithTooltip({ label, tooltip, align = 'left' }: { label: string; tooltip: string; align?: 'left' | 'right' }) {
+function HeaderWithTooltip({ label, tooltip, align = 'left', insightKey, category = 'QUANT' }: { label: string; tooltip: string; align?: 'left' | 'right'; insightKey?: string; category?: EducationCategory }) {
+  const { openEducation } = useEducation();
   return (
-    <div className={`group relative flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} cursor-help`}>
+    <div 
+      onClick={() => {
+        if (insightKey) {
+          openEducation(insightKey, category);
+        }
+      }}
+      className={`group relative flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} cursor-help`}
+    >
       <span className="border-b border-dashed border-zinc-700 hover:text-zinc-300 transition-colors pb-[1px]">{label}</span>
       <div className={`absolute bottom-full ${align === 'right' ? 'right-0' : 'left-0'} mb-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50`}>
         <div className="bg-zinc-900 border border-white/10 rounded-md shadow-2xl p-3 text-left">
           <p className="text-[11px] text-zinc-300 font-normal leading-relaxed whitespace-normal normal-case tracking-normal">
             {tooltip}
           </p>
+          <span className="text-[8.5px] font-bold text-zinc-500 block mt-2 uppercase tracking-wide">Click to open calculator ↗</span>
         </div>
         {/* Subtle arrow pointing down */}
         <div className={`absolute bottom-[-4px] ${align === 'right' ? 'right-4' : 'left-4'} w-2 h-2 bg-zinc-900 border-b border-r border-white/10 transform rotate-45`}></div>
@@ -90,7 +99,7 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
     const isEmpty = filteredItems.length === 0;
 
     return (
-        <div className="w-full glass-card rounded-xl">
+        <div className="w-full glass-card rounded-xl overflow-hidden">
              <div className="px-6 py-3 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
                  <input 
                     type="text" 
@@ -100,77 +109,79 @@ export const WatchlistGrid = ({ items, onRemoveAction }: { items: { signal: Mark
                     className="w-full max-w-sm bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/20 transition-colors"
                  />
              </div>
-             <div className="flex items-center px-6 py-2.5 border-b border-white/5 text-[11px] font-medium text-zinc-500 bg-white/[0.01] uppercase tracking-wider">
-                <div className="w-[100px] shrink-0">Asset</div>
-                <div className="w-[100px] shrink-0 hidden md:block">Sector</div>
-                <div className="w-[100px] shrink-0">Price</div>
-                <div className="flex-1 min-w-[100px] px-6 flex items-center gap-2 flex-wrap">
-                    <HeaderWithTooltip label="Trend" tooltip="Smoothed price action over the selected timeframe." />
-                    <select
-                        value={range}
-                        onChange={(e) => setRange(e.target.value as any)}
-                        className="bg-black/30 border border-white/10 text-zinc-400 text-xs font-medium rounded px-1.5 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors ml-1"
-                    >
-                        <option value="1M" className="bg-zinc-950 text-zinc-300">1M</option>
-                        <option value="3M" className="bg-zinc-950 text-zinc-300">3M</option>
-                        <option value="6M" className="bg-zinc-950 text-zinc-300">6M</option>
-                        <option value="1Y" className="bg-zinc-950 text-zinc-300">1Y</option>
-                        <option value="2Y" className="bg-zinc-950 text-zinc-300">2Y</option>
-                        <option value="5Y" className="bg-zinc-950 text-zinc-300">5Y</option>
-                        <option value="ALL" className="bg-zinc-950 text-zinc-300">ALL</option>
-                    </select>
-                </div>
-                <div className="w-[120px] shrink-0 pl-6 flex flex-col gap-0.5">
-                    <HeaderWithTooltip label="Proj. Return" tooltip="Ensemble quantitative price target projections." />
-                    <select
-                        value={forecastHorizon}
-                        onChange={(e) => setForecastHorizon(e.target.value as any)}
-                        className="bg-black/30 border border-white/10 text-zinc-400 text-xs font-medium rounded px-1.5 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors mt-0.5 w-16"
-                    >
-                        <option value="4H" className="bg-zinc-950 text-zinc-300">4H</option>
-                        <option value="1D" className="bg-zinc-950 text-zinc-300">1D</option>
-                        <option value="3D" className="bg-zinc-950 text-zinc-300">3D</option>
-                        <option value="1W" className="bg-zinc-950 text-zinc-300">1W</option>
-                        <option value="1M" className="bg-zinc-950 text-zinc-300">1M</option>
-                    </select>
-                </div>
-                <div className="w-[100px] shrink-0 hidden md:block pl-6">
-                    <HeaderWithTooltip label="Technicals" tooltip="Algorithmic confluence score (0-100) combining momentum, volatility, and structural support levels." />
-                </div>
-                <div className="w-[120px] shrink-0 hidden lg:block pl-6">
-                    <HeaderWithTooltip label="Sentiment" tooltip="AI-driven analysis of real-time news narratives, institutional money flow, and momentum shifts." />
-                </div>
-                <div className="w-[100px] shrink-0 pr-6 text-right">
-                    <HeaderWithTooltip label="Conviction" tooltip="Final institutional synthesis score (0-100) representing directional confidence and risk/reward." align="right" />
-                </div>
-                <div className="w-10 shrink-0"></div>
+
+             {/* Horizontal Scroll Wrapper */}
+             <div className="w-full overflow-x-auto scrollbar-hide">
+                  <div className="min-w-[850px]">
+                       {/* Table Header */}
+                       <div className="flex items-center px-6 py-2.5 border-b border-white/5 text-[11px] font-medium text-zinc-500 bg-white/[0.01] uppercase tracking-wider">
+                          <div className="w-[100px] shrink-0">Asset</div>
+                          <div className="w-[100px] shrink-0 hidden md:block">Sector</div>
+                          <div className="w-[100px] shrink-0">Price</div>
+                          <div className="w-[150px] shrink-0 px-4 flex items-center gap-1.5">
+                              <HeaderWithTooltip label="Trend" tooltip="Smoothed price action over the selected historical timeframe." insightKey="ANNUALIZED_VOLATILITY" />
+                              <select
+                                  value={range}
+                                  onChange={(e) => setRange(e.target.value as any)}
+                                  className="bg-black/30 border border-white/10 text-zinc-400 text-[10px] font-bold rounded px-1 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors"
+                              >
+                                  <option value="1M" className="bg-zinc-950 text-zinc-300">1M</option>
+                                  <option value="3M" className="bg-zinc-950 text-zinc-300">3M</option>
+                                  <option value="6M" className="bg-zinc-950 text-zinc-300">6M</option>
+                                  <option value="1Y" className="bg-zinc-950 text-zinc-300">1Y</option>
+                                  <option value="2Y" className="bg-zinc-950 text-zinc-300">2Y</option>
+                                  <option value="5Y" className="bg-zinc-950 text-zinc-300">5Y</option>
+                                  <option value="ALL" className="bg-zinc-950 text-zinc-300">ALL</option>
+                              </select>
+                          </div>
+                          <div className="flex-1 min-w-[150px] px-6 flex items-center gap-1.5">
+                              <HeaderWithTooltip label="Projection" tooltip="AI expected price path return and confidence envelopes (p10/p90) over the forecast horizon." insightKey="MONTE_CARLO" />
+                              <select
+                                  value={forecastHorizon}
+                                  onChange={(e) => setForecastHorizon(e.target.value as any)}
+                                  className="bg-black/30 border border-white/10 text-zinc-400 text-[10px] font-bold rounded px-1 py-0.5 focus:outline-none focus:border-white/20 cursor-pointer hover:text-white transition-colors"
+                              >
+                                  <option value="4H" className="bg-zinc-950 text-zinc-300">4H</option>
+                                  <option value="1D" className="bg-zinc-950 text-zinc-300">1D</option>
+                                  <option value="3D" className="bg-zinc-950 text-zinc-300">3D</option>
+                                  <option value="1W" className="bg-zinc-950 text-zinc-300">1W</option>
+                                  <option value="1M" className="bg-zinc-950 text-zinc-300">1M</option>
+                              </select>
+                          </div>
+                          <div className="w-[100px] shrink-0 pr-6 text-right">
+                              <HeaderWithTooltip label="Conviction" tooltip="Directional confidence (0-100) based on news sentiment, flow alignment, and technical indicator congruence." align="right" insightKey="CONFLUENCE_SCORE" />
+                          </div>
+                          <div className="w-10 shrink-0"></div>
+                       </div>
+
+                       {isEmpty ? (
+                           <div className="py-32 flex flex-col items-center justify-center text-center px-6">
+                               <div className="w-12 h-12 border border-white/10 flex items-center justify-center mb-6 rounded-lg">
+                                  <div className="w-2 h-2 bg-zinc-500 rounded-full"></div>
+                               </div>
+                               <h3 className="text-sm font-semibold text-white mb-2 tracking-wide">No Matches</h3>
+                               <p className="text-sm text-zinc-400 max-w-[220px] leading-relaxed">
+                                   Could not find any assets matching your filter criteria.
+                               </p>
+                           </div>
+                       ) : (
+                           <div className="flex flex-col divide-y divide-white/5">
+                                {filteredItems.map((item, i) => {
+                                  return (
+                                    <WatchlistItem 
+                                      key={i} 
+                                      signal={item.signal}
+                                      alpha={item.alpha}
+                                      onRemove={() => onRemoveAction(item.signal.ticker)}
+                                      range={range}
+                                      forecastHorizon={forecastHorizon}
+                                    />
+                                  );
+                                })}
+                           </div>
+                       )}
+                  </div>
              </div>
-             {isEmpty ? (
-                 <div className="py-32 flex flex-col items-center justify-center text-center px-6">
-                     <div className="w-12 h-12 border border-white/10 flex items-center justify-center mb-6 rounded-lg">
-                        <div className="w-2 h-2 bg-zinc-500 rounded-full"></div>
-                     </div>
-                     <h3 className="text-sm font-semibold text-white mb-2 tracking-wide">No Matches</h3>
-                     <p className="text-sm text-zinc-400 max-w-[220px] leading-relaxed">
-                         Could not find any assets matching your filter criteria.
-                     </p>
-                 </div>
-             ) : (
-                 <div className="flex flex-col divide-y divide-white/5">
-                     {filteredItems.map((item, i) => {
-                        return (
-                          <WatchlistItem 
-                            key={i} 
-                            signal={item.signal}
-                            alpha={item.alpha}
-                            onRemove={() => onRemoveAction(item.signal.ticker)}
-                            range={range}
-                            forecastHorizon={forecastHorizon}
-                          />
-                        );
-                     })}
-                 </div>
-             )}
         </div>
     );
 }
@@ -186,6 +197,7 @@ export interface WatchlistItemProps {
 }
 
 export function WatchlistItem({ signal, onRemove, alpha, range = "1M", forecastHorizon = "1D" }: WatchlistItemProps) {
+  const { openEducation } = useEducation();
   
   // Dynamically compute cumulative return for the selected trend range
   const sliceLength = range === "ALL" ? 2500 : 
@@ -274,69 +286,60 @@ export function WatchlistItem({ signal, onRemove, alpha, range = "1M", forecastH
           </div>
 
           {/* COL 4: SPARKLINE */}
-          <div className="flex-1 px-6 h-8 flex items-center" role="img">
+          <div 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openEducation("ANNUALIZED_VOLATILITY", "QUANT");
+            }}
+            className="w-[150px] shrink-0 px-4 h-8 flex items-center cursor-help hover:opacity-80 transition-opacity" 
+            role="img"
+            title="Click to open Volatility simulator"
+          >
                <Sparkline 
-                  data={signal.history.slice(-(
-                      range === "ALL" ? 2500 : 
-                      range === "5Y" ? 1260 : 
-                      range === "2Y" ? 504 : 
-                      range === "1Y" ? 252 : 
-                      range === "6M" ? 126 : 
-                      range === "3M" ? 63 : 21
-                  )).map(h => h.close)} 
+                  data={signal.history.slice(-sliceLength).map(h => h.close)} 
                   color={color} 
                   height={32} 
                />
           </div>
 
-          {/* COL 5: PROJ. RETURN */}
-          <div className="w-[120px] shrink-0 flex flex-col justify-center pl-6">
-               {expectedPct !== null ? (
-                    <>
-                        <span className={`text-[12px] font-bold font-mono tracking-tight tabular-nums leading-none ${expectedPct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                            {fmtExpected}
-                        </span>
-                        <span className="text-[9px] font-mono text-zinc-500 mt-1 tabular-nums leading-none">
-                            [{fmtP10} / {fmtP90}]
-                        </span>
-                    </>
-               ) : (
-                    <span className="text-[11px] font-mono text-zinc-500">N/A</span>
-               )}
-          </div>
-
-          {/* COL 6: TECHNICALS */}
-          <div className="w-[100px] shrink-0 hidden md:flex flex-col justify-center pl-6">
-               <div className="flex items-center gap-2">
-                   <span className={`text-[11px] font-bold uppercase tracking-wider ${signal.tech.signal.includes('BUY') ? 'text-green-500' : signal.tech.signal.includes('SELL') ? 'text-red-500' : 'text-zinc-500'}`}>
-                      {signal.tech.signal.replace('STRONG ', '')}
+          {/* COL 5: PROJECTION FORECAST (Probabilities) */}
+          <div 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openEducation("MONTE_CARLO", "QUANT");
+            }}
+            className="flex-1 px-6 flex flex-col justify-center min-w-[150px] cursor-help hover:opacity-80 transition-opacity"
+            title="Click to open Monte Carlo simulator"
+          >
+               <div className="flex items-center gap-1.5">
+                   <span className={`text-[12px] font-mono font-bold ${expectedPct !== null ? (expectedPct >= 0 ? 'text-bull' : 'text-bear') : 'text-zinc-500'}`}>
+                       {fmtExpected}
+                   </span>
+                   <span className="text-[9px] font-medium text-zinc-500 uppercase tracking-tighter">Expected</span>
+               </div>
+               <div className="flex items-center gap-2 mt-1 text-[9.5px] font-mono font-bold text-zinc-600">
+                   <span className="flex items-center gap-0.5">
+                      <span className="text-bear">p10:</span> {fmtP10}
+                   </span>
+                   <span className="w-px h-2.5 bg-white/5" />
+                   <span className="flex items-center gap-0.5">
+                      <span className="text-bull">p90:</span> {fmtP90}
                    </span>
                </div>
-           </div>
-
-          {/* COL 7: SENTIMENT */}
-          <div className="w-[120px] shrink-0 hidden lg:flex flex-col justify-center pl-6">
-               <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${
-                    signal.sentiment.label.includes('BULL') ? 'bg-green-500' : 
-                    signal.sentiment.label.includes('BEAR') ? 'bg-red-500' : 'bg-zinc-500'
-                  }`} />
-                  <span className={`text-[12px] font-medium capitalize ${signal.sentiment.label.includes('BULL') ? 'text-zinc-200' : signal.sentiment.label.includes('BEAR') ? 'text-zinc-200' : 'text-zinc-400'}`}>
-                      {signal.sentiment.label.toLowerCase()}
-                  </span>
-               </div>
-               {signal.sentiment.drift !== 'STABLE' && (
-                  <span className="text-[11px] font-medium text-zinc-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
-                      <span className="opacity-50">↳</span>
-                      {signal.sentiment.drift === 'ACCELERATING_BULL' ? 'Momentum Building' :
-                       signal.sentiment.drift === 'ACCELERATING_BEAR' ? 'Momentum Dropping' :
-                       'Trend Reversing'}
-                  </span>
-               )}
           </div>
 
           {/* COL 7: CONVICTION */}
-          <div className="w-[100px] shrink-0 flex flex-col items-end justify-center pr-6">
+          <div 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openEducation("CONFLUENCE_SCORE", "QUANT");
+            }}
+            className="w-[100px] shrink-0 flex flex-col items-end justify-center pr-6 cursor-help hover:opacity-80 transition-opacity"
+            title="Click to open Confluence Score details"
+          >
               <span className={`text-[11px] font-bold tracking-wider uppercase mb-1 ${
                   signal.synthesis.signal.includes('BUY') ? 'text-green-500' : 
                   signal.synthesis.signal.includes('SELL') ? 'text-red-500' : 

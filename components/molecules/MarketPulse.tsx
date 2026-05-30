@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 import { SectorMetric, MarketPulseData } from "@/lib/market-pulse";
-import { StealthTooltip } from "@/components/LiveTelemetry";
 
 interface MarketPulseProps {
   data: MarketPulseData;

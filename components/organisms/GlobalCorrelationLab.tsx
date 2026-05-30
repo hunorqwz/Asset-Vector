@@ -1,7 +1,7 @@
-"use client";
 import React from 'react';
 import { CorrelationMatrix } from "@/lib/portfolio-risk";
-import { StealthTooltip } from "@/components/LiveTelemetry";
+import { Tooltip } from "@/components/LiveTelemetry";
+import { InfoTooltip } from '@/components/atoms/InfoTooltip';
 
 interface GlobalCorrelationLabProps {
   data: CorrelationMatrix;
@@ -32,7 +32,10 @@ export function GlobalCorrelationLab({ data }: GlobalCorrelationLabProps) {
     <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden group">
       <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
         <div>
-          <h2 className="text-sm font-bold text-white tracking-wide mb-1">Asset Price Correlation Matrix</h2>
+          <h2 className="text-sm font-bold text-white tracking-wide mb-1 flex items-center">
+            Asset Price Correlation Matrix
+            <InfoTooltip insightKey="PORTFOLIO_CORRELATION" />
+          </h2>
         </div>
         <div className="flex items-center gap-6">
            <div className="text-right">
@@ -71,13 +74,13 @@ export function GlobalCorrelationLab({ data }: GlobalCorrelationLabProps) {
                 {tickers.map((tCol, j) => {
                   const val = matrix[i][j];
                   return (
-                    <StealthTooltip key={`${i}-${j}`} content={`${tRow} vs ${tCol}: ${val.toFixed(2)}`}>
+                    <Tooltip key={`${i}-${j}`} content={`${tRow} vs ${tCol}: ${val.toFixed(2)}`}>
                       <div 
                         className={`h-10 w-full rounded-[2px] flex items-center justify-center transition-all hover:scale-110 hover:z-10 shadow-sm ${getCellColor(val)}`}
                       >
                         <span className="text-[10px] font-mono text-white/80">{val.toFixed(1)}</span>
                       </div>
-                    </StealthTooltip>
+                    </Tooltip>
                   );
                 })}
               </React.Fragment>
@@ -89,10 +92,10 @@ export function GlobalCorrelationLab({ data }: GlobalCorrelationLabProps) {
           <div className="flex items-center gap-8">
              <LegendItem color="bg-bear" label="Redundancy (>0.85)" />
              <LegendItem color="bg-zinc-800" label="Neutral" />
-             <LegendItem color="bg-bull" label="Alpha (<0.0)" />
+             <LegendItem color="bg-bull" label="Diversification (<0.0)" />
           </div>
           <p className="max-w-xs text-[11px] text-zinc-400 font-medium italic text-right">
-             High correlation increases systemic risk. Seek "Alpha" cells (blue) to maximize portfolio resilience.
+             High correlation increases systemic risk. Seek "Diversifying" cells (blue) to maximize portfolio resilience.
           </p>
         </div>
       </div>

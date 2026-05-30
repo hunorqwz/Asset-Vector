@@ -1,8 +1,26 @@
 import React from 'react';
 import { METRIC_INSIGHTS } from "@/lib/insights";
 import { InsightTooltip } from "@/components/organisms/InsightTooltip";
+import { InfoTooltip } from "@/components/atoms/InfoTooltip";
+import { EducationCategory } from "@/components/providers/EducationProvider";
 
-export function DataRow({ label, value, highlight, colored, insightId }: { label: string; value: string; highlight?: boolean; colored?: boolean; insightId?: string }) {
+export function DataRow({ 
+  label, 
+  value, 
+  highlight, 
+  colored, 
+  insightId, 
+  insightKey, 
+  category = "QUANT" 
+}: { 
+  label: string; 
+  value: string; 
+  highlight?: boolean; 
+  colored?: boolean; 
+  insightId?: string; 
+  insightKey?: string; 
+  category?: EducationCategory; 
+}) {
   let valueColor = highlight ? 'text-white font-semibold' : 'text-zinc-300';
   const insight = insightId ? METRIC_INSIGHTS[insightId] : null;
 
@@ -20,7 +38,11 @@ export function DataRow({ label, value, highlight, colored, insightId }: { label
       
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-zinc-500 group-hover/row:text-zinc-300 transition-colors uppercase tracking-[0.15em] font-bold">{label}</span>
-        {insight && <InsightTooltip insight={insight} />}
+        {insightKey ? (
+          <InfoTooltip insightKey={insightKey} category={category} />
+        ) : insight ? (
+          <InsightTooltip insight={insight} />
+        ) : null}
       </div>
       <span className={`text-[12px] font-mono font-bold tabular-nums tracking-tight transition-all group-hover/row:translate-x-[-2px] ${valueColor}`}>{value}</span>
     </div>

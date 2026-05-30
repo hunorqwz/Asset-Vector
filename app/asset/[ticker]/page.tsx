@@ -110,8 +110,8 @@ export default async function AssetPage({ params }: { params: Promise<{ ticker: 
                 </div>
              </div>
 
-             {/* Trading Executive */}
-             <AlpacaTerminal ticker={ticker} />
+             {/* Order Execution Panel */}
+             <AlpacaTerminal ticker={ticker} signal={signal} />
           </div>
 
         </div>

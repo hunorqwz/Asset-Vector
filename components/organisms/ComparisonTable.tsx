@@ -3,6 +3,8 @@ import React, { useMemo } from "react";
 import Link from "next/link";
 import { ComparisonAsset } from "@/app/actions/compare";
 import { calculateAlphaScore, calculateCatalystRisk } from "@/lib/alpha-engine";
+import { useEducation } from "@/components/providers/EducationProvider";
+import { InfoTooltip } from "@/components/atoms/InfoTooltip";
 
 // ── Formatters ─────────────────────────────────────────────────────────────
 function fmt(n: number | null | undefined, d = 2): string {
@@ -252,11 +254,11 @@ const ROWS: RowDef[] = [
 
   // ── Risk
   {
-    label: "Beta", category: "Risk",
+    label: "Ex-Ante Beta", category: "Risk",
     getValue: a => a.details.keyStats.beta,
     format: n => n !== null ? fmt(n, 2) : "—",
     better: "lower",
-    tooltip: "Sensitivity to market moves: >1 = more volatile than market"
+    tooltip: "Systematic sensitivity to market moves (SPY): >1 = more volatile than market"
   },
   {
     label: "Catalyst Move (Est)", category: "Risk",
@@ -406,12 +408,49 @@ function CategoryRow({ label, colCount }: { label: string; colCount: number }) {
   );
 }
 
-// ── Main Table ─────────────────────────────────────────────────────────────
+const METRIC_EDUCATION_MAP: Record<string, { key: string; cat: "QUANT" | "FUNDAMENTAL" }> = {
+  "Current Price": { key: "VALUATION", cat: "FUNDAMENTAL" },
+  "Market Cap": { key: "MARKET_CAP", cat: "FUNDAMENTAL" },
+  "Day Change": { key: "VALUATION", cat: "FUNDAMENTAL" },
+  "52W Return": { key: "VALUATION", cat: "FUNDAMENTAL" },
+  "Distance 52W High": { key: "VALUATION", cat: "FUNDAMENTAL" },
+  "Synthesis Score": { key: "CONFLUENCE_SCORE", cat: "QUANT" },
+  "Alpha Score": { key: "JENSENS_ALPHA", cat: "QUANT" },
+  "Confluence Score": { key: "CONFLUENCE_SCORE", cat: "QUANT" },
+  "Predictability (Hurst)": { key: "HURST_EXPONENT", cat: "QUANT" },
+  "Signal to Noise": { key: "KALMAN_EQUILIBRIUM", cat: "QUANT" },
+  "RSI (14)": { key: "CONFLUENCE_SCORE", cat: "QUANT" },
+  "MACD Histogram": { key: "CONFLUENCE_SCORE", cat: "QUANT" },
+  "BB %B Position": { key: "CONFLUENCE_SCORE", cat: "QUANT" },
+  "50D / 200D MA Spread": { key: "CONFLUENCE_SCORE", cat: "QUANT" },
+  "P/E (Forward)": { key: "PE_RATIO", cat: "FUNDAMENTAL" },
+  "P/E (Trailing)": { key: "PE_RATIO", cat: "FUNDAMENTAL" },
+  "PEG Ratio": { key: "PE_RATIO", cat: "FUNDAMENTAL" },
+  "Price / Book": { key: "PE_RATIO", cat: "FUNDAMENTAL" },
+  "Price / Sales": { key: "PE_RATIO", cat: "FUNDAMENTAL" },
+  "EV / EBITDA": { key: "PE_RATIO", cat: "FUNDAMENTAL" },
+  "Revenue Growth (YoY)": { key: "PROFITABILITY", cat: "FUNDAMENTAL" },
+  "Profit Margin": { key: "PROFITABILITY", cat: "FUNDAMENTAL" },
+  "Return on Equity": { key: "PROFITABILITY", cat: "FUNDAMENTAL" },
+  "Gross Margin": { key: "PROFITABILITY", cat: "FUNDAMENTAL" },
+  "Operating Margin": { key: "PROFITABILITY", cat: "FUNDAMENTAL" },
+  "Ex-Ante Beta": { key: "REGIME_BETA", cat: "QUANT" },
+  "Catalyst Move (Est)": { key: "VALUE_AT_RISK", cat: "QUANT" },
+  "Surprise Momentum": { key: "VALUE_AT_RISK", cat: "QUANT" },
+  "Max Drawdown (1Y)": { key: "MAX_DRAWDOWN", cat: "QUANT" },
+  "Sharpe Ratio (1Y)": { key: "SHARPE_RATIO", cat: "QUANT" },
+  "Realized Vol (1Y)": { key: "ANNUALIZED_VOLATILITY", cat: "QUANT" },
+  "Short Interest": { key: "VALUE_AT_RISK", cat: "QUANT" },
+  "Dividend Yield": { key: "DIVIDEND_YIELD", cat: "FUNDAMENTAL" },
+  "Payout Ratio": { key: "DIVIDEND_YIELD", cat: "FUNDAMENTAL" },
+};
+
 interface ComparisonTableProps {
   assets: ComparisonAsset[];
 }
 
 export function ComparisonTable({ assets }: ComparisonTableProps) {
+  const { openEducation } = useEducation();
   if (assets.length === 0) return null;
 
   const wins = useMemo(() => scoreAssets(assets), [assets]);
@@ -532,9 +571,14 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
                       <td className={`px-6 py-3 text-[11px] font-medium whitespace-nowrap sticky left-0 z-10 border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.25)] transition-colors group-hover/row:text-white ${ri % 2 === 1 ? 'bg-[#0d0f14]/95' : 'bg-[#0a0c10]/95'} text-zinc-400`}>
                         <div className="flex items-center">
                            {row.label}
-                           {row.tooltip && (
-                             <span className="ml-2 w-3.5 h-3.5 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-[10px] text-zinc-500 font-bold group-hover/row:text-zinc-400 transition-colors cursor-help" title={row.tooltip}>?</span>
-                           )}
+                           {METRIC_EDUCATION_MAP[row.label] ? (
+                             <InfoTooltip 
+                               insightKey={METRIC_EDUCATION_MAP[row.label].key} 
+                               category={METRIC_EDUCATION_MAP[row.label].cat} 
+                             />
+                           ) : row.tooltip ? (
+                             <InfoTooltip fallbackText={row.tooltip} />
+                           ) : null}
                         </div>
                       </td>
                       {assets.map((a, ai) => {

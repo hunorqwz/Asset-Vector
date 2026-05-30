@@ -1,4 +1,6 @@
-export function MetricCard({ label, value, subValue, trend }: { label: string; value: string; subValue?: string; trend?: "BULLISH" | "BEARISH" }) {
+import { InfoTooltip } from "@/components/atoms/InfoTooltip";
+
+export function MetricCard({ label, value, subValue, trend, tooltipKey, tooltipCategory }: { label: string; value: string; subValue?: string; trend?: "BULLISH" | "BEARISH"; tooltipKey?: string; tooltipCategory?: "QUANT" | "FUNDAMENTAL" }) {
   const isBull = trend === "BULLISH";
   const isBear = trend === "BEARISH";
 
@@ -8,7 +10,10 @@ export function MetricCard({ label, value, subValue, trend }: { label: string; v
       <div className={`absolute top-0 left-0 w-full h-[2px] transition-transform duration-500 scale-x-0 group-hover:scale-x-100 ${isBull ? 'bg-bull' : isBear ? 'bg-bear' : 'bg-zinc-500/30'}`} />
       
       <div className="flex flex-col">
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block mb-3 group-hover:text-zinc-400 transition-colors">{label}</span>
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] block mb-3 group-hover:text-zinc-400 transition-colors">
+          {label}
+          {tooltipKey && <InfoTooltip insightKey={tooltipKey} category={tooltipCategory} />}
+        </span>
         <span className="text-[18px] font-mono font-bold text-white tabular-nums tracking-tighter block leading-none">{value}</span>
       </div>
       {subValue && (

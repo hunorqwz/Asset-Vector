@@ -3,12 +3,13 @@ import { pruneHistoricalData } from '../app/actions/signals';
 import { db } from '../db';
 import { marketSignals, systemKv } from '../db/schema';
 import { describe, it, expect, beforeEach } from 'vitest';
+import { eq } from 'drizzle-orm';
 
 describe('Data Hygiene - Pruning (app/actions/signals)', () => {
   beforeEach(async () => {
     // Clear signals and locks
     await db.delete(marketSignals);
-    await db.delete(systemKv);
+    await db.delete(systemKv).where(eq(systemKv.key, 'lock:data_pruning'));
   });
 
   it('should prune old evaluated signals but keep recent ones', async () => {

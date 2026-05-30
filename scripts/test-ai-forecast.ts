@@ -5,7 +5,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-async function testOracle() {
+async function testAIForecast() {
   console.log("Fetching data for NVDA...");
   try {
     const [signal, details] = await Promise.all([
@@ -21,4 +21,4 @@ async function testOracle() {
   }
 }
 
-testOracle();
+testAIForecast();

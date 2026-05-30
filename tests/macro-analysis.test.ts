@@ -24,6 +24,7 @@ describe('Macro Analysis Engine', () => {
       if (seriesId === 'T10Y2Y') return Promise.resolve([{ value: 0.5 }, { value: 0.4 }]);
       if (seriesId === 'UNRATE') return Promise.resolve([{ value: 3.5 }, { value: 3.5 }]);
       if (seriesId === 'FEDFUNDS') return Promise.resolve([{ value: 5.0 }, { value: 5.0 }]);
+      if (seriesId === 'BAMLH0A0HYM2') return Promise.resolve([{ value: 3.5 }, { value: 3.5 }]);
       return Promise.resolve([]);
     });
 
@@ -37,6 +38,7 @@ describe('Macro Analysis Engine', () => {
       if (seriesId === 'UNRATE') return Promise.resolve([{ value: 4.5 }, { value: 4.0 }]);
       if (seriesId === 'CPIAUCSL') return Promise.resolve(new Array(30).fill(0).map(() => ({ value: 300 })));
       if (seriesId === 'FEDFUNDS') return Promise.resolve([{ value: 5.0 }, { value: 5.0 }]);
+      if (seriesId === 'BAMLH0A0HYM2') return Promise.resolve([{ value: 3.5 }, { value: 3.5 }]);
       return Promise.resolve([]);
     });
 
@@ -61,6 +63,7 @@ describe('Macro Analysis Engine', () => {
       if (seriesId === 'UNRATE') return Promise.resolve([{ value: 5.0 }, { value: 4.8 }]);
       if (seriesId === 'T10Y2Y') return Promise.resolve([{ value: 0.1 }, { value: 0.1 }]);
       if (seriesId === 'FEDFUNDS') return Promise.resolve([{ value: 5.0 }, { value: 5.0 }]);
+      if (seriesId === 'BAMLH0A0HYM2') return Promise.resolve([{ value: 3.5 }, { value: 3.5 }]);
       return Promise.resolve([]);
     });
 
@@ -75,11 +78,26 @@ describe('Macro Analysis Engine', () => {
       if (seriesId === 'UNRATE') return Promise.resolve([{ value: 4.5 }, { value: 4.0 }]);
       if (seriesId === 'CPIAUCSL') return Promise.resolve(new Array(30).fill(0).map(() => ({ value: 300 })));
       if (seriesId === 'FEDFUNDS') return Promise.resolve([{ value: 5.0 }, { value: 5.0 }]);
+      if (seriesId === 'BAMLH0A0HYM2') return Promise.resolve([{ value: 3.5 }, { value: 3.5 }]);
       return Promise.resolve([]);
     });
 
     const snapshot = await getMacroSnapshot();
     expect(snapshot.regime).toBe('RECESSION');
     expect(snapshot.implications).toContain("Flight to safety: Fixed Income and high-dividend defensive sectors.");
+  });
+
+  it('derives correct implications for high credit spreads', async () => {
+    (fred.fetchFredSeries as any).mockImplementation((seriesId: string) => {
+      if (seriesId === 'BAMLH0A0HYM2') return Promise.resolve([{ value: 5.5 }, { value: 5.0 }]);
+      if (seriesId === 'T10Y2Y') return Promise.resolve([{ value: 0.5 }, { value: 0.4 }]);
+      if (seriesId === 'UNRATE') return Promise.resolve([{ value: 3.5 }, { value: 3.5 }]);
+      if (seriesId === 'CPIAUCSL') return Promise.resolve(new Array(30).fill(0).map(() => ({ value: 300 })));
+      if (seriesId === 'FEDFUNDS') return Promise.resolve([{ value: 5.0 }, { value: 5.0 }]);
+      return Promise.resolve([]);
+    });
+
+    const snapshot = await getMacroSnapshot();
+    expect(snapshot.implications).toContain("High-Yield credit spread spike indicates high systemic default risk; risk-off asset posture favored.");
   });
 });

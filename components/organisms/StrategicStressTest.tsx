@@ -1,7 +1,8 @@
-"use client";
 import React, { useState } from "react";
 import { RiskIntelligence } from "@/lib/portfolio-risk";
 import { simulateHedge } from "@/app/actions/portfolio";
+import { useEducation } from "@/components/providers/EducationProvider";
+import { InfoTooltip } from "@/components/atoms/InfoTooltip";
 
 interface StrategicStressTestProps {
   risk: RiskIntelligence;
@@ -12,6 +13,7 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
   const [simAmount, setSimAmount] = useState<number>(10000);
   const [simRisk, setSimRisk] = useState<RiskIntelligence | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
+  const { openEducation } = useEducation();
 
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +43,10 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
           
           <div className="space-y-10">
             <div>
-              <p className="text-xs font-medium text-zinc-400 mb-3">Systemic Exposure (Beta)</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                Ex-Ante Systematic Risk (Beta)
+                <InfoTooltip insightKey="REGIME_BETA" category="QUANT" />
+              </p>
               <div className="flex items-baseline gap-3">
                 <span className={`text-4xl font-bold font-mono tracking-tighter ${isDiff ? 'text-matrix' : 'text-white'}`}>
                   {displayRisk.portfolioBeta}
@@ -64,7 +69,10 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
             </div>
 
             <div>
-              <p className="text-xs font-medium text-zinc-400 mb-3">Value at Risk (95% VaR)</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                Parametric 1D 95% VaR
+                <InfoTooltip insightKey="VALUE_AT_RISK" category="QUANT" />
+              </p>
               <div className="flex items-baseline gap-3">
                 <span className={`text-4xl font-bold font-mono tracking-tighter ${isDiff ? 'text-matrix' : 'text-white'}`}>
                   {displayRisk.var95}%
@@ -81,7 +89,10 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
             </div>
 
             <div>
-              <p className="text-xs font-medium text-zinc-400 mb-3">Jensen's Alpha</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                Risk-Adjusted Alpha
+                <InfoTooltip insightKey="JENSENS_ALPHA" category="QUANT" />
+              </p>
               <div className="flex items-baseline gap-3">
                 <span className={`text-4xl font-bold font-mono tracking-tighter ${displayRisk.jensensAlpha >= 0 ? (isDiff ? 'text-matrix' : 'text-bull') : 'text-bear'}`}>
                   {displayRisk.jensensAlpha > 0 ? '+' : ''}{displayRisk.jensensAlpha}%
@@ -98,12 +109,15 @@ export function StrategicStressTest({ risk }: StrategicStressTestProps) {
                  </p>
               )}
               <p className="mt-3 text-[11px] text-zinc-400 font-medium">
-                Risk-Adjusted Outperformance
+                Risk-Adjusted Excess Return
               </p>
             </div>
 
             <div>
-              <p className="text-xs font-medium text-zinc-400 mb-3">Regime Alignment</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                Trend Persistence (Hurst)
+                <InfoTooltip insightKey="HURST_EXPONENT" category="QUANT" />
+              </p>
               <div className="flex items-center gap-4 mb-2">
                 <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
                   <div 

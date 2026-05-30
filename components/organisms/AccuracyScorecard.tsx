@@ -24,10 +24,10 @@ export function AccuracyScorecard({ data, ticker }: AccuracyScorecardProps) {
     return (
       <div className="p-6 rounded-xl border border-white/5 bg-white/[0.01] mb-6">
         <h3 className="text-[13px] font-semibold text-white mb-1">
-          Model Performance
+          Signal Backtest Performance
         </h3>
         <p className="text-[13px] text-zinc-500 leading-relaxed">
-          Not enough historical data to display prediction accuracy. Check back in 7 days.
+          Not enough historical backtesting data to display prediction accuracy. Check back in 7 days.
         </p>
       </div>
     );
@@ -42,7 +42,7 @@ export function AccuracyScorecard({ data, ticker }: AccuracyScorecardProps) {
           <div className="flex items-center gap-3">
             <div>
               <h3 className="text-[13px] font-semibold text-white leading-none mb-1">
-                Model Performance
+                Signal Backtest Performance
               </h3>
               <p className="text-[11px] text-zinc-500 font-medium tracking-wide">
                 {ticker ? `${ticker} Signal Performance` : "Global Strategy Accuracy"}

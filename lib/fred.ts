@@ -63,6 +63,7 @@ function generateMockSeries(seriesId: string): FredObservation[] {
     else if (seriesId === 'CPIAUCSL') val = 3.1 + (Math.sin(i / 5) * 0.5);
     else if (seriesId === 'T10Y2Y') val = -0.2 - (Math.cos(i / 4) * 0.3);
     else if (seriesId === 'UNRATE') val = 3.8 + (i * 0.02);
+    else if (seriesId === 'BAMLH0A0HYM2') val = 3.8 + (Math.sin(i / 3) * 0.6);
     else val = 100 + i;
 
     data.push({

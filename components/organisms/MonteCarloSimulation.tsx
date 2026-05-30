@@ -2,6 +2,8 @@ import React from 'react';
 import { MonteCarloResult } from "@/lib/monte-carlo";
 import { fmt, fmtPct } from "@/lib/format";
 
+import { InfoTooltip } from '@/components/atoms/InfoTooltip';
+
 interface MonteCarloSimulationProps {
   simulation: MonteCarloResult;
 }
@@ -19,7 +21,10 @@ export const MonteCarloSimulation = React.memo(function MonteCarloSimulation({ s
       <div className="flex items-center gap-2 mb-6 relative z-10">
         <div className="w-1.5 h-1.5 bg-white rounded-full shadow-none" />
         <div>
-          <h2 className="text-sm font-bold tracking-widest text-white uppercase">Stochastic Price Simulation</h2>
+          <h2 className="text-sm font-bold tracking-widest text-white uppercase flex items-center">
+            Stochastic Price Simulation
+            <InfoTooltip insightKey="MONTE_CARLO" />
+          </h2>
           <p className="text-[10px] text-zinc-500 font-mono mt-0.5">5,000 Paths (90 Days) • Geometric Brownian Motion</p>
         </div>
       </div>

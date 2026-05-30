@@ -5,12 +5,15 @@ import { useAlpacaTape } from '@/hooks/useAlpacaTape';
 import { executeTrade } from '@/app/actions/execute';
 import { getAlpacaData, getLiveQuote } from '@/app/actions';
 import { fmt } from '@/lib/format';
+import { MarketSignal } from '@/lib/market-data';
+import { InfoTooltip } from '@/components/atoms/InfoTooltip';
 
 interface AlpacaTerminalProps {
   ticker: string;
+  signal?: MarketSignal;
 }
 
-export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
+export function AlpacaTerminal({ ticker, signal }: AlpacaTerminalProps) {
   const { isConnected, lastTick } = useAlpacaTape(ticker);
   const [quote, setQuote] = useState<{ ap: number; bp: number } | null>(null);
   const [account, setAccount] = useState<any>(null);
@@ -18,6 +21,21 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
   const [notional, setNotional] = useState("1000");
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Compute execution levels based on signal and current price
+  const currentPrice = quote?.ap ?? lastTick?.price ?? signal?.price ?? 0;
+
+  const resistance = (signal?.structuralProbability || [])
+    .filter(l => l.type === 'RESISTANCE')
+    .sort((a, b) => b.probability - a.probability)[0];
+  
+  const support = (signal?.structuralProbability || [])
+    .filter(l => l.type === 'SUPPORT')
+    .sort((a, b) => b.probability - a.probability)[0];
+
+  const stopLoss = support ? support.price * 0.98 : currentPrice * 0.95;
+  const takeProfit = resistance ? resistance.price : currentPrice * 1.1;
+  const rewardRisk = currentPrice - stopLoss > 0 ? (takeProfit - currentPrice) / (currentPrice - stopLoss) : 0;
 
   useEffect(() => {
     async function init() {
@@ -47,20 +65,20 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
     try {
       // notional is the USD amount to trade: e.g. $1000 at the current ask price
       const notionalValue = parseFloat(notional);
-      const currentPrice = quote?.ap ?? lastTick?.price ?? 0;
+      const orderPrice = quote?.ap ?? lastTick?.price ?? currentPrice ?? 0;
 
       if (isNaN(notionalValue) || notionalValue <= 0) {
         setStatus("INVALID: Enter a valid USD notional amount.");
         setLoading(false);
         return;
       }
-      if (currentPrice <= 0) {
+      if (orderPrice <= 0) {
         setStatus("FAILED: Could not determine current market price.");
         setLoading(false);
         return;
       }
 
-      const res = await executeTrade(ticker, side, notionalValue, currentPrice);
+      const res = await executeTrade(ticker, side, notionalValue, orderPrice);
       if (res.success) {
         setStatus(`ORDER EXECUTED: ${side.toUpperCase()} $${notionalValue} ${ticker}`);
         // Refresh account/position
@@ -86,7 +104,7 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-6 bg-bull" />
-          <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.15em]">Institutional Executive</h3>
+          <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.15em]">Order Execution Panel</h3>
         </div>
         <div className="flex items-center gap-2">
           <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-bull' : 'bg-zinc-600'}`} />
@@ -95,6 +113,35 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
           </span>
         </div>
       </div>
+
+      {/* Execution Planning Levels */}
+      {signal && (
+        <div className="mb-8 p-5 rounded-xl bg-white/[0.02] border border-white/5 space-y-4">
+          <div className="flex justify-between items-center text-[10px] font-bold text-zinc-400 uppercase tracking-wider pb-2 border-b border-white/5">
+            <span className="flex items-center">
+              Execution Levels
+              <InfoTooltip insightKey="VALUE_AT_RISK" category="QUANT" />
+            </span>
+            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${rewardRisk > 2 ? 'bg-bull/10 text-bull border border-bull/20' : 'bg-zinc-800 text-zinc-400'}`}>
+              {rewardRisk > 2 ? 'High Alpha Potential' : 'Marginal Basis'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="text-[9px] font-bold text-zinc-500 uppercase block mb-1">Target Profit</span>
+              <span className="text-sm font-mono font-bold text-bull">${takeProfit.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="text-[9px] font-bold text-zinc-500 uppercase block mb-1">Stop Loss</span>
+              <span className="text-sm font-mono font-bold text-bear">${stopLoss.toFixed(2)}</span>
+            </div>
+          </div>
+          <div className="flex justify-between items-center pt-2 border-t border-white/5 text-[10px]">
+            <span className="text-zinc-500 font-bold uppercase">Reward / Risk</span>
+            <span className="font-mono font-bold text-white">{rewardRisk.toFixed(2)}x</span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-6 mb-8">
         <div>
@@ -137,7 +184,7 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
 
       <div className="space-y-6">
         <div className="relative">
-           <label className="text-[10px] font-bold text-zinc-500 absolute -top-2.5 left-3 bg-zinc-950 px-1.5 z-10 tracking-wider uppercase">USD Notional</label>
+           <label className="text-[10px] font-bold text-zinc-500 absolute -top-2.5 left-3 bg-zinc-950 px-1.5 z-10 tracking-wider uppercase">Notional Order Size (USD)</label>
            <input 
               type="number" 
               value={notional}
@@ -152,14 +199,14 @@ export function AlpacaTerminal({ ticker }: AlpacaTerminalProps) {
             disabled={loading}
             className="flex-1 bg-bull text-black text-[11px] font-black tracking-[0.2em] uppercase py-3.5 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
           >
-            ORDER BUY
+            TRANSMIT BUY ORDER
           </button>
           <button 
             onClick={() => handleOrder("sell")}
             disabled={loading}
             className="flex-1 border border-bear text-bear text-[11px] font-black tracking-[0.2em] uppercase py-3.5 rounded-lg hover:bg-bear/5 active:scale-[0.98] transition-all disabled:opacity-50"
           >
-            ORDER SELL
+            TRANSMIT SELL ORDER
           </button>
         </div>
       </div>

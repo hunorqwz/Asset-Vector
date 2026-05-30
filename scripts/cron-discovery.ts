@@ -3,7 +3,7 @@ import { getScreenerCandidates } from "../lib/screener";
 
 async function runDiscoveryJob() {
   console.log("----------------------------------------");
-  console.log("🚀 [Background Job] Initializing Asset-Vector Tactical Scout Pipeline...");
+  console.log("🚀 [Background Job] Initializing Asset-Vector Asset Discovery Pipeline...");
   console.log(`⏱️  Timestamp: ${new Date().toISOString()}`);
   console.log("----------------------------------------");
 
@@ -18,7 +18,7 @@ async function runDiscoveryJob() {
     console.log(baseline.join(", "));
 
     console.log("\n[Stage 2 & 3] Dispatching Surgical AI Inference Pipeline...");
-    console.log(`Processing ${baseline.length} assets through GARCH/Kalman/Order Blocks...`);
+    console.log(`Processing ${baseline.length} assets through GARCH/Kalman/Market Structure Voids...`);
     
     console.time("Stage 2/3 Duration");
     // This executes the pipeline and automatically updates the Redis/KV cache.

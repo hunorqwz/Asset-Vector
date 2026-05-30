@@ -4,13 +4,13 @@ import { SentimentReport } from '@/lib/sentiment';
 import { NarrativeArticle } from '@/lib/market-data';
 import { SECIcon, BullIcon, BearIcon } from '@/components/Icons';
 
-interface SentimentForemanProps {
+interface SentimentAnalysisPanelProps {
   news: NarrativeArticle[];
   report: SentimentReport;
   divergence?: string;
 }
 
-export const SentimentForeman = React.memo(function SentimentForeman({ news, report, divergence }: SentimentForemanProps) {
+export const SentimentAnalysisPanel = React.memo(function SentimentAnalysisPanel({ news, report, divergence }: SentimentAnalysisPanelProps) {
   return (
     <section className="bg-[#0a0a0a] border border-white/10 overflow-hidden group">
       <div className="flex items-center justify-between p-4 border-b border-white/10 bg-transparent">
@@ -97,4 +97,3 @@ export const SentimentForeman = React.memo(function SentimentForeman({ news, rep
     </section>
   );
 });
-

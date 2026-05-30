@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AssetCommand } from "@/components/AssetCommand";
 import { AlertBell } from "@/components/AlertBell";
-import { StealthTooltip, LiveLatency } from "@/components/LiveTelemetry";
 import { useAlpacaContext } from "@/components/providers/AlpacaProvider";
 import { RegimeBreakout } from "@/lib/regime-radar";
 
@@ -72,15 +71,6 @@ export function GlobalHeader({ alerts, insights, regimeBreakout }: GlobalHeaderP
            {/* Alerts & Live Status */}
            <div className="flex items-center gap-4">
               <AlertBell alerts={alerts} insights={insights} regimeBreakout={regimeBreakout} />
-              <div 
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white/[0.02] rounded-full border border-white/5 cursor-help transition-all hover:bg-white/[0.04]"
-                title="Tick-by-tick real-time feed stream status via Alpaca WebSockets"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-bull' : 'bg-amber-500'}`} aria-hidden="true" />
-                <span className="text-xs font-medium text-zinc-400">
-                  {isConnected ? 'Live' : 'Offline'}
-                </span>
-              </div>
            </div>
  
            {/* Mobile Menu Toggle */}

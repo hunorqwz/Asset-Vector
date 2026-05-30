@@ -569,7 +569,7 @@ export const VectorChart = ({
                 <MenuToggle active={indicators.trendlines} onClick={() => setIndicators(s => ({ ...s, trendlines: !s.trendlines }))} label="Trendlines" />
                 <MenuToggle active={indicators.expectedMove} onClick={() => setIndicators(s => ({ ...s, expectedMove: !s.expectedMove }))} label="Expected Move (σ1)" />
                 <MenuToggle active={indicators.shadows} onClick={() => setIndicators(s => ({ ...s, shadows: !s.shadows }))} label="Execution Shadows" />
-                <MenuToggle active={indicators.fvgs} onClick={() => setIndicators(s => ({ ...s, fvgs: !s.fvgs }))} label="Liquidity FVGs" />
+                <MenuToggle active={indicators.fvgs} onClick={() => setIndicators(s => ({ ...s, fvgs: !s.fvgs }))} label="Structure Voids (FVG)" />
               </div>
             )}
           </div>

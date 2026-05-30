@@ -1,22 +1,22 @@
-import { StockDetails, InsiderTransaction, Holder } from "@/lib/stock-details";
+import { StockDetails } from "@/lib/stock-details";
 
-export interface WhaleIntelligence {
+export interface BlockholderIntelligence {
   insiderSentiment: "BULLISH" | "BEARISH" | "NEUTRAL";
   insiderConvictionScore: number; // 0-100
   institutionalSentiment: "BULLISH" | "BEARISH" | "NEUTRAL";
   institutionalConvictionScore: number; // 0-100
-  whaleConsensus: "ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL" | "HIGH_CONVICTION_BUY";
-  whaleConsensusScore: number; // 0-100
+  blockholderConsensus: "ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL" | "HIGH_CONVICTION_BUY";
+  blockholderConsensusScore: number; // 0-100
   clusterBuyDetected: boolean;
   topHoldersAlpha: number; // Average pctChange of top holders
   primaryDriver: string;
 }
 
 /**
- * Whale Radar Engine (v1.0)
- * Analyzes Insider & Institutional Intent to derive smart money conviction.
+ * Blockholder Analytics Engine (v1.0)
+ * Analyzes Insider & Institutional Intent to derive concentrated ownership conviction.
  */
-export function calculateWhaleIntelligence(details: StockDetails): WhaleIntelligence {
+export function calculateBlockholderIntelligence(details: StockDetails): BlockholderIntelligence {
   const { insiderTransactions, topHolders, keyStats } = details;
   
   // 1. Insider Intent Analysis
@@ -78,24 +78,24 @@ export function calculateWhaleIntelligence(details: StockDetails): WhaleIntellig
     if (keyStats.heldPercentInstitutions < 0.2) instScore -= 5;
   }
   
-  // 3. Overall Whale Consensus
-  let whaleScore = (insiderScore * 0.6) + (instScore * 0.4);
-  if (clusterBuyDetected) whaleScore += 15;
+  // 3. Overall Blockholder Consensus
+  let blockholderScore = (insiderScore * 0.6) + (instScore * 0.4);
+  if (clusterBuyDetected) blockholderScore += 15;
   
-  const finalWhaleScore = Math.max(0, Math.min(100, Math.round(whaleScore)));
+  const finalBlockholderScore = Math.max(0, Math.min(100, Math.round(blockholderScore)));
   
-  let consensus: WhaleIntelligence['whaleConsensus'] = "NEUTRAL";
-  if (clusterBuyDetected && finalWhaleScore > 75) consensus = "HIGH_CONVICTION_BUY";
-  else if (finalWhaleScore > 55) consensus = "ACCUMULATION";
-  else if (finalWhaleScore < 45) consensus = "DISTRIBUTION";
+  let consensus: BlockholderIntelligence['blockholderConsensus'] = "NEUTRAL";
+  if (clusterBuyDetected && finalBlockholderScore > 75) consensus = "HIGH_CONVICTION_BUY";
+  else if (finalBlockholderScore > 55) consensus = "ACCUMULATION";
+  else if (finalBlockholderScore < 45) consensus = "DISTRIBUTION";
   
-  let driver = "Smart money positioning is currently neutral.";
+  let driver = "Concentrated ownership flows are currently neutral.";
   if (clusterBuyDetected) {
     driver = `CRITICAL: Cluster buy detected—${uniqueBuyers.size} separate insiders accumulating shares.`;
   } else if (insiderScore > 70) {
     driver = "Strong insider acquisition activity detected over the last 90 days.";
   } else if (avgInstChange > 5) {
-    driver = "Top institutional holders are significanty increasing their positions.";
+    driver = "Top institutional holders are significantly increasing their positions.";
   } else if (insiderScore < 30) {
     driver = "Heavy insider liquidation trend observed.";
   } else if (avgInstChange < -5) {
@@ -107,8 +107,8 @@ export function calculateWhaleIntelligence(details: StockDetails): WhaleIntellig
     insiderConvictionScore: insiderScore,
     institutionalSentiment: instScore > 60 ? "BULLISH" : instScore < 40 ? "BEARISH" : "NEUTRAL",
     institutionalConvictionScore: instScore,
-    whaleConsensus: consensus,
-    whaleConsensusScore: finalWhaleScore,
+    blockholderConsensus: consensus,
+    blockholderConsensusScore: finalBlockholderScore,
     clusterBuyDetected,
     topHoldersAlpha: avgInstChange,
     primaryDriver: driver

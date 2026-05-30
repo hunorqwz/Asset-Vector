@@ -15,7 +15,7 @@ import {
   calculateJensensAlpha,
   validateAndCleanData
 } from "./math";
-import { getAlpacaQuote } from "./alpaca-client";
+import { getAlpacaQuote, fetchAlpacaBars } from "./alpaca-client";
 import { db } from "@/db";
 import { marketSignals, latestSignals } from "@/db/schema";
 import { desc, eq, and, gt } from "drizzle-orm";
@@ -69,6 +69,14 @@ export const RANGE_INTERVAL_MAP: Record<string, { interval: ChartInterval; lookb
   'ALL': { interval: '1d', lookbackSeconds: 0 },
 };
 
+// Mapping from internal ChartInterval to Alpaca timeframe strings
+const ALPACA_TIMEFRAME_MAP: Partial<Record<ChartInterval, "1Min" | "5Min" | "15Min" | "1Hour">> = {
+  '1m': '1Min',
+  '5m': '5Min',
+  '15m': '15Min',
+  '1h': '1Hour',
+};
+
 export async function fetchHistoryWithInterval(
   ticker: string, 
   interval: ChartInterval = '1d',
@@ -78,12 +86,40 @@ export async function fetchHistoryWithInterval(
   const cached = await getFromCache<OHLCV[]>(cacheKey);
   if (cached) return cached;
 
-  const start = lookbackSeconds === 0 ? 0 : Math.floor(Date.now() / 1000) - lookbackSeconds;
-  
+  const startEpochMs = lookbackSeconds === 0 ? 0 : Date.now() - lookbackSeconds * 1000;
+  const startEpochSec = Math.floor(startEpochMs / 1000);
+
+  // ── Tier 1: Alpaca Data API (Primary for intraday US equities) ─────────────
+  // Alpaca provides properly split-adjusted NBBO bars for US equities on intraday
+  // timeframes. Far more reliable than Yahoo's unofficial intraday scrape.
+  // Only applies to US equities (not crypto/ETFs with -USD suffix or ^ indices).
+  const alpacaTimeframe = ALPACA_TIMEFRAME_MAP[interval];
+  const isUsEquity = !ticker.includes('-') && !ticker.startsWith('^') && ticker.length <= 5;
+
+  if (alpacaTimeframe && isUsEquity) {
+    try {
+      const startIso = new Date(startEpochMs || (Date.now() - 30 * 86400 * 1000)).toISOString();
+      const alpacaBars = await fetchAlpacaBars(ticker, alpacaTimeframe, startIso, undefined, 10000);
+
+      if (alpacaBars.length > 0) {
+        // Apply MAD outlier filter for data integrity
+        let data: OHLCV[] = alpacaBars;
+        if (data.length >= 20) {
+          const cleanPrices = validateAndCleanData(data.map(d => d.close));
+          data = data.map((d, i) => ({ ...d, close: cleanPrices[i] }));
+        }
+        await setInCache(cacheKey, data, CACHE_TTL.CHART_INTRADAY);
+        console.log(`[Market Data] ✓ Alpaca source: ${ticker} ${alpacaTimeframe} (${data.length} bars)`);
+        return data;
+      }
+    } catch { /* Fall through to Yahoo */ }
+  }
+
+  // ── Tier 2: Yahoo Finance (Fallback + Crypto + Daily bars) ─────────────────
   try {
     const result = await Promise.race([
-      yahooFinance.chart(ticker, { period1: start, interval, includePrePost: false }, { validateResult: false }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 8000)) // 8s timeout for long history
+      yahooFinance.chart(ticker, { period1: startEpochSec, interval, includePrePost: false }, { validateResult: false }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 8000))
     ]).catch(err => {
       console.warn(`[Market Data] Chart fetch failed or timed out for ${ticker}:`, err.message);
       return { quotes: [] };
@@ -94,7 +130,7 @@ export async function fetchHistoryWithInterval(
       if (!ticker.includes('-') && ticker.length <= 5) {
         const altTicker = `${ticker}-USD`;
         const altResult = await Promise.race([
-          yahooFinance.chart(altTicker, { period1: start, interval, includePrePost: false }, { validateResult: false }),
+          yahooFinance.chart(altTicker, { period1: startEpochSec, interval, includePrePost: false }, { validateResult: false }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000))
         ]).catch(() => null) as any;
         if (altResult?.quotes?.length) return fetchHistoryWithInterval(altTicker, interval, lookbackSeconds);

@@ -1,18 +1,11 @@
 import { Metadata } from "next";
-import { getPositions, getPortfolioRiskIntelligence } from "@/app/actions/portfolio";
+import { getPositions } from "@/app/actions/portfolio";
 import { getPortfolioPrices, getWatchlistTickers } from "@/app/actions";
-import { AddPositionForm } from "@/components/organisms/AddPositionForm";
-import { PositionRow } from "@/components/organisms/PositionRow";
-import { AddAllToWatchlist } from "@/components/organisms/AddAllToWatchlist";
-import { PortfolioAnalyticsPanel } from "@/components/organisms/PortfolioAnalyticsPanel";
 import { computePortfolioAnalytics } from "@/lib/portfolio-analytics";
-import { StrategicStressTest } from "@/components/organisms/StrategicStressTest";
-import { GlobalCorrelationLab } from "@/components/organisms/GlobalCorrelationLab";
-import { RegimeRadar } from "@/components/organisms/RegimeRadar";
-import { AlertManager } from "@/components/organisms/AlertManager";
 import { getAlerts, checkAndTriggerAlerts, getRegimeBreakout } from "@/app/actions/alerts";
 import { GlobalHeader } from "@/components/organisms/GlobalHeader";
 import { GlobalFooter } from "@/components/organisms/GlobalFooter";
+import { PortfolioClientContainer } from "@/components/organisms/PortfolioClientContainer";
 
 export const metadata: Metadata = {
   title: "Portfolio Analytics Dashboard | Asset Vector",
@@ -21,19 +14,10 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-function fmt(n: number, decimals = 2) {
-  return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-}
-
-function fmtCurrency(n: number) {
-  return "$" + fmt(n);
-}
-
 export default async function PortfolioPage() {
-  const [positions, watchlist, riskData, regimeData] = await Promise.all([
+  const [positions, watchlist, regimeData] = await Promise.all([
     getPositions(),
     getWatchlistTickers(),
-    getPortfolioRiskIntelligence(),
     getRegimeBreakout(),
   ]);
 
@@ -50,11 +34,6 @@ export default async function PortfolioPage() {
     const pnlPct = pnl !== null ? (pnl / invested) * 100 : null;
     return { ...pos, currentPrice, invested, currentValue, pnl, pnlPct };
   });
-
-  const totalInvested = enriched.reduce((s, p) => s + p.invested, 0);
-  const totalValue = enriched.reduce((s, p) => s + (p.currentValue ?? p.invested), 0);
-  const totalPnl = totalValue - totalInvested;
-  const totalPnlPct = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
 
   // Portfolio analytics computation
   const analytics = computePortfolioAnalytics(enriched);
@@ -81,138 +60,16 @@ export default async function PortfolioPage() {
               {positions.length} positions
             </p>
           </div>
-          {/* Strategic Risk Intelligence Section */}
-          {riskData && (
-            <div className="mb-12 space-y-12">
-               <StrategicStressTest risk={riskData} />
-               <GlobalCorrelationLab data={riskData.correlationMatrix} />
-            </div>
-          )}
 
-          {/* Regime Breakout Radar */}
-          {regimeData && (
-            <div className="mb-12">
-              <RegimeRadar data={regimeData} />
-            </div>
-          )}
+          <PortfolioClientContainer
+            enrichedPositions={enriched}
+            watchlist={watchlist}
+            regimeData={regimeData}
+            analytics={analytics}
+            alertTickers={alertTickers}
+            initialAlerts={alerts}
+          />
 
-          {/* Summary Stats */}
-          {positions.length > 0 && (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
-              {[
-                { label: "Total Invested", value: fmtCurrency(totalInvested), color: "text-white" },
-                { label: "Current Value", value: fmtCurrency(totalValue), color: "text-white" },
-                {
-                  label: "Total P&L",
-                  value: `${totalPnl >= 0 ? "+" : ""}${fmtCurrency(totalPnl)}`,
-                  color: totalPnl >= 0 ? "text-bull" : "text-bear",
-                },
-                {
-                  label: "Portfolio Return",
-                  value: `${totalPnlPct >= 0 ? "+" : ""}${fmt(totalPnlPct)}%`,
-                  color: totalPnlPct >= 0 ? "text-bull" : "text-bear",
-                },
-                {
-                  label: "Jensen's Alpha",
-                  value: riskData ? `${riskData.jensensAlpha > 0 ? "+" : ""}${riskData.jensensAlpha}%` : "---",
-                  color: riskData ? (riskData.jensensAlpha >= 0 ? "text-matrix" : "text-bear") : "text-zinc-500",
-                },
-              ].map((stat) => (
-                <div key={stat.label} className="bg-white/[0.02] border border-white/5 rounded-xl p-6 relative overflow-hidden">
-                  <p className="text-xs text-zinc-400 font-medium tracking-wide mb-3">{stat.label}</p>
-                  <p className={`text-2xl font-bold font-mono tabular-nums ${stat.color}`}>{stat.value}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Portfolio Analytics */}
-          {positions.length > 0 && (
-            <div className="mb-12">
-              <PortfolioAnalyticsPanel analytics={analytics} />
-            </div>
-          )}
-
-          {/* Price Alerts */}
-          <div className="mb-12">
-            <AlertManager initialAlerts={alerts} watchlistTickers={alertTickers} />
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            {/* Positions Table */}
-            <div className="xl:col-span-8">
-              <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden">
-                <div className="border-b border-white/5 px-6 py-4 flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-zinc-400 tracking-wide flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
-                    Holdings
-                  </h2>
-                  {positions.length > 0 && (
-                    <AddAllToWatchlist />
-                  )}
-                </div>
-
-                {enriched.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
-                    <div className="w-14 h-14 rounded-full border border-matrix/30 bg-matrix/5 flex items-center justify-center mb-6">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-matrix opacity-70">
-                        <path d="M12 5v14m-7-7h14"/>
-                      </svg>
-                    </div>
-                    <h3 className="text-base font-bold text-white tracking-tightest mb-2">No positions yet</h3>
-                    <p className="text-sm text-zinc-400">Add your first holding using the form on the right.</p>
-                  </div>
-                ) : (
-                  <div>
-                    {/* Table Header */}
-                    <div className="grid grid-cols-12 gap-2 px-6 py-3 border-b border-white/5 text-xs font-medium text-zinc-400 tracking-wide uppercase">
-                      <span className="col-span-3">Asset</span>
-                      <span className="col-span-2 text-right">Shares</span>
-                      <span className="col-span-2 text-right">Avg Cost</span>
-                      <span className="col-span-2 text-right">Current</span>
-                      <span className="col-span-2 text-right">P&amp;L</span>
-                      <span className="col-span-1"></span>
-                    </div>
-                    {enriched.map((pos) => (
-                      <PositionRow
-                        key={pos.id}
-                        id={pos.id}
-                        ticker={pos.ticker}
-                        name={pos.name}
-                        shares={pos.shares}
-                        avgCost={pos.avgCost}
-                        currentPrice={pos.currentPrice}
-                        pnl={pos.pnl}
-                        pnlPct={pos.pnlPct}
-                        isWatchlisted={watchlist.includes(pos.ticker)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Add Position Panel */}
-            <div className="xl:col-span-4">
-              <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden sticky top-24">
-                <div className="border-b border-white/5 px-6 py-4">
-                  <h2 className="text-xs font-bold text-zinc-400 tracking-wide flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
-                    Add Position
-                  </h2>
-                </div>
-                <div className="p-6">
-                  <AddPositionForm />
-                </div>
-                <div className="px-6 pb-6">
-                  <p className="text-[11px] text-zinc-500 font-normal leading-relaxed">
-                    Beta analysis and stress simulations are calculated against SPY (S&P 500) historical variance.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-          </div>
         </div>
       </main>
       <GlobalFooter />

@@ -2,6 +2,7 @@
 import React from 'react';
 import { RiskMetrics } from '@/lib/stock-details';
 import { fmtPct } from '@/lib/format';
+import { InfoTooltip } from '@/components/atoms/InfoTooltip';
 
 interface RiskEntropyPanelProps {
   metrics: RiskMetrics | null;
@@ -44,7 +45,10 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
         {/* 1. SHARPE RATIO */}
         <div className="space-y-4 p-5 bg-[#111111] border border-white/10 transition-all">
           <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-            <span>Sharpe Ratio</span>
+            <span className="flex items-center">
+              Sharpe Ratio
+              <InfoTooltip insightKey="SHARPE_RATIO" />
+            </span>
             <span className={sharpe.color}>{sharpe.label}</span>
           </div>
           <div className="flex items-baseline gap-1">
@@ -57,8 +61,8 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
              </span>
              <div className="w-full h-1 bg-white/5 overflow-hidden">
                 <div 
-                  className={`h-full transition-all duration-1000 ${sharpe.color.replace('text-', 'bg-')}`} 
-                  style={{ width: `${Math.min(100, (metrics.sharpeRatio / 4) * 100)}%` }}
+                   className={`h-full transition-all duration-1000 ${sharpe.color.replace('text-', 'bg-')}`} 
+                   style={{ width: `${Math.min(100, (metrics.sharpeRatio / 4) * 100)}%` }}
                 />
              </div>
           </div>
@@ -67,7 +71,10 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
         {/* 2. SORTINO RATIO */}
         <div className="space-y-4 p-5 bg-[#111111] border border-white/10 transition-all">
           <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-            <span>Sortino Ratio</span>
+            <span className="flex items-center">
+              Sortino Ratio
+              <InfoTooltip insightKey="SORTINO_RATIO" />
+            </span>
             <span className={sortino.color}>{sortino.label}</span>
           </div>
           <div className="flex items-baseline gap-1">
@@ -80,8 +87,8 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
              </span>
              <div className="w-full h-1 bg-white/5 overflow-hidden">
                 <div 
-                  className={`h-full transition-all duration-1000 ${sortino.color.replace('text-', 'bg-')}`} 
-                  style={{ width: `${Math.min(100, (metrics.sortinoRatio / 4) * 100)}%` }}
+                   className={`h-full transition-all duration-1000 ${sortino.color.replace('text-', 'bg-')}`} 
+                   style={{ width: `${Math.min(100, (metrics.sortinoRatio / 4) * 100)}%` }}
                 />
              </div>
           </div>
@@ -89,7 +96,10 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
 
         {/* 3. VOLATILITY MATRIX */}
         <div className="space-y-4 p-5 bg-[#111111] border border-white/10 transition-all">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block">Variance Decomposition</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 flex items-center">
+            Variance Decomposition
+            <InfoTooltip insightKey="ANNUALIZED_VOLATILITY" />
+          </span>
           <div className="space-y-4">
              <div className="flex justify-between items-end border-b border-white/5 pb-2">
                 <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Realized Vol</span>
@@ -104,7 +114,10 @@ export const RiskEntropyPanel = React.memo(function RiskEntropyPanel({ metrics }
 
         {/* 4. TAIL RISK (MAX DD) */}
         <div className="space-y-4 p-5 bg-[#111111] border border-white/10 transition-all">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block">Critical Tail Risk</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 flex items-center">
+            Critical Tail Risk
+            <InfoTooltip insightKey="MAX_DRAWDOWN" />
+          </span>
           <div className="flex flex-col gap-1">
              <span className="text-3xl font-mono font-bold text-bear tabular-nums">{fmtPct(metrics.maxDrawdown1Y)}</span>
              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Maximum 1Y Drawdown</span>

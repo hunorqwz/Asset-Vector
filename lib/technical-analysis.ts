@@ -369,7 +369,7 @@ export function detectVolumeProfileNodes(data: OHLCV[], bins: number = 30): Volu
 }
 
 /**
- * Detects Institutional Order Blocks through high-volume price consolidation and violent breaks.
+ * Detects Market Structure Voids through high-volume price consolidation and violent breaks.
  * Upgraded to Order Flow 2.0 with Mitigation Mapping.
  */
 export function detectOrderBlocks(data: OHLCV[]): OrderBlock[] {

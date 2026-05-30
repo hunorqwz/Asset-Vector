@@ -6,7 +6,8 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { computePortfolioRisk, RiskIntelligence } from "@/lib/portfolio-risk";
 import { getPortfolioPrices } from "@/app/actions";
-import { getPersistentSignal } from "@/lib/market-data";
+import { getPersistentSignal, fetchHistoryWithInterval } from "@/lib/market-data";
+import { fetchMarketPulse } from "@/lib/market-pulse";
 
 export type Position = {
   id: string;
@@ -253,4 +254,39 @@ export async function simulateHedge(simTicker: string, amountUsd: number): Promi
     console.error("Simulation error:", err);
     return null;
   }
+}
+
+export type PortfolioRiskInputPayload = {
+  historyData: { ticker: string; history: { close: number; time: number }[] }[];
+  pulse: any;
+};
+
+export async function getPortfolioRiskInputPayload(positions: { ticker: string }[]): Promise<PortfolioRiskInputPayload> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("UNAUTHORIZED");
+
+  const spyTicker = "SPY";
+  const tickers = [...new Set([...positions.map(p => p.ticker), spyTicker])];
+
+  const [historyData, pulse] = await Promise.all([
+    Promise.all(
+      tickers.map(async t => {
+        try {
+          const history = await fetchHistoryWithInterval(t, '1d');
+          return {
+            ticker: t,
+            history: history.map(h => ({ close: h.close, time: h.time }))
+          };
+        } catch {
+          return { ticker: t, history: [] };
+        }
+      })
+    ),
+    fetchMarketPulse().catch(() => null)
+  ]);
+
+  return {
+    historyData,
+    pulse
+  };
 }

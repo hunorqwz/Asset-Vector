@@ -36,14 +36,14 @@ export const InstitutionalFlowPanel = React.memo(function InstitutionalFlowPanel
           <div className="w-2 h-2 bg-red-500 rounded-[1px] shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
           <div>
             <h2 className="text-[15px] font-bold tracking-[0.15em] text-white uppercase">Institutional Flow Engines</h2>
-            <p className="text-[11px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Order Blocks (FVG) & Volatility Expected Move</p>
+            <p className="text-[11px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Market Structure Voids (FVG) & Expected Volatility Range</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
 
-        {/* ORDER BLOCKS (FVGS) */}
+        {/* MARKET STRUCTURE VOIDS (FVGS) */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 border-b border-white/10 pb-2 mb-4">
             <span className="text-[10px] tracking-widest uppercase font-bold text-zinc-300">Unmitigated Fair Value Gaps</span>
@@ -56,7 +56,7 @@ export const InstitutionalFlowPanel = React.memo(function InstitutionalFlowPanel
               blocks.map((b, i) => (
                 <div key={i} className={`flex justify-between items-center p-3 border shadow-inner ${b.type === 'BULLISH' ? 'bg-[#052e16]/30 border-bull/20' : 'bg-[#450a0a]/30 border-bear/20'}`}>
                   <div className="flex flex-col">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${b.type === 'BULLISH' ? 'text-bull' : 'text-bear'}`}>{b.type} FVG (Demand)</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${b.type === 'BULLISH' ? 'text-bull' : 'text-bear'}`}>{b.type === 'BULLISH' ? 'Bullish Structure Void (Support)' : 'Bearish Structure Void (Resistance)'}</span>
                     <span className="text-[10px] font-medium text-zinc-500 mt-0.5">{b.date}</span>
                   </div>
                   <div className="text-right">
@@ -89,11 +89,11 @@ export const InstitutionalFlowPanel = React.memo(function InstitutionalFlowPanel
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#052e16]/20 border border-bull/20 p-4 text-center">
-                  <span className="block text-[10px] font-bold uppercase tracking-widest text-bull/80 mb-2">Market Maker Call Wall</span>
+                  <span className="block text-[10px] font-bold uppercase tracking-widest text-bull/80 mb-2">Dealer Call Wall Concentration</span>
                   <span className="text-[15px] font-bold text-bull">{fmt(expectedUpper)}</span>
                 </div>
                 <div className="bg-[#450a0a]/20 border border-bear/20 p-4 text-center">
-                  <span className="block text-[10px] font-bold uppercase tracking-widest text-bear/80 mb-2">Market Maker Put Wall</span>
+                  <span className="block text-[10px] font-bold uppercase tracking-widest text-bear/80 mb-2">Dealer Put Wall Concentration</span>
                   <span className="text-[15px] font-bold text-bear">{fmt(expectedLower)}</span>
                 </div>
               </div>

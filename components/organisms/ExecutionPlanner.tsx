@@ -71,8 +71,8 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
             </div>
             {signal.orderBlocks && signal.orderBlocks.filter(b => b.type === 'BEARISH' && b.top > price).length > 0 ? (
               <div className="flex items-center gap-2 mt-1">
-                 <div className="w-1 h-3 bg-bear" />
-                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Bearish Supply Level (${signal.orderBlocks.find(b => b.type === 'BEARISH')?.top.toFixed(2)})</span>
+                 <div className="w-1.5 h-3 bg-bear" />
+                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Bearish Liquidity Concentration (${signal.orderBlocks.find(b => b.type === 'BEARISH')?.top.toFixed(2)})</span>
               </div>
             ) : (
               <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">
@@ -89,8 +89,8 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
             </div>
             {signal.orderBlocks && signal.orderBlocks.filter(b => b.type === 'BULLISH' && b.bottom < price).length > 0 ? (
               <div className="flex items-center gap-2 mt-1">
-                 <div className="w-1 h-3 bg-bull" />
-                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Institutional Order Block Detected (${signal.orderBlocks.find(b => b.type === 'BULLISH')?.bottom.toFixed(2)})</span>
+                 <div className="w-1.5 h-3 bg-bull" />
+                 <span className="text-[9px] text-zinc-400 font-bold uppercase">Market Structure Void Detected (${signal.orderBlocks.find(b => b.type === 'BULLISH')?.bottom.toFixed(2)})</span>
               </div>
             ) : (
               <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-tighter">
@@ -110,7 +110,7 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
               <div className="text-right">
                 <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Edge Status</p>
                 <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${rewardRisk > 2 ? 'bg-bull/20 text-bull' : 'bg-zinc-800 text-zinc-400'}`}>
-                  {rewardRisk > 2 ? 'High Alpha Edge' : 'Marginal Basis'}
+                  {rewardRisk > 2 ? 'High Alpha Potential' : 'Marginal Basis'}
                 </span>
               </div>
            </div>

@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { OptionsIntelligence } from '@/lib/options-pricing';
 import { fmt, fmtCount } from '@/lib/format';
+import { InfoTooltip } from '@/components/atoms/InfoTooltip';
 
 interface OptionsSurfaceVisualizerProps {
   data: OptionsIntelligence;
@@ -29,11 +30,12 @@ export function OptionsSurfaceVisualizer({ data }: OptionsSurfaceVisualizerProps
        <div className="flex items-center gap-3 mb-6">
          <div className="w-1.5 h-6 bg-[linear-gradient(to_bottom,theme(colors.bull),theme(colors.bear))] opacity-80" />
          <div>
-            <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.2em] flex items-center gap-2">
-              Gamma Exposure <span className="text-[9px] bg-white/10 px-1.5 py-0.5 rounded text-zinc-400">GEX</span>
+            <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.2em] flex items-center gap-1.5">
+              Net Dealer Gamma Exposure
+              <InfoTooltip insightKey="GAMMA_EXPOSURE" category="QUANT" />
             </h3>
             <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-              Net: <span className={data.totalGEX > 0 ? "text-bull" : "text-bear"}>{fmtCount(Math.abs(data.totalGEX))}</span> | Flip Line: <span className="text-white">${data.zeroGammaLevel.toFixed(1)}</span>
+              Net GEX: <span className={data.totalGEX > 0 ? "text-bull" : "text-bear"}>{fmtCount(Math.abs(data.totalGEX))}</span> | Flip Line: <span className="text-white">${data.zeroGammaLevel.toFixed(1)}</span>
             </p>
          </div>
        </div>

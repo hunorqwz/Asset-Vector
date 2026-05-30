@@ -116,3 +116,82 @@ export async function getAlpacaQuote(symbol: string) {
     return null;
   }
 }
+
+export interface AlpacaBar {
+  time: number;   // Unix timestamp (seconds)
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+type AlpacaTimeframe = "1Min" | "5Min" | "15Min" | "1Hour" | "1Day";
+
+/**
+ * Fetches OHLCV bars from the Alpaca Data API v2.
+ * 
+ * Data feed tiers:
+ *   - "iex"  — Free / Unlimited plan: ~35% of US equity tape (IEX only)
+ *   - "sip"  — Algo Trader Plus ($99/mo): 100% US market tape (all exchanges)
+ * 
+ * Defaults to IEX so the free plan always works. Set ALPACA_FEED=sip in env
+ * to unlock the full SIP feed when running on the paid plan.
+ */
+export async function fetchAlpacaBars(
+  symbol: string,
+  timeframe: AlpacaTimeframe,
+  startIso: string,
+  endIso?: string,
+  limit: number = 1000
+): Promise<AlpacaBar[]> {
+  const DATA_URL = "https://data.alpaca.markets/v2";
+  const feed = process.env.ALPACA_FEED || "iex"; // "iex" (free) or "sip" (paid)
+
+  try {
+    const params = new URLSearchParams({
+      timeframe,
+      start: startIso,
+      limit: String(Math.min(limit, 10000)),
+      feed,
+      adjustment: "split", // Auto split-adjust bars
+    });
+    if (endIso) params.set("end", endIso);
+
+    const bars: AlpacaBar[] = [];
+    let nextPageToken: string | undefined;
+
+    // Alpaca paginates at 10,000 bars. Loop to collect full range.
+    do {
+      if (nextPageToken) params.set("page_token", nextPageToken);
+
+      const data: any = await alpacaFetch(
+        `/stocks/${encodeURIComponent(symbol)}/bars?${params.toString()}`,
+        {},
+        3,
+        DATA_URL
+      );
+
+      const rawBars: any[] = data.bars || [];
+      for (const b of rawBars) {
+        bars.push({
+          time: Math.floor(new Date(b.t).getTime() / 1000),
+          open: b.o,
+          high: b.h,
+          low: b.l,
+          close: b.c,
+          volume: b.v,
+        });
+      }
+
+      nextPageToken = data.next_page_token || undefined;
+    } while (nextPageToken && bars.length < limit);
+
+    return bars;
+  } catch (err: any) {
+    if (err.message !== "ALPACA_MISSING_KEYS") {
+      console.error(`[Alpaca Bars] Failed to fetch ${timeframe} bars for ${symbol}:`, err.message);
+    }
+    return [];
+  }
+}

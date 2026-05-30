@@ -18,23 +18,26 @@ export interface MacroSnapshot {
   inflation: MacroIndicator;
   yieldCurve: MacroIndicator;
   unemployment: MacroIndicator;
+  creditSpread: MacroIndicator;
   regime: MacroRegime;
   implications: string[];
 }
 
 export async function getMacroSnapshot(): Promise<MacroSnapshot> {
-  const [fed, cpi, yieldCurve, unrate] = await Promise.all([
+  const [fed, cpi, yieldCurve, unrate, credit] = await Promise.all([
     fetchFredSeries('FEDFUNDS'),
     fetchFredSeries('CPIAUCSL'),
     fetchFredSeries('T10Y2Y'),
-    fetchFredSeries('UNRATE')
+    fetchFredSeries('UNRATE'),
+    fetchFredSeries('BAMLH0A0HYM2')
   ]);
 
   const indicators = {
     fed: processIndicator('FEDFUNDS', 'Fed Funds Rate', fed, 'pct'),
     cpi: processCpiIndicator(cpi),
     yield: processIndicator('T10Y2Y', 'Yield Curve (10Y-2Y)', yieldCurve, 'index'),
-    unrate: processIndicator('UNRATE', 'Unemployment', unrate, 'pct')
+    unrate: processIndicator('UNRATE', 'Unemployment', unrate, 'pct'),
+    credit: processIndicator('BAMLH0A0HYM2', 'High-Yield Credit Spread', credit, 'pct')
   };
 
   const regime = deriveRegime(indicators);
@@ -45,6 +48,7 @@ export async function getMacroSnapshot(): Promise<MacroSnapshot> {
     inflation: indicators.cpi,
     yieldCurve: indicators.yield,
     unemployment: indicators.unrate,
+    creditSpread: indicators.credit,
     regime,
     implications
   };
@@ -136,6 +140,10 @@ function deriveImplications(regime: MacroRegime, indicators: any): string[] {
     implications.push("Federal Reserve tightening cycle increases cost of capital.");
   } else if (indicators.fed.status === 'DOWN') {
     implications.push("Monetary easing providing tailwinds for equity valuations.");
+  }
+
+  if (indicators.credit.currentValue > 5.0) {
+    implications.push("High-Yield credit spread spike indicates high systemic default risk; risk-off asset posture favored.");
   }
 
   return implications;

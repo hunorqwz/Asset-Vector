@@ -3,6 +3,8 @@ import { StockDetails } from "@/lib/stock-details";
 import { calculateGrahamNumber, calculatePeterLynchFairValue } from "@/lib/valuation";
 import { fmt } from "@/lib/format";
 import { AIIcon, ValuationIcon } from "@/components/Icons";
+import { InfoTooltip } from "@/components/atoms/InfoTooltip";
+import { EducationCategory } from "@/components/providers/EducationProvider";
 
 interface MultiModelValuationProps {
   details: StockDetails;
@@ -30,7 +32,9 @@ export const MultiModelValuation = React.memo(function MultiModelValuation({ det
     isValid: boolean, 
     description: string, 
     formula: string,
-    currentPrice: number
+    currentPrice: number,
+    insightKey?: string,
+    category?: EducationCategory
   ) => {
     if (!isValid) {
       return (
@@ -59,7 +63,10 @@ export const MultiModelValuation = React.memo(function MultiModelValuation({ det
 
         <div className="flex items-start justify-between mb-4 relative z-10">
           <div className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-bold text-white tracking-[0.2em] uppercase">{name}</span>
+            <span className="text-[12px] font-bold text-white tracking-[0.2em] uppercase flex items-center gap-1.5">
+              {name}
+              {insightKey && <InfoTooltip insightKey={insightKey} category={category} />}
+            </span>
             <span className="text-[11px] font-bold font-mono text-zinc-500 tracking-widest">{formula}</span>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -98,7 +105,9 @@ export const MultiModelValuation = React.memo(function MultiModelValuation({ det
           graham.isValid, 
           "Benjamin Graham's strict defensive valuation limit. Heavily penalizes companies with low physical assets or negative earnings.",
           "√(22.5 × EPS × BVPS)",
-          currentPrice
+          currentPrice,
+          "GRAHAM_NUMBER",
+          "FUNDAMENTAL"
         )}
 
         {renderModel(
@@ -107,7 +116,9 @@ export const MultiModelValuation = React.memo(function MultiModelValuation({ det
           lynch.isValid, 
           "Peter Lynch's tech-friendly PEG benchmark. Calculates fair value assuming P/E should equal the company's growth rate.",
           "(Growth% × EPS)",
-          currentPrice
+          currentPrice,
+          "PETER_LYNCH",
+          "FUNDAMENTAL"
         )}
       </div>
     </section>

@@ -1,19 +1,19 @@
 "use client";
 import React from 'react';
-import { WhaleIntelligence } from "@/lib/whale-radar";
-import { fmtPct, fmtCount } from "@/lib/format";
+import { BlockholderIntelligence } from "@/lib/blockholder-analytics";
+import { fmtPct } from "@/lib/format";
 import { OwnershipIcon, StatsIcon } from "@/components/Icons";
 
-interface WhaleRadarPanelProps {
-  intelligence: WhaleIntelligence;
+interface OwnershipFlowPanelProps {
+  intelligence: BlockholderIntelligence;
   heldPercentInsiders: number | null;
   heldPercentInstitutions: number | null;
 }
 
-export function WhaleRadarPanel({ intelligence, heldPercentInsiders, heldPercentInstitutions }: WhaleRadarPanelProps) {
+export function BlockholderAnalyticsPanel({ intelligence, heldPercentInsiders, heldPercentInstitutions }: OwnershipFlowPanelProps) {
   const {
-    whaleConsensus,
-    whaleConsensusScore,
+    blockholderConsensus,
+    blockholderConsensusScore,
     insiderConvictionScore,
     institutionalConvictionScore,
     clusterBuyDetected,
@@ -34,7 +34,7 @@ export function WhaleRadarPanel({ intelligence, heldPercentInsiders, heldPercent
   };
 
   return (
-    <section className="glass-card border border-white/10 overflow-hidden relative group bg-[#050505]">
+    <section className="glass-card border border-white/10 overflow-hidden relative group bg-[#050505] rounded-xl">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-matrix/40 to-transparent" />
       
       {/* Header */}
@@ -44,22 +44,22 @@ export function WhaleRadarPanel({ intelligence, heldPercentInsiders, heldPercent
             <OwnershipIcon />
           </div>
           <div>
-            <h2 className="text-[12px] font-bold text-white uppercase tracking-[0.2em] mb-1">Institutional & Insider Flows</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Institutional & Insider Intent Layer</p>
+            <h2 className="text-[12px] font-bold text-white uppercase tracking-[0.2em] mb-1">Institutional & Insider Flow Analysis</h2>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Ownership & Accumulation Indicators</p>
           </div>
         </div>
         
         <div className="flex items-center gap-6">
           <div className="text-right">
             <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest block mb-1">Consensus Flow</span>
-            <div className={`px-3 py-1 border text-[11px] font-bold uppercase tracking-widest ${getStatusBg(whaleConsensusScore)} ${getStatusColor(whaleConsensusScore)}`}>
-              {whaleConsensus.replace(/_/g, ' ')}
+            <div className={`px-3 py-1 border text-[11px] font-bold uppercase tracking-widest ${getStatusBg(blockholderConsensusScore)} ${getStatusColor(blockholderConsensusScore)}`}>
+              {blockholderConsensus.replace(/_/g, ' ')}
             </div>
           </div>
           <div className="text-right">
             <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest block mb-1">Conviction</span>
-            <span className={`text-2xl font-mono font-bold tracking-tighter ${getStatusColor(whaleConsensusScore)}`}>
-              {whaleConsensusScore}<span className="text-xs opacity-50 ml-1">/100</span>
+            <span className={`text-2xl font-mono font-bold tracking-tighter ${getStatusColor(blockholderConsensusScore)}`}>
+              {blockholderConsensusScore}<span className="text-xs opacity-50 ml-1">/100</span>
             </span>
           </div>
         </div>
@@ -81,15 +81,15 @@ export function WhaleRadarPanel({ intelligence, heldPercentInsiders, heldPercent
           <div className="flex items-center justify-between mb-2">
              <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                <StatsIcon />
-               Insider Intent
+               Insider Accumulation
              </h3>
              <span className={`text-[11px] font-mono font-bold ${getStatusColor(insiderConvictionScore)}`}>
                SCORE: {insiderConvictionScore.toFixed(0)}
              </span>
           </div>
           <div className="space-y-4">
-             <WhaleMetric label="Retail Float Ownership" value={fmtPct(heldPercentInsiders)} />
-             <WhaleMetric label="Net 90D Acquisition" value={insiderConvictionScore > 50 ? 'POSITIVE' : 'NEGATIVE'} />
+             <BlockholderMetric label="Insider Float Ownership" value={fmtPct(heldPercentInsiders)} />
+             <BlockholderMetric label="Net 90D Acquisition" value={insiderConvictionScore > 50 ? 'POSITIVE' : 'NEGATIVE'} />
              <div className="pt-2">
                 <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
                    <div 
@@ -106,15 +106,15 @@ export function WhaleRadarPanel({ intelligence, heldPercentInsiders, heldPercent
           <div className="flex items-center justify-between mb-2">
              <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                <StatsIcon />
-               Institutional Flow
+               Institutional Net Flow
              </h3>
              <span className={`text-[11px] font-mono font-bold ${getStatusColor(institutionalConvictionScore)}`}>
                SCORE: {institutionalConvictionScore.toFixed(0)}
              </span>
           </div>
           <div className="space-y-4">
-             <WhaleMetric label="T10 Holder Momentum" value={fmtPct(topHoldersAlpha / 100)} colored />
-             <WhaleMetric label="Institutional Density" value={fmtPct(heldPercentInstitutions)} />
+             <BlockholderMetric label="Top 10 Holder Momentum" value={fmtPct(topHoldersAlpha / 100)} colored />
+             <BlockholderMetric label="Institutional Float Density" value={fmtPct(heldPercentInstitutions)} />
              <div className="pt-2">
                 <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
                    <div 
@@ -135,7 +135,7 @@ export function WhaleRadarPanel({ intelligence, heldPercentInsiders, heldPercent
   );
 }
 
-function WhaleMetric({ label, value, colored }: { label: string; value: string; colored?: boolean }) {
+function BlockholderMetric({ label, value, colored }: { label: string; value: string; colored?: boolean }) {
   let valueColor = 'text-zinc-300';
   if (colored && value !== '—') {
     const isPos = value.includes('+') || (!value.includes('-') && parseFloat(value) > 0);

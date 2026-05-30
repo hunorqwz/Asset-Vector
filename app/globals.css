@@ -16,6 +16,7 @@
   --color-bull: hsl(var(--bull));
   --color-bear: hsl(var(--bear));
   --color-matrix: hsl(var(--matrix));
+  --color-accent-cyan: hsl(var(--accent-cyan));
   --color-terminal: hsl(var(--terminal-gray));
 
   /* Layout Custom Variables */

@@ -4,28 +4,29 @@
  */
 
 :root {
-    /* Premium Core Palette (HSL) */
-    --background: 224 25% 4%;            /* Deep obsidian-navy canvas (#07090e) */
+    /* Obsidian Glass Palette (HSL) */
+    --background: 222 47% 4%;            /* Deep obsidian-indigo canvas (#030712) */
     --foreground: 210 40% 98%;           /* Crisp high-contrast white (#f8fafc) */
 
-    --card: 224 20% 7%;                 /* Deep slate-indigo card base (#0e111a) */
+    --card: 222 35% 8%;                  /* Sleek dark slate card base (#090d16) */
     --card-foreground: 210 40% 95%;      /* Clean light-gray body (#f1f5f9) */
 
-    --border: 224 15% 12%;               /* Sleek border color (#1d2230) */
-    --border-light: 255 255 255 / 0.06;
+    --border: 222 20% 12%;               /* Balanced slate border (#111827) */
+    --border-light: 255 255 255 / 0.045;
 
-    /* High-Fidelity Signal & Accent Colors */
-    --bull: 142 76% 42%;                 /* Modern Emerald Green (#16a34a) */
-    --warning: 38 92% 50%;               /* Warm Gold/Amber (#d97706) */
-    --bear: 350 89% 60%;                 /* Ruby-Rose Red (#e11d48) */
-    --matrix: 224 86% 62%;               /* Premium Sapphire Blue (#4f73f6) */
-    --terminal-gray: 215 16% 56%;        /* Balanced slate gray (#828da0) */
+    /* High-Fidelity Professional FinTech Colors */
+    --bull: 146 80% 45%;                 /* Emerald-Mint Green (#10b981) */
+    --warning: 38 92% 50%;               /* Warm Gold/Amber (#f59e0b) */
+    --bear: 358 85% 62%;                 /* Electric Ruby Red (#ef4444) */
+    --matrix: 263 90% 68%;               /* Cyber Violet Accent (#8b5cf6) */
+    --accent-cyan: 187 92% 52%;          /* Neon Cyan Accent (#06b6d4) */
+    --terminal-gray: 215 25% 72%;        /* High-readability slate gray (#9ca3af) */
 
     /* Advanced Glassmorphism */
-    --glass-bg: rgba(11, 14, 23, 0.85);
+    --glass-bg: rgba(9, 13, 22, 0.85);
     --glass-blur: 24px;
-    --glass-border: rgba(255, 255, 255, 0.05);
-    --glass-border-bright: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.045);
+    --glass-border-bright: rgba(255, 255, 255, 0.12);
 
     /* Animation Settings */
     --duration-fast: 120ms;
@@ -35,4 +36,4 @@
     /* Grid & Layout Constraints */
     --header-height: 64px;
     --footer-height: 48px;
-}
+}
