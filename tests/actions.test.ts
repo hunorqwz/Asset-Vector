@@ -102,7 +102,7 @@ describe('Server Actions', () => {
     });
 
     it('fails if limit is reached', async () => {
-      (db.query.userWatchlists.findMany as any).mockResolvedValue(new Array(12).fill({ ticker: 'X' }));
+      (db.query.userWatchlists.findMany as any).mockResolvedValue(new Array(250).fill({ ticker: 'X' }));
       
       const result = await addAsset('TSLA', 'Tesla');
       

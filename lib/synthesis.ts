@@ -97,11 +97,11 @@ export function generateSynthesis(
     hasForecastImpact = true;
     
     if (forecastReturn < -5) {
-      forecastPenalty = 25;
-    } else if (forecastReturn < -2) {
       forecastPenalty = 15;
+    } else if (forecastReturn < -2) {
+      forecastPenalty = 10;
     } else if (forecastReturn < 0) {
-      forecastPenalty = 8;
+      forecastPenalty = 5;
     } else if (forecastReturn > 10) {
       forecastBoost = 10;
     } else if (forecastReturn > 5) {
@@ -120,16 +120,28 @@ export function generateSynthesis(
         const ret = ((pred.p50 - currentPrice) / currentPrice) * 100;
         if (ret < 0) {
           if (ret < -5) {
-            forecastPenalty += 25;
+            forecastPenalty += 10;
           } else if (ret < -2) {
-            forecastPenalty += 15;
+            forecastPenalty += 7;
           } else {
-            forecastPenalty += 8;
+            forecastPenalty += 4;
+          }
+        } else {
+          if (ret > 10) {
+            forecastBoost += 10;
+          } else if (ret > 5) {
+            forecastBoost += 5;
+          } else {
+            forecastBoost += 2;
           }
         }
       }
     });
   }
+
+  // Cap the penalty and boost to keep the synthesis score balanced
+  forecastPenalty = Math.min(30, forecastPenalty);
+  forecastBoost = Math.min(30, forecastBoost);
 
   // 5. SNR & Forecast Adjustments
   let adjustedScore = baseScore;

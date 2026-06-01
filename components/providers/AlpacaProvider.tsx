@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
 export interface AlpacaTick {
+  ticker: string;
   price: number;
   size: number;
   timestamp: string;
@@ -26,82 +27,73 @@ export function AlpacaProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [ticks, setTicks] = useState<Record<string, AlpacaTick>>({});
   
-  const socketRef = useRef<WebSocket | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
   const subscribersRef = useRef<Record<string, number>>({});
   const activeSubsRef = useRef<Set<string>>(new Set());
-  const intentionallyClosed = useRef(false);
-  const retryTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const apiKey = process.env.NEXT_PUBLIC_ALPACA_API_KEY;
-  const apiSecret = process.env.NEXT_PUBLIC_ALPACA_API_SECRET;
+  const connect = useCallback((tickers: string[]) => {
+    // Clean up previous event source connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
 
-  const connect = useCallback(() => {
-    if (retryTimeout.current) clearTimeout(retryTimeout.current);
-    if (!apiKey || !apiSecret) return;
-    if (intentionallyClosed.current) return;
-
-    const url = "wss://stream.data.alpaca.markets/v2/iex";
-    let ws: WebSocket;
-    try {
-      ws = new WebSocket(url);
-    } catch {
+    if (tickers.length === 0) {
+      setIsConnected(false);
       return;
     }
-    socketRef.current = ws;
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ action: "auth", key: apiKey, secret: apiSecret }));
-    };
+    const url = `/api/ticks?tickers=${encodeURIComponent(tickers.join(","))}`;
+    console.log(`[Alpaca Provider] Subscribing via SSE stream: ${url}`);
+    
+    try {
+      const es = new EventSource(url);
+      eventSourceRef.current = es;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        data.forEach((msg: any) => {
-          if (msg.T === "success" && msg.msg === "authenticated") {
-            setIsConnected(true);
-            const tempSubs = Array.from(activeSubsRef.current);
-            if (tempSubs.length > 0) {
-               ws.send(JSON.stringify({ action: "subscribe", trades: tempSubs }));
-            }
-          } else if (msg.T === "error") {
-             console.warn(`[Alpaca Unified System] Stream error: [${msg.code}] ${msg.msg}`);
-             if (msg.code === 409 || msg.code === 403) {
-               intentionallyClosed.current = true;
-               ws.close();
-             }
-          } else if (msg.T === "t" && msg.S) {
-            setTicks(prev => {
-              // Only update if the price or timestamp actually changed to prevent React render thrashing
-              const existing = prev[msg.S];
-              if (existing && existing.price === msg.p && existing.timestamp === msg.t) {
+      es.addEventListener("open", () => {
+        setIsConnected(true);
+      });
+
+      es.onmessage = (event) => {
+        try {
+          const tick = JSON.parse(event.data);
+          if (tick && tick.ticker) {
+            setTicks((prev) => {
+              const existing = prev[tick.ticker];
+              if (existing && existing.price === tick.price && existing.timestamp === tick.timestamp) {
                 return prev;
               }
               return {
                 ...prev,
-                [msg.S]: { price: msg.p, size: msg.s, timestamp: msg.t, exchange: msg.x }
+                [tick.ticker]: tick,
               };
             });
           }
-        });
-      } catch { /* ignore malformed frames */ }
-    };
+        } catch {
+          // ignore malformed SSE messages
+        }
+      };
 
-    ws.onclose = () => {
+      es.onerror = () => {
+        setIsConnected(false);
+      };
+    } catch (err) {
+      console.error("[Alpaca Provider] Failed to connect EventSource:", err);
       setIsConnected(false);
-      if (!intentionallyClosed.current) {
-        retryTimeout.current = setTimeout(() => connect(), 5000);
-      }
-    };
-  }, [apiKey, apiSecret]);
+    }
+  }, []);
 
-  useEffect(() => {
-    intentionallyClosed.current = false;
-    connect();
-    return () => {
-      intentionallyClosed.current = true;
-      if (retryTimeout.current) clearTimeout(retryTimeout.current);
-      if (socketRef.current) socketRef.current.close();
-    };
+  // Debounced sync to combine multiple subscriptions mounted in the same frame
+  const syncSubscriptions = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      const tickers = Array.from(activeSubsRef.current);
+      connect(tickers);
+    }, 100);
   }, [connect]);
 
   const subscribe = useCallback((ticker: string) => {
@@ -110,12 +102,10 @@ export function AlpacaProvider({ children }: { children: React.ReactNode }) {
     subs[ticker] = (subs[ticker] || 0) + 1;
     
     if (subs[ticker] === 1) {
-       activeSubsRef.current.add(ticker);
-       if (socketRef.current?.readyState === WebSocket.OPEN && isConnected) {
-          socketRef.current.send(JSON.stringify({ action: "subscribe", trades: [ticker] }));
-       }
+      activeSubsRef.current.add(ticker);
+      syncSubscriptions();
     }
-  }, [isConnected]);
+  }, [syncSubscriptions]);
 
   const unsubscribe = useCallback((ticker: string) => {
     if (!ticker) return;
@@ -125,12 +115,17 @@ export function AlpacaProvider({ children }: { children: React.ReactNode }) {
       if (subs[ticker] <= 0) {
         delete subs[ticker];
         activeSubsRef.current.delete(ticker);
-        if (socketRef.current?.readyState === WebSocket.OPEN && isConnected) {
-           socketRef.current.send(JSON.stringify({ action: "unsubscribe", trades: [ticker] }));
-        }
+        syncSubscriptions();
       }
     }
-  }, [isConnected]);
+  }, [syncSubscriptions]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (eventSourceRef.current) eventSourceRef.current.close();
+    };
+  }, []);
 
   return (
     <AlpacaContext.Provider value={{ isConnected, subscribe, unsubscribe, ticks }}>

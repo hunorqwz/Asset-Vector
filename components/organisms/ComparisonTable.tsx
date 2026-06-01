@@ -1,5 +1,6 @@
 "use client";
-import React, { useMemo } from "react";
+
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { ComparisonAsset } from "@/app/actions/compare";
 import { calculateAlphaScore, calculateCatalystRisk } from "@/lib/alpha-engine";
@@ -13,11 +14,9 @@ function fmt(n: number | null | undefined, d = 2): string {
 }
 function fmtPct(n: number | null | undefined): string {
   if (n === null || n === undefined || isNaN(n)) return "—";
-  // Yahoo returns these as fractions — multiply by 100
   return `${n >= 0 ? "+" : ""}${fmt(n * 100, 1)}%`;
 }
 function fmtPctDirect(n: number | null | undefined): string {
-  // Use when value is already in percent form (e.g. dayChangePercent)
   if (n === null || n === undefined || isNaN(n)) return "—";
   return `${n >= 0 ? "+" : ""}${fmt(n, 2)}%`;
 }
@@ -37,7 +36,7 @@ interface RowDef {
   getValue: (a: ComparisonAsset) => number | null;
   format: (n: number | null) => string;
   better: Direction;
-  colorize?: boolean; // true: color based on sign (bull/bear)
+  colorize?: boolean;
   tooltip?: string;
 }
 
@@ -65,7 +64,6 @@ const ROWS: RowDef[] = [
   {
     label: "52W Return", category: "Price",
     getValue: a => a.details.price.fiftyTwoWeekChangePercent,
-    // fiftyTwoWeekChangePercent is a fraction from Yahoo (0.12 = +12%)
     format: n => n !== null ? `${n >= 0 ? "+" : ""}${fmt(n * 100, 1)}%` : "—",
     better: "higher", colorize: true,
     tooltip: "12-month price return"
@@ -102,7 +100,7 @@ const ROWS: RowDef[] = [
       };
       return map[a.signal.synthesis.signal] ?? 4;
     },
-    format: () => "—", // rendered separately
+    format: () => "—",
     better: "higher",
   },
   {
@@ -340,7 +338,6 @@ const ROWS: RowDef[] = [
   {
     label: "Dividend Yield", category: "Dividends",
     getValue: a => a.details.dividends.dividendYield,
-    // Yahoo returns as fraction (0.005 = 0.5%)
     format: fmtPct, better: "higher",
     tooltip: "Annual dividend as % of price"
   },
@@ -357,19 +354,18 @@ function getWinner(values: (number | null)[], better: Direction): number | null 
   if (better === "neutral") return null;
   const valid = values.map((v, i) => ({ v, i })).filter(x => x.v !== null) as { v: number; i: number }[];
   if (valid.length < 2) return null;
-  // Only award winner if values actually differ (< 1% relative difference = too close to call)
   const sorted = [...valid].sort((a, b) => better === "higher" ? b.v - a.v : a.v - b.v);
   const best = sorted[0];
   const second = sorted[1];
   const range = Math.abs(best.v - second.v);
   const avg = (Math.abs(best.v) + Math.abs(second.v)) / 2;
-  if (avg > 0 && range / avg < 0.005) return null; // too close to call
+  if (avg > 0 && range / avg < 0.005) return null;
   return better === "higher"
     ? valid.reduce((b, c) => c.v > b.v ? c : b).i
     : valid.reduce((b, c) => c.v < b.v ? c : b).i;
 }
 
-// ── Win counter — total wins per asset ───────────────────────────────────
+// ── Score Assets ─────────────────────────────────────────────────────────
 function scoreAssets(assets: ComparisonAsset[]) {
   const wins = new Array(assets.length).fill(0);
   for (const row of ROWS) {
@@ -396,12 +392,20 @@ function SignalBadge({ signal }: { signal: string }) {
   );
 }
 
-// ── Category Header Row ───────────────────────────────────────────────────
-function CategoryRow({ label, colCount }: { label: string; colCount: number }) {
+// ── Collapsible Category Header Row ─────────────────────────────────────────
+function CategoryRow({ label, colCount, isCollapsed, onToggle }: { label: string; colCount: number; isCollapsed: boolean; onToggle: () => void }) {
   return (
-    <tr className="border-t border-white/5 bg-gradient-to-r from-white/[0.03] to-transparent">
-      <td className="px-6 py-3.5 sticky left-0 z-10 bg-black/90 backdrop-blur-md border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.3)]">
-        <span className="text-[10px] font-display font-bold uppercase tracking-[0.3em] text-zinc-300 drop-shadow-md">{label}</span>
+    <tr 
+      onClick={onToggle}
+      className="border-t border-white/5 bg-gradient-to-r from-white/[0.02] to-transparent cursor-pointer hover:bg-white/[0.04] transition-colors select-none"
+    >
+      <td className="px-6 py-3.5 sticky left-0 z-10 bg-[#070709] border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.3)]">
+        <span className="text-[10px] font-display font-bold uppercase tracking-[0.3em] text-zinc-400 drop-shadow-md flex items-center gap-2">
+          <span className="text-[8px] text-zinc-500 font-mono transition-transform duration-200">
+            {isCollapsed ? "▶" : "▼"}
+          </span>
+          {label}
+        </span>
       </td>
       <td colSpan={colCount} className="py-3.5"></td>
     </tr>
@@ -451,21 +455,67 @@ interface ComparisonTableProps {
 
 export function ComparisonTable({ assets }: ComparisonTableProps) {
   const { openEducation } = useEducation();
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
   if (assets.length === 0) return null;
 
-  const wins = useMemo(() => scoreAssets(assets), [assets]);
+  const wins = scoreAssets(assets);
   const maxWins = Math.max(...wins);
+
+  const toggleCategory = (cat: string) => {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   // Group rows by category (preserves insertion order)
   const categories = useMemo(() => {
     const map = new Map<string, RowDef[]>();
     for (const row of ROWS) {
-      if (row.label === "Signal") continue; // rendered inside header only
+      if (row.label === "Signal") continue;
       if (!map.has(row.category)) map.set(row.category, []);
       map.get(row.category)!.push(row);
     }
     return map;
   }, []);
+
+  const exportToCSV = () => {
+    const headers = ["Metric", ...assets.map(a => a.ticker)];
+    const csvRows = [];
+    
+    // Add signal row
+    csvRows.push([
+      "Signal",
+      ...assets.map(a => a.signal.synthesis.signal)
+    ]);
+    
+    // Add category rows
+    for (const [cat, rows] of categories.entries()) {
+      for (const row of rows) {
+        csvRows.push([
+          `"${cat} - ${row.label}"`,
+          ...assets.map(a => {
+            const rawVal = row.getValue(a);
+            return rawVal !== null ? `"${row.format(rawVal).replace(/"/g, '""')}"` : "—";
+          })
+        ]);
+      }
+    }
+    
+    const csvContent = [headers.join(","), ...csvRows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `comparison_matrix_${assets.map(a => a.ticker).join("_")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const signalRow = ROWS.find(r => r.label === "Signal")!;
   const signalValues = assets.map(a => signalRow.getValue(a));
@@ -477,16 +527,28 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
         <table className="w-full border-collapse">
           {/* ── Sticky Header ─────────────────────────────────────────────── */}
           <thead className="sticky top-0 z-20">
-            <tr className="border-b border-white/5 bg-black/90 backdrop-blur-md">
-              <th className="text-left px-6 py-5 w-[220px] shrink-0 sticky left-0 z-30 bg-black/90 backdrop-blur-md border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.3)]">
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Metric</span>
+            <tr className="border-b border-white/5 bg-[#0a0a0c] backdrop-blur-md">
+              <th className="text-left px-6 py-5 w-[220px] shrink-0 sticky left-0 z-30 bg-[#0a0a0c] border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.3)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Metric</span>
+                  <button
+                    onClick={exportToCSV}
+                    className="p-1.5 border border-white/10 hover:bg-white/5 text-zinc-500 hover:text-white transition-all rounded cursor-pointer"
+                    title="Export Comparison to CSV"
+                    aria-label="Export comparison data to CSV"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                </div>
               </th>
               {assets.map((a, ai) => {
-                const isLeader = wins[ai] === maxWins && wins[ai] > 0;
                 return (
                   <th key={a.ticker} className="px-6 py-5 text-left min-w-[200px] transition-colors relative group">
                     <div className="flex flex-col gap-2.5 relative z-10">
-                      {/* Win badge */}
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/asset/${a.ticker}`}
@@ -494,15 +556,6 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
                         >
                           {a.ticker}
                         </Link>
-                        {wins[ai] > 0 && (
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 font-mono tabular-nums border rounded-md ${
-                            isLeader
-                              ? "border-bull/50 bg-bull/15 text-bull shadow-[0_0_8px_rgba(34,197,94,0.3)]"
-                              : "border-white/15 bg-white/5 text-zinc-400"
-                          }`}>
-                            {wins[ai]}W
-                          </span>
-                        )}
                       </div>
                       <p className="text-[11px] text-zinc-400 font-medium truncate max-w-[180px] group-hover:text-zinc-300 transition-colors">
                         {a.details.profile.name}
@@ -525,102 +578,85 @@ export function ComparisonTable({ assets }: ComparisonTableProps) {
               })}
             </tr>
           </thead>
-
-          {/* ── Win Score Summary Row ──────────────────────────────────────── */}
+ 
           <tbody>
-            <tr className="bg-white/[0.015] border-b border-white/5">
-              <td className="px-5 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                Best-in-Class Wins
-              </td>
-              {assets.map((a, ai) => {
-                const isLeader = wins[ai] === maxWins && wins[ai] > 0;
-                return (
-                  <td key={a.ticker} className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 bg-white/5 flex-1 max-w-[80px]">
-                        <div
-                          className={`h-full transition-all duration-500 ${isLeader ? "bg-bull" : "bg-white/20"}`}
-                          style={{ width: maxWins > 0 ? `${(wins[ai] / maxWins) * 100}%` : "0%" }}
-                        />
-                      </div>
-                      <span className={`text-[11px] font-bold font-mono tabular-nums ${isLeader ? "text-bull" : "text-zinc-400"}`}>
-                        {wins[ai]}
-                      </span>
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
+            {/* ── Collapsible Metric Rows by Category ────────────────────────── */}
+            {Array.from(categories.entries()).map(([cat, rows]) => {
+              const isCollapsed = collapsedCategories.has(cat);
+              return (
+                <React.Fragment key={cat}>
+                  <CategoryRow 
+                    label={cat} 
+                    colCount={assets.length} 
+                    isCollapsed={isCollapsed} 
+                    onToggle={() => toggleCategory(cat)} 
+                  />
+                  {!isCollapsed && rows.map((row, ri) => {
+                    const values = assets.map(a => row.getValue(a));
+                    const winnerIdx = getWinner(values, row.better);
 
-            {/* ── Metric Rows by Category ───────────────────────────────────── */}
-            {Array.from(categories.entries()).map(([cat, rows]) => (
-              <React.Fragment key={cat}>
-                <CategoryRow label={cat} colCount={assets.length} />
-                {rows.map((row, ri) => {
-                  const values = assets.map(a => row.getValue(a));
-                  const winnerIdx = getWinner(values, row.better);
+                    return (
+                      <tr
+                        key={row.label}
+                        className={`border-b border-white/[0.04] transition-colors relative group/row ${
+                          ri % 2 === 1 ? "bg-white/[0.005]" : ""
+                        }`}
+                        title={row.tooltip}
+                      >
+                        <td className={`px-6 py-3 text-[11px] font-medium whitespace-nowrap sticky left-0 z-10 border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.25)] transition-colors group-hover/row:text-white ${ri % 2 === 1 ? 'bg-[#0b0c10]/95' : 'bg-[#08090d]/95'} text-zinc-400`}>
+                          <div className="flex items-center">
+                             {row.label}
+                             {METRIC_EDUCATION_MAP[row.label] ? (
+                               <InfoTooltip 
+                                 insightKey={METRIC_EDUCATION_MAP[row.label].key} 
+                                 category={METRIC_EDUCATION_MAP[row.label].cat} 
+                               />
+                             ) : row.tooltip ? (
+                               <InfoTooltip fallbackText={row.tooltip} />
+                             ) : null}
+                          </div>
+                        </td>
+                        {assets.map((a, ai) => {
+                          const raw = row.getValue(a);
+                          const formatted = row.format(raw);
+                          const isWinner = winnerIdx === ai;
+                          const isNull = raw === null || formatted === "—";
 
-                  return (
-                    <tr
-                      key={row.label}
-                      className={`border-b border-white/[0.04] transition-colors relative group/row ${
-                        ri % 2 === 1 ? "bg-white/[0.01]" : ""
-                      }`}
-                      title={row.tooltip}
-                    >
-                      <td className={`px-6 py-3 text-[11px] font-medium whitespace-nowrap sticky left-0 z-10 border-r border-white/5 shadow-[4px_0_8px_rgba(0,0,0,0.25)] transition-colors group-hover/row:text-white ${ri % 2 === 1 ? 'bg-[#0d0f14]/95' : 'bg-[#0a0c10]/95'} text-zinc-400`}>
-                        <div className="flex items-center">
-                           {row.label}
-                           {METRIC_EDUCATION_MAP[row.label] ? (
-                             <InfoTooltip 
-                               insightKey={METRIC_EDUCATION_MAP[row.label].key} 
-                               category={METRIC_EDUCATION_MAP[row.label].cat} 
-                             />
-                           ) : row.tooltip ? (
-                             <InfoTooltip fallbackText={row.tooltip} />
-                           ) : null}
-                        </div>
-                      </td>
-                      {assets.map((a, ai) => {
-                        const raw = row.getValue(a);
-                        const formatted = row.format(raw);
-                        const isWinner = winnerIdx === ai;
-                        const isNull = raw === null || formatted === "—";
+                          // Color logic — winner gets clean background tint
+                          let valueColor = "text-zinc-300";
+                          let cellBg = isWinner ? "bg-green-500/[0.03]" : "";
 
-                        // Color logic — winner gets gold tint, colorize rows get bull/bear
-                        let valueColor = "text-zinc-300";
-                        if (isNull) {
-                          valueColor = "text-zinc-700";
-                        } else if (isWinner) {
-                          valueColor = "text-white";
-                        } else if (row.colorize && raw !== null) {
-                          valueColor = raw > 0 ? "text-bull/80" : raw < 0 ? "text-bear/80" : "text-zinc-400";
-                        }
+                          if (isNull) {
+                            valueColor = "text-zinc-700";
+                          } else if (isWinner) {
+                            valueColor = "text-white font-extrabold";
+                          } else if (row.colorize && raw !== null) {
+                            valueColor = raw > 0 ? "text-bull/80" : raw < 0 ? "text-bear/80" : "text-zinc-400";
+                          }
 
-                        return (
-                          <td
-                            key={a.ticker}
-                            className={`px-5 py-3 text-[12px] font-mono font-bold tabular-nums transition-colors ${valueColor} ${
-                              isWinner ? "bg-white/[0.03]" : ""
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              {isWinner && (
-                                <span
-                                  className="w-1.5 h-1.5 rounded-full bg-white/60 shrink-0"
-                                  title="Best in class"
-                                />
-                              )}
-                              {formatted}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+                          return (
+                            <td
+                              key={a.ticker}
+                              className={`px-5 py-3 text-[12px] font-mono font-bold tabular-nums transition-colors ${valueColor} ${cellBg}`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                {isWinner && (
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full bg-green-500/80 shrink-0"
+                                    title="Best in class"
+                                  />
+                                )}
+                                {formatted}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

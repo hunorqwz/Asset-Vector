@@ -67,6 +67,7 @@ export const metadata: Metadata = {
 import { AuthProvider } from "@/components/providers/SessionProvider";
 import { AlpacaProvider } from "@/components/providers/AlpacaProvider";
 import { EducationProvider } from "@/components/providers/EducationProvider";
+import { ToastProvider } from "@/components/providers/ToastProvider";
 
 export default function RootLayout({
   children,
@@ -81,9 +82,11 @@ export default function RootLayout({
         <AuthProvider>
           <AlpacaProvider>
             <EducationProvider>
-              <div className="app-grid bg-background overflow-hidden relative">
-                {children}
-              </div>
+              <ToastProvider>
+                <div className="app-grid bg-background overflow-hidden relative">
+                  {children}
+                </div>
+              </ToastProvider>
             </EducationProvider>
           </AlpacaProvider>
         </AuthProvider>

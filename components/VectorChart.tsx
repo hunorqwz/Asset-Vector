@@ -10,6 +10,17 @@ import { fmtCount } from '@/lib/format';
 import { OptionsIntelligence } from '@/lib/options-pricing';
 import { MultiHorizonPrediction, PredictionHorizon } from '@/lib/inference';
 
+export interface Point2D {
+  time: number;
+  price: number;
+}
+
+export interface UserDrawing {
+  id: string;
+  type: 'trendline' | 'horizontal' | 'fibonacci';
+  points: Point2D[];
+}
+
 interface VectorChartProps {
   data: OHLCV[];
   ticker?: string;
@@ -41,6 +52,19 @@ export const VectorChart = ({
 }: VectorChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  
+  // Drawing states & refs for high-performance canvas interaction
+  const [activeTool, setActiveTool] = useState<'select' | 'trendline' | 'horizontal' | 'fibonacci'>('select');
+  const [drawings, setDrawings] = useState<UserDrawing[]>([]);
+
+  const activeToolRef = useRef(activeTool);
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+  }, [activeTool]);
+
+  const startPointRef = useRef<Point2D | null>(null);
+  const previewSeriesRef = useRef<any>(null);
+
   const [activeRange, setActiveRange] = useState<TimeRange>('ALL');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAnalysisMenu, setShowAnalysisMenu] = useState(false);
@@ -76,6 +100,21 @@ export const VectorChart = ({
     if (showAnalysisMenu) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showAnalysisMenu]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        startPointRef.current = null;
+        previewSeriesRef.current?.setData([]);
+        setActiveTool('select');
+      } else if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        setDrawings(prev => prev.slice(0, -1));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const toggleFullscreen = () => {
     if (!fullscreenRef.current) return;
@@ -177,14 +216,14 @@ export const VectorChart = ({
       if (indicators.ema50) { const s = addLine(technicals.ema50, CHART_COLORS.EMA_50); if (s) currentSeriesMap.set('ema50', s); }
       if (indicators.ema200) { const s = addLine(technicals.ema200, CHART_COLORS.EMA_200); if (s) currentSeriesMap.set('ema200', s); }
       if (indicators.kalman) { 
-        const s = addLine(technicals.kalman, CHART_COLORS.NEURAL_VECTOR, 2); 
+        const s = addLine(technicals.kalman, CHART_COLORS.FORENSIC_TELEMETRY, 2); 
         if (s) currentSeriesMap.set('kalman', s);
 
         // Add Uncertainty Band (Gaussian Cloud)
         if (technicals.kalmanUncertainty) {
           const cloud = chart.addSeries(CandlestickSeries, {
-            upColor: `${CHART_COLORS.NEURAL_VECTOR}22`, 
-            downColor: `${CHART_COLORS.NEURAL_VECTOR}22`,
+            upColor: `${CHART_COLORS.FORENSIC_TELEMETRY}22`, 
+            downColor: `${CHART_COLORS.FORENSIC_TELEMETRY}22`,
             borderVisible: false,
             wickVisible: false,
             priceLineVisible: false,
@@ -315,7 +354,7 @@ export const VectorChart = ({
         projectionPointsP90.push({ time, value: aP90 * (step * step) + slope * step + start });
       }
       
-      const pLineP50 = chart.addSeries(LineSeries, { color: CHART_COLORS.NEURAL_VECTOR, lineWidth: 2 as any, lineStyle: LineStyle.Dashed, priceLineVisible: false });
+      const pLineP50 = chart.addSeries(LineSeries, { color: CHART_COLORS.FORENSIC_TELEMETRY, lineWidth: 2 as any, lineStyle: LineStyle.Dashed, priceLineVisible: false });
       const pLineP90 = chart.addSeries(LineSeries, { color: CHART_COLORS.BULLISH + '88', lineWidth: 1 as any, lineStyle: LineStyle.Dotted, priceLineVisible: false });
       const pLineP10 = chart.addSeries(LineSeries, { color: CHART_COLORS.BEARISH + '88', lineWidth: 1 as any, lineStyle: LineStyle.Dotted, priceLineVisible: false });
 
@@ -460,12 +499,130 @@ export const VectorChart = ({
     }
 
 
+    // RENDER USER-CREATED DRAWINGS
+    drawings.forEach((drawing) => {
+      if (drawing.type === 'horizontal') {
+        const p = drawing.points[0];
+        mainSeries.createPriceLine({
+          price: p.price,
+          color: '#c084fc', // Premium Purple
+          lineWidth: 2,
+          lineStyle: LineStyle.Solid,
+          axisLabelVisible: true,
+          title: 'H-Line'
+        });
+      } else if (drawing.type === 'trendline') {
+        const trendlineSeries = chart.addSeries(LineSeries, {
+          color: '#c084fc',
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false
+        });
+        trendlineSeries.setData(drawing.points.map(p => ({
+          time: p.time as UTCTimestamp,
+          value: p.price
+        })));
+      } else if (drawing.type === 'fibonacci') {
+        const p1 = drawing.points[0];
+        const p2 = drawing.points[1];
+        const tMin = Math.min(p1.time, p2.time);
+        const tMax = Math.max(p1.time, p2.time);
+        
+        const fibRatios = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0];
+        const fibColors = ['#f87171', '#fb923c', '#fbbf24', '#34d399', '#22d3ee', '#818cf8', '#c084fc'];
+        const fibLabels = ['0.0%', '23.6%', '38.2%', '50.0%', '61.8%', '78.6%', '100.0%'];
+
+        fibRatios.forEach((ratio, rIdx) => {
+          const value = p1.price + ratio * (p2.price - p1.price);
+          const fibLevelSeries = chart.addSeries(LineSeries, {
+            color: fibColors[rIdx],
+            lineWidth: 1,
+            lineStyle: LineStyle.Dashed,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+            title: `FIB ${fibLabels[rIdx]}`
+          });
+          fibLevelSeries.setData([
+            { time: tMin as UTCTimestamp, value },
+            { time: tMax as UTCTimestamp, value }
+          ]);
+        });
+      }
+    });
+
+    // Setup preview series for drawing
+    const previewSeries = chart.addSeries(LineSeries, {
+      color: '#c084fc',
+      lineWidth: 2,
+      lineStyle: LineStyle.Dotted,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false
+    });
+    previewSeriesRef.current = previewSeries;
+
+    // Handle user drawing clicks
+    chart.subscribeClick((param) => {
+      const tool = activeToolRef.current;
+      if (tool === 'select' || !param.point || !param.time) return;
+
+      const price = mainSeries.coordinateToPrice(param.point.y);
+      const time = param.time as number;
+
+      if (price === null) return;
+
+      if (tool === 'horizontal') {
+        setDrawings((prev) => [
+          ...prev,
+          {
+            id: Math.random().toString(),
+            type: 'horizontal',
+            points: [{ time, price }]
+          }
+        ]);
+      } else if (tool === 'trendline' || tool === 'fibonacci') {
+        if (!startPointRef.current) {
+          // First point
+          startPointRef.current = { time, price };
+        } else {
+          // Second point - commit
+          setDrawings((prev) => [
+            ...prev,
+            {
+              id: Math.random().toString(),
+              type: tool,
+              points: [startPointRef.current!, { time, price }]
+            }
+          ]);
+          startPointRef.current = null;
+          previewSeriesRef.current?.setData([]);
+        }
+      }
+    });
+
     chart.subscribeCrosshairMove(param => {
       const container = chartContainerRef.current;
       if (!param.point || !param.time || !container || param.point.x < 0 || param.point.x > container.clientWidth || param.point.y < 0 || param.point.y > chartHeight) {
         setHoveredData(null);
         setHoveredIndicators({});
+        previewSeriesRef.current?.setData([]);
       } else {
+        // Render preview of drawing
+        if (startPointRef.current && activeToolRef.current !== 'select') {
+          const price = mainSeries.coordinateToPrice(param.point.y);
+          const time = param.time;
+          if (price !== null && time !== undefined) {
+            previewSeriesRef.current?.setData([
+              { time: startPointRef.current.time as UTCTimestamp, value: startPointRef.current.price },
+              { time: time as UTCTimestamp, value: price }
+            ]);
+          }
+        } else {
+          previewSeriesRef.current?.setData([]);
+        }
+
         const indData: Record<string, number | null> = {};
         currentSeriesMap.forEach((s, k) => {
           const d = param.seriesData.get(s) as any;
@@ -529,7 +686,7 @@ export const VectorChart = ({
     }
 
     return () => { window.removeEventListener('resize', resize); chart.remove(); };
-  }, [chartData, color, chartHeight, technicals, prediction, multiHorizonPrediction, activeHorizon, indicators, activeRange, lastTick]);
+  }, [chartData, color, chartHeight, technicals, prediction, multiHorizonPrediction, activeHorizon, indicators, activeRange, lastTick, drawings]);
 
   return (
     <div ref={fullscreenRef} className="relative w-full flex flex-col bg-transparent">
@@ -559,7 +716,7 @@ export const VectorChart = ({
                 <MenuToggle active={indicators.ema200} onClick={() => setIndicators(s => ({ ...s, ema200: !s.ema200 }))} label="EMA 200" />
                 <div className="h-px bg-white/5 my-1" />
                 <MenuToggle active={indicators.bollinger} onClick={() => setIndicators(s => ({ ...s, bollinger: !s.bollinger }))} label="Bollinger Bands" />
-                <MenuToggle active={indicators.kalman} onClick={() => setIndicators(s => ({ ...s, kalman: !s.kalman }))} label="Neural Vector" />
+                <MenuToggle active={indicators.kalman} onClick={() => setIndicators(s => ({ ...s, kalman: !s.kalman }))} label="Forensic Telemetry" />
                 <MenuToggle active={indicators.vwap} onClick={() => setIndicators(s => ({ ...s, vwap: !s.vwap }))} label="VWAP" />
                 <MenuToggle active={indicators.obv} onClick={() => setIndicators(s => ({ ...s, obv: !s.obv }))} label="Inst. OBV" />
                 <MenuToggle active={indicators.volume} onClick={() => setIndicators(s => ({ ...s, volume: !s.volume }))} label="Volume" />
@@ -577,81 +734,148 @@ export const VectorChart = ({
         </div>
       </div>
 
-      <div className="relative">
-        {/* TOP-LEFT LEGEND OVERLAY */}
-        <div className="absolute top-3 left-4 z-[40] pointer-events-none flex flex-col gap-2">
-          {(() => {
-            const display = hoveredData || (chartData?.length ? {
-              time: new Date((chartData[chartData.length-1].time as number) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              open: chartData[chartData.length-1].open.toFixed(2),
-              high: chartData[chartData.length-1].high.toFixed(2),
-              low: chartData[chartData.length-1].low.toFixed(2),
-              price: chartData[chartData.length-1].close.toFixed(2),
-              volume: fmtCount(chartData[chartData.length-1].volume),
-              changePercent: (((chartData[chartData.length-1].close - chartData[0].close) / chartData[0].close) * 100).toFixed(2),
-              isPositive: chartData[chartData.length-1].close >= chartData[0].close
-            } : null);
-
-            const indDisplay = hoveredData ? hoveredIndicators : {
-              sma20: technicals?.sma20?.[technicals.sma20.length - 1],
-              sma50: technicals?.sma50?.[technicals.sma50.length - 1],
-              ema200: technicals?.ema200?.[technicals.ema200.length - 1],
-              kalman: technicals?.kalman?.[technicals.kalman.length - 1],
-              vwap: technicals?.vwap?.[technicals.vwap.length - 1],
-              arima: technicals?.arima?.forecast?.[0],
-              p50: activePred?.p50,
-              p90: activePred?.p90,
-              p10: activePred?.p10,
-              expUpper: optionsIntelligence?.upperBound,
-              expLower: optionsIntelligence?.lowerBound
-            };
-
-            if (!display) return null;
-
-            return (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-3 text-[11px] font-mono font-bold tracking-tight">
-                  <span className="text-zinc-400">{display.time}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-zinc-500">Open<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.open}</span></span>
-                    <span className="text-zinc-500">High<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.high}</span></span>
-                    <span className="text-zinc-500">Low<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.low}</span></span>
-                    <span className="text-zinc-500">Close<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.price} ({Number(display.changePercent) >= 0 ? '+' : ''}{display.changePercent}%)</span></span>
-                    <span className="text-zinc-500">Volume<span className="ml-1 text-white">{display.volume}</span></span>
-                  </div>
-                </div>
-                
-                {/* ACTIVE INDICATORS LEGEND */}
-                <div className="flex flex-wrap items-center gap-3 mt-1">
-                  {indicators.sma20 && <GlassBoxLegendItem label="SMA 20" value={indDisplay.sma20?.toFixed(2)} color={CHART_COLORS.SMA_20} />}
-                  {indicators.vwap && <GlassBoxLegendItem label="VWAP" value={indDisplay.vwap?.toFixed(2)} color="#38bdf8" />}
-                  {indicators.sma50 && <GlassBoxLegendItem label="SMA 50" value={indDisplay.sma50?.toFixed(2)} color={CHART_COLORS.SMA_50} />}
-                  {indicators.ema200 && <GlassBoxLegendItem label="EMA 200" value={indDisplay.ema200?.toFixed(2)} color={CHART_COLORS.EMA_200} />}
-                  {indicators.arima && <GlassBoxLegendItem label="ARIMA" value={indDisplay.arima?.toFixed(2)} color="#a855f7" isDashed />}
-                  {indicators.bollinger && <GlassBoxLegendItem label="BB" color={CHART_COLORS.BOLLINGER_BANDS_LEGEND} />}
-                  {indicators.kalman && (
-                    <>
-                      <GlassBoxLegendItem 
-                        label={`Vector (${activeHorizon})`} 
-                        value={indDisplay.p50?.toFixed(2)} 
-                        color={CHART_COLORS.NEURAL_VECTOR} 
-                        isDashed 
-                      />
-                      <GlassBoxLegendItem label="Gaussian Cloud" color={`${CHART_COLORS.NEURAL_VECTOR}66`} />
-                      <GlassBoxLegendItem label="P90" value={indDisplay.p90?.toFixed(2)} color={CHART_COLORS.BULLISH} isDotted />
-                      <GlassBoxLegendItem label="P10" value={indDisplay.p10?.toFixed(2)} color={CHART_COLORS.BEARISH} isDotted />
-                    </>
-                  )}
-                  {indicators.expectedMove && optionsIntelligence && (
-                    <GlassBoxLegendItem label="σ1 Gap" value={`±$${optionsIntelligence.expectedMoveDollars.toFixed(2)}`} color="#34d399" isDashed />
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+      <div className="relative flex border-t border-white/5 flex-1 min-h-0">
+        {/* Drawing Toolbar (TradingView-style vertical bar) */}
+        <div className="flex flex-col border-r border-white/5 bg-[#0b0b0d] p-2 gap-2.5 justify-start shrink-0 select-none">
+          {[
+            { id: 'select', label: 'Cursor', icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3zM13 13l6 6" />
+              </svg>
+            )},
+            { id: 'trendline', label: 'Trendline', icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M4 20L20 4M4 20a2 2 0 10-4 0 2 2 0 004 0zm16-16a2 2 0 114 0 2 2 0 01-4 0z" />
+              </svg>
+            )},
+            { id: 'horizontal', label: 'Horizontal Line', icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M3 12h18M3 12a2 2 0 100-4 2 2 0 000 4zm18 0a2 2 0 100-4 2 2 0 000 4z" />
+              </svg>
+            )},
+            { id: 'fibonacci', label: 'Fib Retracement', icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M4 4h16M4 9h16M4 14h16M4 20h16" />
+              </svg>
+            )}
+          ].map(tool => (
+            <button
+              key={tool.id}
+              onClick={() => {
+                setActiveTool(tool.id as any);
+                startPointRef.current = null;
+                previewSeriesRef.current?.setData([]);
+              }}
+              title={tool.label}
+              className={`p-2 rounded transition-all cursor-pointer ${
+                activeTool === tool.id
+                  ? 'bg-matrix text-black shadow-[0_0_10px_rgba(35,209,139,0.3)] font-bold'
+                  : 'text-zinc-500 hover:text-white hover:bg-white/5'
+              }`}
+              aria-label={tool.label}
+            >
+              {tool.icon}
+            </button>
+          ))}
+          
+          <div className="h-px bg-white/5 my-1" />
+          
+          {/* Clear Drawings Button */}
+          {drawings.length > 0 && (
+            <button
+              onClick={() => {
+                setDrawings([]);
+                startPointRef.current = null;
+                previewSeriesRef.current?.setData([]);
+              }}
+              title="Clear All Drawings"
+              className="p-2 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+              aria-label="Clear All Drawings"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+            </button>
+          )}
         </div>
 
-        <div ref={chartContainerRef} className="w-full" />
+        {/* Chart View Area */}
+        <div className="flex-1 min-w-0 relative">
+          {/* TOP-LEFT LEGEND OVERLAY */}
+          <div className="absolute top-3 left-4 z-[40] pointer-events-none flex flex-col gap-2">
+            {(() => {
+              const display = hoveredData || (chartData?.length ? {
+                time: new Date((chartData[chartData.length-1].time as number) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                open: chartData[chartData.length-1].open.toFixed(2),
+                high: chartData[chartData.length-1].high.toFixed(2),
+                low: chartData[chartData.length-1].low.toFixed(2),
+                price: chartData[chartData.length-1].close.toFixed(2),
+                volume: fmtCount(chartData[chartData.length-1].volume),
+                changePercent: (((chartData[chartData.length-1].close - chartData[0].close) / chartData[0].close) * 100).toFixed(2),
+                isPositive: chartData[chartData.length-1].close >= chartData[0].close
+              } : null);
+
+              const indDisplay = hoveredData ? hoveredIndicators : {
+                sma20: technicals?.sma20?.[technicals.sma20.length - 1],
+                sma50: technicals?.sma50?.[technicals.sma50.length - 1],
+                ema200: technicals?.ema200?.[technicals.ema200.length - 1],
+                kalman: technicals?.kalman?.[technicals.kalman.length - 1],
+                vwap: technicals?.vwap?.[technicals.vwap.length - 1],
+                arima: technicals?.arima?.forecast?.[0],
+                p50: activePred?.p50,
+                p90: activePred?.p90,
+                p10: activePred?.p10,
+                expUpper: optionsIntelligence?.upperBound,
+                expLower: optionsIntelligence?.lowerBound
+              };
+
+              if (!display) return null;
+
+              return (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-3 text-[11px] font-mono font-bold tracking-tight">
+                    <span className="text-zinc-400">{display.time}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-zinc-500">Open<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.open}</span></span>
+                      <span className="text-zinc-500">High<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.high}</span></span>
+                      <span className="text-zinc-500">Low<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.low}</span></span>
+                      <span className="text-zinc-500">Close<span className="ml-1" style={{ color: display.isPositive ? CHART_COLORS.BULLISH : CHART_COLORS.BEARISH }}>{display.price} ({Number(display.changePercent) >= 0 ? '+' : ''}{display.changePercent}%)</span></span>
+                      <span className="text-zinc-500">Volume<span className="ml-1 text-white">{display.volume}</span></span>
+                    </div>
+                  </div>
+                  
+                  {/* ACTIVE INDICATORS LEGEND */}
+                  <div className="flex flex-wrap items-center gap-3 mt-1">
+                    {indicators.sma20 && <GlassBoxLegendItem label="SMA 20" value={indDisplay.sma20?.toFixed(2)} color={CHART_COLORS.SMA_20} />}
+                    {indicators.vwap && <GlassBoxLegendItem label="VWAP" value={indDisplay.vwap?.toFixed(2)} color="#38bdf8" />}
+                    {indicators.sma50 && <GlassBoxLegendItem label="SMA 50" value={indDisplay.sma50?.toFixed(2)} color={CHART_COLORS.SMA_50} />}
+                    {indicators.ema200 && <GlassBoxLegendItem label="EMA 200" value={indDisplay.ema200?.toFixed(2)} color={CHART_COLORS.EMA_200} />}
+                    {indicators.arima && <GlassBoxLegendItem label="ARIMA" value={indDisplay.arima?.toFixed(2)} color="#a855f7" isDashed />}
+                    {indicators.bollinger && <GlassBoxLegendItem label="BB" color={CHART_COLORS.BOLLINGER_BANDS_LEGEND} />}
+                    {indicators.kalman && (
+                      <>
+                        <GlassBoxLegendItem 
+                          label={`Forensic Telemetry (${activeHorizon})`} 
+                          value={indDisplay.p50?.toFixed(2)} 
+                          color={CHART_COLORS.FORENSIC_TELEMETRY} 
+                          isDashed 
+                        />
+                        <GlassBoxLegendItem label="Gaussian Cloud" color={`${CHART_COLORS.FORENSIC_TELEMETRY}66`} />
+                        <GlassBoxLegendItem label="P90" value={indDisplay.p90?.toFixed(2)} color={CHART_COLORS.BULLISH} isDotted />
+                        <GlassBoxLegendItem label="P10" value={indDisplay.p10?.toFixed(2)} color={CHART_COLORS.BEARISH} isDotted />
+                      </>
+                    )}
+                    {indicators.expectedMove && optionsIntelligence && (
+                      <GlassBoxLegendItem label="σ1 Gap" value={`±$${optionsIntelligence.expectedMoveDollars.toFixed(2)}`} color="#34d399" isDashed />
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div ref={chartContainerRef} className="w-full" />
+        </div>
       </div>
     </div>
   );

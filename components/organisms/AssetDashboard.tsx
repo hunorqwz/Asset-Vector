@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { MonteCarloResult } from "@/lib/monte-carlo";
 import { VectorChart } from "@/components/VectorChart";
@@ -8,14 +9,12 @@ import { StockDetails } from "@/lib/stock-details";
 import { NewsFeed } from "@/components/NewsFeed";
 import { InsiderFeed } from "@/components/InsiderFeed";
 import { fmt, fmtBigNum, fmtCount, fmtRatio, fmtPct } from "@/lib/format";
-import { ValuationIcon, AnalystIcon, DividendIcon, ProfitIcon, HealthIcon, StatsIcon, OwnershipIcon, EarningsIcon, ProfileIcon, CalendarIcon, SECIcon } from "@/components/Icons";
+import { ValuationIcon, AnalystIcon, HealthIcon, OwnershipIcon, EarningsIcon, StatsIcon } from "@/components/Icons";
 import { DataSection } from "@/components/organisms/DataSection";
 import { DataRow } from "@/components/molecules/DataRow";
 import { MetricCard } from "@/components/molecules/MetricCard";
 import { AnalystRecommendation } from "@/components/organisms/AnalystRecommendation";
 import { TargetUpside } from "@/components/molecules/TargetUpside";
-import { AnalystTrendChart } from "@/components/organisms/AnalystTrendChart";
-import { OwnershipBar } from "@/components/organisms/OwnershipBar";
 import { FiftyTwoWeekBar } from "@/components/molecules/FiftyTwoWeekBar";
 import { AIIntelligencePanel } from "@/components/organisms/AIIntelligencePanel";
 import { DCFSandbox } from "@/components/organisms/DCFSandbox";
@@ -28,10 +27,10 @@ import { AIForecastPanel } from "@/components/organisms/AIForecastPanel";
 import { useAlpacaTape } from "@/hooks/useAlpacaTape";
 import { useStreamingPrediction } from "@/hooks/useStreamingPrediction";
 import { LivePriceCard } from "@/components/molecules/LivePriceCard";
-import { NeuralAnomalyReport } from "@/components/organisms/NeuralAnomalyReport";
+import { ForensicAnalystReport } from "@/components/organisms/ForensicAnalystReport";
 import { RiskEntropyPanel } from "@/components/organisms/RiskEntropyPanel";
 import { FundamentalIntelligence } from "@/components/organisms/FundamentalIntelligence";
-import { NeuralDiagnostics } from "@/components/organisms/NeuralDiagnostics";
+import { ForensicDiagnostics } from "@/components/organisms/ForensicDiagnostics";
 import { SentimentDeepDive } from "@/components/organisms/SentimentDeepDive";
 import { PeerBenchmarkIntelligence } from "@/components/organisms/PeerBenchmarkIntelligence";
 import { InteractiveEarnings } from "@/components/InteractiveEarnings";
@@ -39,7 +38,6 @@ import { generateStrategicAnalysis, StrategicInsight } from "@/app/actions/ai";
 import { ConfluenceEngine } from "@/components/organisms/ConfluenceEngine";
 import { ContextEngine } from "@/components/organisms/ContextEngine";
 import { AIEarningsLab } from "@/components/organisms/AIEarningsLab";
-// Removed ExecutionPlanner in favor of sidebar integration
 import { OptionsSurfaceVisualizer } from "@/components/organisms/OptionsSurfaceVisualizer";
 import { calculateBlockholderIntelligence } from "@/lib/blockholder-analytics";
 import { BlockholderAnalyticsPanel } from "@/components/organisms/BlockholderAnalyticsPanel";
@@ -49,21 +47,65 @@ import { MacroSnapshot } from '@/lib/macro-analysis';
 import { MacroOverlay } from '@/components/organisms/MacroOverlay';
 import { MultiHorizonPrediction } from '@/lib/inference';
 
-const TABS = ['TRADING TERMINAL', 'INVESTMENT STUDY', 'MACRO ENVIRONMENT', 'FORENSICS & NEWS'] as const;
+const TABS = ['CHARTS & TECHNICALS', 'QUANTITATIVE RISK', 'VALUATION & FUNDAMENTALS', 'CONTEXT & NARRATIVES'] as const;
 type TabType = typeof TABS[number];
 
-export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: string, signal: MarketSignal & { prediction: PredictionResult; multiHorizonPrediction?: MultiHorizonPrediction; stockDetails: StockDetails; optionsIntelligence?: OptionsIntelligence | null }, macroSnapshot: MacroSnapshot }) {
-  const [activeTab, setActiveTab] = useState<TabType>('TRADING TERMINAL');
-  const [isNeuralEngaged, setIsNeuralEngaged] = useState(true);
+function SubscoreCard({ label, value, status, weight, color }: { label: string; value: string; status: string; weight: string; color: string }) {
+  return (
+    <div className="bg-[#0c0c0e] border border-white/5 p-4 rounded-lg flex flex-col justify-between h-full">
+      <div>
+        <div className="flex justify-between items-center mb-1">
+          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">{label}</span>
+          <span className="text-[8px] font-mono text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded font-black">{weight}</span>
+        </div>
+        <span className={`text-[12px] font-mono font-bold uppercase tracking-wider block ${color}`}>
+          {status}
+        </span>
+      </div>
+      <div className="text-[14px] font-mono font-black text-white mt-2">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: string, signal: MarketSignal & { prediction?: PredictionResult; multiHorizonPrediction?: MultiHorizonPrediction; stockDetails: StockDetails; optionsIntelligence?: OptionsIntelligence | null }, macroSnapshot: MacroSnapshot }) {
+  const [activeTab, setActiveTab] = useState<TabType>('CHARTS & TECHNICALS');
+
+  // Keyboard shortcut tab-switching (1, 2, 3, 4)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.hasAttribute("contenteditable"))
+      ) {
+        return;
+      }
+
+      if (e.key === "1") {
+        setActiveTab("CHARTS & TECHNICALS");
+      } else if (e.key === "2") {
+        setActiveTab("QUANTITATIVE RISK");
+      } else if (e.key === "3") {
+        setActiveTab("VALUATION & FUNDAMENTALS");
+      } else if (e.key === "4") {
+        setActiveTab("CONTEXT & NARRATIVES");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const [isForensicEngaged, setIsForensicEngaged] = useState(true);
   const d = signal.stockDetails;
   const p = d.price;
 
   const { lastTick } = useAlpacaTape(ticker);
 
-  // ── Streaming Prediction Engine ──────────────────────────────────────────
-  // Wires the live Alpaca tick stream into the 4H forecast. Every 60s during
-  // market hours, the hook aggregates ticks into 1-min bars and reruns the
-  // local precision forecast engine for a fresher 4H prediction.
   const realizedVol = signal.history.length > 30
     ? Math.sqrt(
         signal.history.slice(-60).reduce((acc, h, i, arr) => {
@@ -84,7 +126,6 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
     enabled: !signal.stockDetails.isCrypto,
   });
 
-  // Build merged multiHorizonPrediction: swap in live 4H when available
   const mergedMultiHorizon = signal.multiHorizonPrediction
     ? {
         ...signal.multiHorizonPrediction,
@@ -94,10 +135,10 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
 
   const [simulation, setSimulation] = useState<MonteCarloResult | null>(null);
 
+  // Decoupled Monte Carlo trigger (Only runs on ticker/history change to prevent thrasher)
   useEffect(() => {
     if (signal.history.length === 0 || p.current <= 0) return;
 
-    // Spawn Next.js bundled Web Worker
     const worker = new Worker(new URL("./monte-carlo.worker.ts", import.meta.url));
 
     worker.onmessage = (e: MessageEvent) => {
@@ -118,7 +159,7 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
     return () => {
       worker.terminate();
     };
-  }, [p.current, ticker, signal.history]);
+  }, [ticker, signal.history]); // Removed p.current dependency to avoid ticks restarting thread
 
   const [insight, setInsight] = useState<StrategicInsight | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -142,38 +183,84 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
   };
 
   useEffect(() => {
-    if (isNeuralEngaged && !insight && !isExtracting && !error) {
+    if (isForensicEngaged && !insight && !isExtracting && !error) {
       handleExtraction();
     }
-  }, [isNeuralEngaged, insight, isExtracting, error]);
+  }, [isForensicEngaged, insight, isExtracting, error]);
+
+  const educationContext = useMemo(() => ({
+    ticker,
+    currentPrice: p.current,
+    history: signal.history.map(h => h.close),
+    realizedVolatility: realizedVol,
+    beta: d.keyStats.beta ?? 1.0,
+    dcfGrowth: d.profitability.revenueGrowth ?? 0.08,
+    dcfDiscount: 0.10,
+    dcfBaseCf: d.financialHealth.freeCashflow ?? 1000
+  }), [ticker, p.current, signal.history, realizedVol, d.keyStats.beta, d.profitability.revenueGrowth, d.financialHealth.freeCashflow]);
+
   return (
-    <div className="space-y-12 animate-in fade-in duration-700">
-      {/* CHART - INTEGRATED INTO THE GRID SYSTEM */}
-      <section className="glass-card overflow-hidden">
-        {/* Live streaming badge */}
-        {isPredictionLive && (
-          <div className="flex items-center gap-2 px-5 pt-4 pb-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse" />
-            <span className="text-[9px] font-black uppercase tracking-[0.25em] text-matrix">
-              4H Prediction: Live Streaming
+    <div className="space-y-8 animate-in fade-in duration-700">
+      
+      {/* ── SECTION 1: EXECUTIVE CONVICTION BREAKDOWN ── */}
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-[#0a0a0c] border border-white/5 p-6 rounded-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none transform rotate-12 scale-150">
+          <StatsIcon />
+        </div>
+        
+        {/* Synthesis Label & Score */}
+        <div className="md:col-span-1 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 pr-6">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-2 block">Synthesis Conviction</span>
+            <span className={`text-2xl font-display font-black tracking-tightest leading-none block ${
+              signal.synthesis.signal.includes('BUY') ? 'text-bull' : 
+              signal.synthesis.signal.includes('SELL') ? 'text-bear' : 
+              'text-zinc-500'
+            }`}>
+              {signal.synthesis.signal}
             </span>
           </div>
-        )}
-        <VectorChart 
-          data={signal.history} 
-          prediction={signal.prediction} 
-          multiHorizonPrediction={mergedMultiHorizon}
-          stochasticPaths={simulation?.isValid ? simulation.paths : []}
-          ticker={ticker} 
-          color={signal.trend === "BULLISH" ? "#22c55e" : "#ef4444"} 
-          height={520} 
-          lastTick={lastTick ? { price: lastTick.price, time: Math.floor(new Date(lastTick.timestamp).getTime() / 1000) } : null}
-          optionsIntelligence={signal.optionsIntelligence}
-        />
+          <div className="mt-4 flex items-baseline gap-1">
+            <span className="text-3xl font-mono font-black text-white">{signal.synthesis.score}</span>
+            <span className="text-xs font-mono text-zinc-500">/100</span>
+          </div>
+        </div>
+
+        {/* Contributions breakdown */}
+        <div className="md:col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <SubscoreCard 
+            label="Technicals" 
+            value={`${signal.tech.confluenceScore}/100`} 
+            status={signal.tech.confluenceScore >= 60 ? "BULLISH" : signal.tech.confluenceScore <= 40 ? "BEARISH" : "NEUTRAL"}
+            weight="30%"
+            color={signal.tech.confluenceScore >= 60 ? "text-bull" : signal.tech.confluenceScore <= 40 ? "text-bear" : "text-zinc-500"}
+          />
+          <SubscoreCard 
+            label="Sentiment Index" 
+            value={`${((signal.sentiment.score + 1) * 50).toFixed(0)}/100`} 
+            status={signal.sentiment.score > 0.2 ? "POSITIVE" : signal.sentiment.score < -0.2 ? "NEGATIVE" : "NEUTRAL"}
+            weight="20%"
+            color={signal.sentiment.score > 0.2 ? "text-bull" : signal.sentiment.score < -0.2 ? "text-bear" : "text-zinc-500"}
+          />
+          <SubscoreCard 
+            label="Fund. Quality" 
+            value={signal.quality?.score ? `${signal.quality.score}/100` : "N/A"} 
+            status={signal.quality?.level || "NOMINAL"}
+            weight="25%"
+            color={signal.quality?.score && signal.quality.score > 75 ? "text-bull" : "text-zinc-500"}
+          />
+          <SubscoreCard 
+            label="Predictability (Hurst)" 
+            value={signal.predictability.toFixed(3)} 
+            status={signal.predictability > 0.5 ? "TRENDING" : "MEAN REVERT"}
+            weight="25%"
+            color={signal.predictability > 0.5 ? "text-bull" : "text-zinc-500"}
+          />
+        </div>
       </section>
 
       {/* METRICS ROW - ATOMIC DATA BOXES */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-0">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-white/[0.005] p-1 border border-white/5 rounded-xl">
         <LivePriceCard 
           label="Price" 
           initialPrice={p.current} 
@@ -187,14 +274,8 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
         <MetricCard label="Ex-Ante Beta" value={fmtRatio(d.keyStats.beta)} tooltipKey="REGIME_BETA" tooltipCategory="QUANT" />
       </div>
 
-      {/* 52-Week Range Spectrum Relocated and Styled */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-xl p-6">
-        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-4">52-Week Range Spectrum</h3>
-        <FiftyTwoWeekBar low={p.fiftyTwoWeekLow} high={p.fiftyTwoWeekHigh} current={p.current} />
-      </div>
-
       {/* TABS BUTTON BAR */}
-      <div className="flex items-center border-b border-white/5 w-full mb-8 overflow-x-auto scrollbar-hide p-1 gap-6">
+      <div className="flex items-center border-b border-white/5 w-full overflow-x-auto scrollbar-hide p-1 gap-6">
         {TABS.map(tab => (
           <button 
             key={tab} 
@@ -215,9 +296,33 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
 
       {/* CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {activeTab === 'TRADING TERMINAL' && (
+        
+        {/* TABS CONTENT: CHARTS & TECHNICALS */}
+        {activeTab === 'CHARTS & TECHNICALS' && (
           <>
             <div className="lg:col-span-8 space-y-12">
+              <section className="glass-card overflow-hidden relative">
+                {isPredictionLive && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 absolute top-4 left-4 z-20 bg-black/80 border border-white/10 rounded-md">
+                    <span className="w-1.5 h-1.5 rounded-full bg-matrix animate-pulse" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-matrix leading-none">
+                      4H Prediction: Live
+                    </span>
+                  </div>
+                )}
+                <VectorChart 
+                  data={signal.history} 
+                  prediction={signal.prediction} 
+                  multiHorizonPrediction={mergedMultiHorizon}
+                  stochasticPaths={simulation?.isValid ? simulation.paths : []}
+                  ticker={ticker} 
+                  color={signal.trend === "BULLISH" ? "#22c55e" : "#ef4444"} 
+                  height={520} 
+                  lastTick={lastTick ? { price: lastTick.price, time: Math.floor(new Date(lastTick.timestamp).getTime() / 1000) } : null}
+                  optionsIntelligence={signal.optionsIntelligence}
+                />
+              </section>
+
               <ConfluenceEngine 
                 details={d} 
                 tech={signal.tech} 
@@ -227,28 +332,44 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
               />
               <TechnicalConfluencePanel tech={signal.tech} />
               <AlgorithmicTargetsPanel tech={signal.tech} />
-              <InstitutionalFlowPanel tech={signal.tech} optionsFlow={d.optionsFlow} currentPrice={p.current} />
-              <NeuralAnomalyReport history={signal.history} technicals={signal.tech} insight={insight} />
-              <NeuralDiagnostics history={signal.history} />
             </div>
 
             <div className="lg:col-span-4 space-y-10">
-              {!d.isCrypto && (
-                <BlockholderAnalyticsPanel 
-                  intelligence={calculateBlockholderIntelligence(d)} 
-                  heldPercentInsiders={d.keyStats.heldPercentInsiders} 
-                  heldPercentInstitutions={d.keyStats.heldPercentInstitutions} 
-                />
-              )}
-              {signal.optionsIntelligence && signal.optionsIntelligence.isValid && (
-                <OptionsSurfaceVisualizer data={signal.optionsIntelligence} />
-              )}
-              <SentimentDeepDive ticker={ticker} news={d.news} sentiment={signal.sentiment} divergence={signal.synthesis.sentimentPriceDivergence} globalTrigger={isNeuralEngaged} />
+              <InstitutionalFlowPanel tech={signal.tech} optionsFlow={d.optionsFlow} currentPrice={p.current} />
+              
+              <div className="bg-white/[0.01] border border-white/5 rounded-xl p-6">
+                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-4">52-Week Range Spectrum</h3>
+                <FiftyTwoWeekBar low={p.fiftyTwoWeekLow} high={p.fiftyTwoWeekHigh} current={p.current} />
+              </div>
             </div>
           </>
         )}
 
-        {activeTab === 'INVESTMENT STUDY' && (
+        {/* TABS CONTENT: QUANTITATIVE RISK */}
+        {activeTab === 'QUANTITATIVE RISK' && (
+          <>
+            <div className="lg:col-span-8 space-y-12">
+              <RiskEntropyPanel metrics={d.riskMetrics} />
+              {simulation && <MonteCarloSimulation simulation={simulation} />}
+              <AIIntelligencePanel ticker={ticker} prediction={signal.prediction!} regime={signal.regime} sentiment={signal.sentiment} history={signal.history} />
+            </div>
+
+            <div className="lg:col-span-4 space-y-10">
+              {signal.optionsIntelligence && signal.optionsIntelligence.isValid && (
+                <OptionsSurfaceVisualizer data={signal.optionsIntelligence} />
+              )}
+              {d.analyst.numberOfAnalysts > 0 && (
+                <DataSection title="Consensus" icon={<AnalystIcon />}>
+                  <AnalystRecommendation rec={d.analyst.recommendationKey} mean={d.analyst.recommendationMean} count={d.analyst.numberOfAnalysts} />
+                  <div className="mt-8"><TargetUpside current={p.current} target={d.analyst.targetMean!} /></div>
+                </DataSection>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* TABS CONTENT: VALUATION & FUNDAMENTALS */}
+        {activeTab === 'VALUATION & FUNDAMENTALS' && (
           <>
             <div className="lg:col-span-8 space-y-12">
               <FundamentalIntelligence 
@@ -265,7 +386,7 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
                 </>
               )}
               
-              <AIEarningsLab details={d} globalTrigger={isNeuralEngaged} />
+              <AIEarningsLab details={d} globalTrigger={isForensicEngaged} />
 
               {d.quarterlyReports.length > 0 && (
                 <DataSection title="Historical Quarters" icon={<EarningsIcon />}>
@@ -283,7 +404,6 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
                 currentGrowth={d.profitability.revenueGrowth}
                 peer={d.peerBenchmark}
               />
-              <ContextEngine details={d} sentiment={signal.sentiment} divergence={signal.synthesis.sentimentPriceDivergence} />
 
               <DataSection title="Valuation & Multiples" icon={<ValuationIcon />}>
                 <DataRow label="P/E (Trailing)" value={fmtRatio(d.valuation.trailingPE)} insightKey="PE_RATIO" category="FUNDAMENTAL" />
@@ -298,46 +418,34 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
                 <DataRow label="Free Cash Flow" value={fmtBigNum(d.financialHealth.freeCashflow)} insightKey="DCF_MODEL" category="FUNDAMENTAL" />
                 <DataRow label="Dividend Yield" value={fmtPct(d.dividends.dividendYield)} highlight insightKey="DIVIDEND_YIELD" category="FUNDAMENTAL" />
                 <DataRow label="Payout Ratio" value={fmtPct(d.dividends.payoutRatio)} insightKey="DIVIDEND_YIELD" category="FUNDAMENTAL" />
-                <DataRow label="Last EPS Surprise" value={d.quarterlyReports.length > 0 && d.quarterlyReports[d.quarterlyReports.length - 1].epsSurprisePercent !== null ? fmtPct(d.quarterlyReports[d.quarterlyReports.length - 1].epsSurprisePercent) : '—'} colored />
+              </DataSection>
+
+              {/* LIQUIDITY & FLOAT DYNAMICS (Relocated here out of Forensics) */}
+              <DataSection title="Liquidity & Float Dynamics" icon={<OwnershipIcon />}>
+                <DataRow label="Shares Outstanding" value={fmtCount(d.keyStats.sharesOutstanding)} insightKey="LIQUIDITY" category="FUNDAMENTAL" />
+                <DataRow label="Public Float" value={fmtCount(d.keyStats.floatShares)} insightKey="LIQUIDITY" category="FUNDAMENTAL" />
+                <DataRow label="Shares Short" value={fmtCount(d.keyStats.sharesShort)} insightKey="VALUE_AT_RISK" category="QUANT" />
+                <DataRow label="Short Ratio (Days to Cover)" value={fmtRatio(d.keyStats.shortRatio)} insightKey="VALUE_AT_RISK" category="QUANT" />
+                <DataRow label="Short % of Float" value={fmtPct(d.keyStats.shortPercentOfFloat)} colored insightKey="VALUE_AT_RISK" category="QUANT" />
               </DataSection>
             </div>
           </>
         )}
 
-        {activeTab === 'MACRO ENVIRONMENT' && (
+        {/* TABS CONTENT: CONTEXT & NARRATIVES */}
+        {activeTab === 'CONTEXT & NARRATIVES' && (
           <>
             <div className="lg:col-span-8 space-y-12">
-              <section className="space-y-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="w-1.5 h-6 bg-white shadow-none" />
-                  <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">Macro Framework</h2>
-                </div>
-                <MacroOverlay snapshot={macroSnapshot} />
-              </section>
-              <RiskEntropyPanel metrics={d.riskMetrics} />
-              <AIIntelligencePanel ticker={ticker} prediction={signal.prediction!} regime={signal.regime} sentiment={signal.sentiment} history={signal.history} />
-            </div>
+              <ForensicAnalystReport 
+                ticker={ticker} 
+                history={signal.history} 
+                technicals={signal.tech} 
+                forensicAlerts={signal.forensicAlerts} 
+                educationContext={educationContext}
+              />
 
-            <div className="lg:col-span-4 space-y-10">
-              {simulation && <MonteCarloSimulation simulation={simulation} />}
+              <ForensicDiagnostics history={signal.history} />
 
-              {d.analyst.numberOfAnalysts > 0 && (
-                <DataSection title="Consensus" icon={<AnalystIcon />}>
-                  <AnalystRecommendation rec={d.analyst.recommendationKey} mean={d.analyst.recommendationMean} count={d.analyst.numberOfAnalysts} />
-                  <div className="mt-8"><TargetUpside current={p.current} target={d.analyst.targetMean!} /></div>
-                </DataSection>
-              )}
-            </div>
-          </>
-        )}
-
-        {activeTab === 'FORENSICS & NEWS' && (
-          <>
-            <div className="lg:col-span-8 space-y-12">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="w-1 h-3.5 bg-white shadow-none" />
-                <h2 className="text-[12px] font-bold uppercase tracking-[0.2em] text-zinc-300">AI Forecast & Projection Model</h2>
-              </div>
               <AIForecastPanel 
                 ticker={ticker} 
                 history={signal.history} 
@@ -346,15 +454,10 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
                 isExtracting={isExtracting}
                 error={error}
                 onExtract={handleExtraction}
-                globalTrigger={isNeuralEngaged} 
+                globalTrigger={isForensicEngaged} 
               />
 
-              <section className="space-y-6">
-                <h3 className="text-[12px] font-bold text-zinc-300 uppercase tracking-[0.2em]">Company Overview</h3>
-                <p className="text-[14px] text-zinc-400 leading-relaxed font-normal border-l-2 border-white/5 pl-6">{d.profile.description}</p>
-              </section>
-
-              <div className="p-6 bg-white/[0.01] rounded-xl border border-white/5 h-full">
+              <div className="p-6 bg-white/[0.01] rounded-xl border border-white/5">
                 <h2 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide mb-6">
                   Latest News
                 </h2>
@@ -363,17 +466,20 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
             </div>
 
             <div className="lg:col-span-4 space-y-10">
+              <SentimentDeepDive ticker={ticker} news={d.news} sentiment={signal.sentiment} divergence={signal.synthesis.sentimentPriceDivergence} globalTrigger={isForensicEngaged} />
+              
+              <MacroOverlay snapshot={macroSnapshot} />
+              
+              <ContextEngine details={d} sentiment={signal.sentiment} divergence={signal.synthesis.sentimentPriceDivergence} />
+
               {!d.isETF && d.insiderTransactions.length > 0 && (
                 <InsiderFeed transactions={d.insiderTransactions} />
               )}
-
-              <DataSection title="Liquidity & Float Dynamics" icon={<OwnershipIcon />}>
-                <DataRow label="Shares Outstanding" value={fmtCount(d.keyStats.sharesOutstanding)} insightKey="LIQUIDITY" category="FUNDAMENTAL" />
-                <DataRow label="Public Float" value={fmtCount(d.keyStats.floatShares)} insightKey="LIQUIDITY" category="FUNDAMENTAL" />
-                <DataRow label="Shares Short" value={fmtCount(d.keyStats.sharesShort)} insightKey="VALUE_AT_RISK" category="QUANT" />
-                <DataRow label="Short Ratio (Days to Cover)" value={fmtRatio(d.keyStats.shortRatio)} insightKey="VALUE_AT_RISK" category="QUANT" />
-                <DataRow label="Short % of Float" value={fmtPct(d.keyStats.shortPercentOfFloat)} colored insightKey="VALUE_AT_RISK" category="QUANT" />
-              </DataSection>
+              
+              <section className="space-y-6">
+                <h3 className="text-[11px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Company Overview</h3>
+                <p className="text-[13px] text-zinc-400 leading-relaxed font-normal border-l-2 border-white/5 pl-6">{d.profile.description}</p>
+              </section>
             </div>
           </>
         )}

@@ -166,8 +166,13 @@ export function AlertManager({ initialAlerts, watchlistTickers }: AlertManagerPr
         setCreateSuccess(true);
         setTimeout(() => setCreateSuccess(false), 2500);
       } else {
-        if (result.error === "LIMIT_REACHED") setCreateError("Alert limit (20) reached.");
-        else setCreateError("Failed to create alert.");
+        if (result.error === "LIMIT_REACHED") {
+          setCreateError("Alert limit (20) reached.");
+        } else if (result.error === "TICKER_NOT_TRACKED") {
+          setCreateError("Ticker must be active in your Watchlist or Portfolio.");
+        } else {
+          setCreateError("Failed to create alert.");
+        }
       }
     });
   };

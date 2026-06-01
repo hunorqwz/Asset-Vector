@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Command } from "cmdk";
-import { searchAssets, addAsset, removeAsset } from "@/app/actions";
+import { searchAssets } from "@/app/actions";
 
 interface SearchResult { ticker: string; name: string; exch: string; type: string; }
 
@@ -12,6 +13,7 @@ interface AssetCommandProps {
 }
 
 export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -41,7 +43,7 @@ export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
 
   // Debounced search
   useEffect(() => {
-    if (query.length < 2 || query.startsWith("/")) {
+    if (query.length < 2) {
       setResults([]);
       return;
     }
@@ -59,14 +61,8 @@ export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
     setResults([]);
   }, []);
 
-  const onSelect = async (ticker: string, name: string) => {
-    await addAsset(ticker, name);
-    close();
-  };
-
-  const onCommand = async (q: string) => {
-    const [cmd, arg] = q.split(" ");
-    if (cmd === "/remove" && arg) await removeAsset(arg.toUpperCase());
+  const onSelect = (ticker: string) => {
+    router.push(`/asset/${ticker.toUpperCase()}`);
     close();
   };
 
@@ -88,8 +84,7 @@ export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
             <Command.Input
               value={query}
               onValueChange={setQuery}
-              onKeyDown={(e) => e.key === "Enter" && query.startsWith("/") && onCommand(query)}
-              placeholder="Search tickers or type '/' for commands..."
+              placeholder="Search tickers or assets..."
               className="flex-1 bg-transparent text-[14px] text-white focus:outline-none font-medium h-full placeholder:text-zinc-600"
               autoFocus
             />
@@ -107,29 +102,12 @@ export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
           <Command.List className="max-h-[360px] overflow-y-auto p-2 scrollbar-hide">
             <Command.Empty className="py-20 text-center">
               <div className="text-[12px] font-bold text-zinc-400 mb-2 uppercase tracking-widest">
-                {query.startsWith("/") ? "Command Not Found" : "No Assets Found"}
+                No Assets Found
               </div>
               <div className="text-[11px] text-zinc-600 font-medium max-w-[260px] mx-auto leading-relaxed">
-                {query.startsWith("/")
-                  ? "Type /remove [TICKER] to remove an asset from your watchlist."
-                  : "Try a valid ticker symbol like NVDA, AAPL, or BTC-USD."}
+                Try a valid ticker symbol like NVDA, AAPL, or BTC-USD.
               </div>
             </Command.Empty>
-
-            {/* CLI commands */}
-            {query.startsWith("/") && (
-              <div className="p-1">
-                <div className="px-4 py-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Commands</div>
-                <Command.Item
-                  onSelect={() => setQuery("/remove ")}
-                  className="flex cursor-pointer select-none items-center px-4 py-3.5 outline-none data-[selected=true]:bg-white/8 transition-all text-[12px] font-mono font-bold text-zinc-300 border border-transparent data-[selected=true]:border-white/15 rounded-sm"
-                >
-                  <span className="text-white mr-3 bg-white/10 px-2 py-0.5 border border-white/20 text-[11px]">/remove</span>
-                  <span className="text-zinc-500">[TICKER]</span>
-                  <span className="ml-auto text-zinc-600 text-[10px] font-sans font-bold uppercase tracking-widest">Remove from watchlist</span>
-                </Command.Item>
-              </div>
-            )}
 
             {/* Search results */}
             {results.length > 0 && (
@@ -139,7 +117,7 @@ export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
                   <Command.Item
                     key={item.ticker}
                     value={item.ticker}
-                    onSelect={() => onSelect(item.ticker, item.name)}
+                    onSelect={() => onSelect(item.ticker)}
                     className="flex cursor-pointer select-none items-center px-4 py-3.5 outline-none data-[selected=true]:bg-white/8 group transition-all border border-transparent data-[selected=true]:border-white/15 mb-0.5 rounded-sm"
                   >
                     <div className="flex flex-col flex-1 min-w-0">
@@ -150,8 +128,8 @@ export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
                       <span className="text-[10px] font-bold font-mono text-zinc-600 border border-white/15 px-2 py-0.5 group-data-[selected=true]:border-white/30 group-data-[selected=true]:text-zinc-300 transition-all">{item.exch}</span>
                       <span className="text-[10px] font-bold font-mono text-zinc-600 border border-white/15 px-2 py-0.5 group-data-[selected=true]:border-white/30 group-data-[selected=true]:text-zinc-300 transition-all">{item.type}</span>
                       <div className="w-7 h-7 flex items-center justify-center border border-transparent group-data-[selected=true]:border-matrix/40 group-data-[selected=true]:bg-matrix/10 transition-all">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-transparent group-data-[selected=true]:text-matrix transition-colors">
-                          <path d="M5 12l5 5L20 7" />
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-transparent group-data-[selected=true]:text-matrix transition-colors">
+                          <path d="M5 12h14M12 5l7 7-7 7" />
                         </svg>
                       </div>
                     </div>
@@ -166,7 +144,7 @@ export function AssetCommand({ autoOpen = false }: AssetCommandProps) {
             <span>Asset Vector v1.0</span>
             <div className="flex gap-4">
               <span>↑↓ Navigate</span>
-              <span>↵ Add to watchlist</span>
+              <span>↵ View Analysis</span>
               <span>ESC Close</span>
             </div>
           </div>

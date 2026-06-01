@@ -5,11 +5,23 @@ import { EducationDrawer } from "@/components/organisms/EducationDrawer";
 
 export type EducationCategory = "QUANT" | "FUNDAMENTAL";
 
+export interface EducationContextData {
+  ticker?: string;
+  currentPrice?: number;
+  history?: number[]; // closing prices
+  realizedVolatility?: number;
+  beta?: number;
+  dcfGrowth?: number;
+  dcfDiscount?: number;
+  dcfBaseCf?: number;
+}
+
 interface EducationContextType {
   isOpen: boolean;
   activeKey: string | null;
   activeCategory: EducationCategory;
-  openEducation: (key: string, category?: EducationCategory) => void;
+  contextData: EducationContextData | null;
+  openEducation: (key: string, category?: EducationCategory, context?: EducationContextData) => void;
   closeEducation: () => void;
 }
 
@@ -19,19 +31,26 @@ export function EducationProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<EducationCategory>("QUANT");
+  const [contextData, setContextData] = useState<EducationContextData | null>(null);
 
-  const openEducation = (key: string, category: EducationCategory = "QUANT") => {
+  const openEducation = (
+    key: string,
+    category: EducationCategory = "QUANT",
+    context?: EducationContextData
+  ) => {
     setActiveKey(key);
     setActiveCategory(category);
+    setContextData(context || null);
     setIsOpen(true);
   };
 
   const closeEducation = () => {
     setIsOpen(false);
+    setContextData(null);
   };
 
   return (
-    <EducationContext.Provider value={{ isOpen, activeKey, activeCategory, openEducation, closeEducation }}>
+    <EducationContext.Provider value={{ isOpen, activeKey, activeCategory, contextData, openEducation, closeEducation }}>
       {children}
       <EducationDrawer />
     </EducationContext.Provider>

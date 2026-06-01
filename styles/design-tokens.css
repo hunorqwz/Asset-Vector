@@ -1,39 +1,40 @@
 /* 
  * ASSET VECTOR DESIGN SYSTEM 
  * Centralized Design Tokens for Asset Vector
+ * Realignment to strict Koyfin + Linear Fintech Minimalist style
  */
 
 :root {
-    /* Obsidian Glass Palette (HSL) */
-    --background: 222 47% 4%;            /* Deep obsidian-indigo canvas (#030712) */
-    --foreground: 210 40% 98%;           /* Crisp high-contrast white (#f8fafc) */
+    /* Fintech Neutral Matte Palette (HSL) */
+    --background: 240 10% 3.9%;          /* Pure neutral black-gray (#09090b) */
+    --foreground: 0 0% 98%;              /* Crisp high-contrast white (#fafafa) */
 
-    --card: 222 35% 8%;                  /* Sleek dark slate card base (#090d16) */
-    --card-foreground: 210 40% 95%;      /* Clean light-gray body (#f1f5f9) */
+    --card: 240 10% 5.9%;                /* Solid dark matte card base (#0f0f11) */
+    --card-foreground: 240 5% 90%;        /* Clean zinc light-gray body (#e4e4e7) */
 
-    --border: 222 20% 12%;               /* Balanced slate border (#111827) */
-    --border-light: 255 255 255 / 0.045;
+    --border: 240 6% 10%;                /* Ultra-subtle border (#18181c) */
+    --border-light: 240 5% 12%;          /* Razor-sharp light border (#1f1f23) */
 
-    /* High-Fidelity Professional FinTech Colors */
-    --bull: 146 80% 45%;                 /* Emerald-Mint Green (#10b981) */
+    /* Professional Muted Fintech Colors */
+    --bull: 142 70% 45%;                 /* Muted emerald green (#16a34a) */
     --warning: 38 92% 50%;               /* Warm Gold/Amber (#f59e0b) */
-    --bear: 358 85% 62%;                 /* Electric Ruby Red (#ef4444) */
-    --matrix: 263 90% 68%;               /* Cyber Violet Accent (#8b5cf6) */
-    --accent-cyan: 187 92% 52%;          /* Neon Cyan Accent (#06b6d4) */
-    --terminal-gray: 215 25% 72%;        /* High-readability slate gray (#9ca3af) */
+    --bear: 0 80% 55%;                   /* Muted electric red (#dc2626) */
+    --matrix: 240 5% 65%;                 /* Neutral zinc gray (#a1a1aa) */
+    --accent-cyan: 240 5% 65%;
+    --terminal-gray: 240 5% 65%;          /* Muted zinc gray (#a1a1aa) */
 
-    /* Advanced Glassmorphism */
-    --glass-bg: rgba(9, 13, 22, 0.85);
-    --glass-blur: 24px;
-    --glass-border: rgba(255, 255, 255, 0.045);
-    --glass-border-bright: rgba(255, 255, 255, 0.12);
+    /* Flat Matte Overlays (Removed Glass Translucency) */
+    --glass-bg: #0f0f11;
+    --glass-blur: 0px;
+    --glass-border: #1f1f23;
+    --glass-border-bright: #27272a;
 
     /* Animation Settings */
-    --duration-fast: 120ms;
-    --duration-normal: 250ms;
-    --duration-slow: 400ms;
+    --duration-fast: 100ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
 
     /* Grid & Layout Constraints */
-    --header-height: 64px;
-    --footer-height: 48px;
-}
+    --header-height: 56px;
+    --footer-height: 0px;
+}

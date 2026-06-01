@@ -22,6 +22,10 @@ export interface AlphaPick {
   multiHorizonPrediction?: MultiHorizonPrediction;
   isNarrativeConflicted?: boolean;
   hasFreshOrderBlock?: boolean;
+  sector?: string;
+  forwardPE?: number | null;
+  rsi?: number;
+  volume?: number;
 }
 
 import { getScreenerCandidates } from "@/lib/screener";
@@ -172,7 +176,11 @@ export async function getInstitutionalAlphaPicks(): Promise<AlphaPick[]> {
         beta: s.stockDetails.keyStats.beta || 1.0,
         multiHorizonPrediction: s.multiHorizonPrediction,
         isNarrativeConflicted: s.sentiment.isConflicted,
-        hasFreshOrderBlock: s.orderBlocks?.some(ob => !ob.isMitigated)
+        hasFreshOrderBlock: s.orderBlocks?.some(ob => !ob.isMitigated),
+        sector: s.stockDetails.profile?.sector,
+        forwardPE: s.stockDetails.valuation?.forwardPE,
+        rsi: s.tech?.rsi14,
+        volume: s.stockDetails.price?.volume
       });
     }
   });

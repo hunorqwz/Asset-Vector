@@ -118,3 +118,8 @@ export async function setInCache<T>(key: string, data: T, ttlMs: number): Promis
     console.error(`[Cache Write Error] ${key}:`, err);
   }
 }
+
+export function clearL1Cache(): void {
+  l1Cache.clear();
+}
+

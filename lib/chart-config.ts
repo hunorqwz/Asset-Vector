@@ -33,7 +33,7 @@ export const CHART_COLORS = {
   EMA_200: '#FF6D00', 
   BOLLINGER_BANDS: 'rgba(255, 255, 255, 0.05)',
   BOLLINGER_BANDS_LEGEND: 'rgba(255, 255, 255, 0.4)',
-  NEURAL_VECTOR: '#818cf8',
+  FORENSIC_TELEMETRY: '#818cf8',
   LEVEL_SUPPORT: 'rgba(34, 197, 94, 0.3)',
   LEVEL_RESISTANCE: 'rgba(239, 68, 68, 0.3)',
 } as const;

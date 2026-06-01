@@ -98,7 +98,7 @@ export function AlertBell({ alerts, insights = [], regimeBreakout }: AlertBellPr
                       regimeBreakout.urgency === 'HIGH' ? 'bg-bear/5 border-bear/20' : 'bg-amber-500/5 border-amber-500/20'
                     }`}>
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                        <span className={`w-1.5 h-1.5 rounded-full ${
                           regimeBreakout.urgency === 'HIGH' ? 'bg-bear' : 'bg-amber-400'
                         }`} />
                         <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
@@ -145,7 +145,7 @@ export function AlertBell({ alerts, insights = [], regimeBreakout }: AlertBellPr
                   {/* Triggered first */}
                   {triggered.map(a => (
                     <div key={a.id} className="flex items-start gap-3 px-4 py-3 bg-bull/5 group">
-                      <div className="w-1.5 h-1.5 rounded-full bg-bull mt-1.5 shrink-0 animate-pulse" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-bull mt-1.5 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] font-bold font-mono text-white">
                           {a.ticker} {a.direction === "above" ? "↑" : "↓"} ${a.targetPrice.toFixed(2)}
@@ -189,7 +189,7 @@ export function AlertBell({ alerts, insights = [], regimeBreakout }: AlertBellPr
             {/* Footer */}
             <div className="border-t border-white/5 px-4 py-3">
               <a
-                href="/portfolio"
+                href="/settings"
                 className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 hover:text-white transition-colors"
                 onClick={() => setOpen(false)}
               >

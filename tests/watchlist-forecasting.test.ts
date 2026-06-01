@@ -34,7 +34,7 @@ describe('Watchlist Forecasting & Conviction Synthesis', () => {
 
   it('applies a severe penalty for strong negative expected returns', () => {
     // Current price = 100, Forecast (p50) = 93 => expected return = -7.0% (< -5%)
-    // Should deduct 25 points from conviction score
+    // Should deduct 15 points from conviction score (re-balanced down from 25)
     const prediction = { p10: 80, p50: 93, p90: 105, horizon: '1D' as const, confidence: 0.8, source: 'GARCH' };
     
     // Without prediction
@@ -43,29 +43,29 @@ describe('Watchlist Forecasting & Conviction Synthesis', () => {
     // With prediction
     const penalized = generateSynthesis(baseTech, baseSentiment, 0.6, 'MOMENTUM', 100, undefined, undefined, prediction, 100);
     
-    expect(penalized.score).toBe(baseline.score - 25);
+    expect(penalized.score).toBe(baseline.score - 15);
     expect(penalized.primaryDriver).toContain('Downside Risk: Negative Quantitative Forecast');
-    expect(penalized.signal).toBe('NEUTRAL'); // Downgraded from BUY/STRONG BUY
+    expect(penalized.signal).toBe('ACCUMULATE'); // Downgraded from BUY/STRONG BUY
   });
 
   it('applies a moderate penalty for moderately negative expected returns', () => {
     // Current price = 100, Forecast = 97 => expected return = -3.0% (between -2% and -5%)
-    // Should deduct 15 points
+    // Should deduct 10 points (re-balanced down from 15)
     const prediction = { p10: 90, p50: 97, p90: 105, horizon: '1D' as const, confidence: 0.8, source: 'GARCH' };
     const baseline = generateSynthesis(baseTech, baseSentiment, 0.6, 'MOMENTUM', 100);
     const penalized = generateSynthesis(baseTech, baseSentiment, 0.6, 'MOMENTUM', 100, undefined, undefined, prediction, 100);
     
-    expect(penalized.score).toBe(baseline.score - 15);
+    expect(penalized.score).toBe(baseline.score - 10);
   });
 
   it('applies a mild penalty for slightly negative expected returns', () => {
     // Current price = 100, Forecast = 99 => expected return = -1.0% (between 0% and -2%)
-    // Should deduct 8 points
+    // Should deduct 5 points (re-balanced down from 8)
     const prediction = { p10: 95, p50: 99, p90: 105, horizon: '1D' as const, confidence: 0.8, source: 'GARCH' };
     const baseline = generateSynthesis(baseTech, baseSentiment, 0.6, 'MOMENTUM', 100);
     const penalized = generateSynthesis(baseTech, baseSentiment, 0.6, 'MOMENTUM', 100, undefined, undefined, prediction, 100);
     
-    expect(penalized.score).toBe(baseline.score - 8);
+    expect(penalized.score).toBe(baseline.score - 5);
   });
 
   it('applies a boost for strong positive expected returns', () => {
@@ -105,8 +105,8 @@ describe('Watchlist Forecasting & Conviction Synthesis', () => {
     const with1DOnly = generateSynthesis(baseTech, baseSentiment, 0.6, 'MOMENTUM', 100, undefined, undefined, prediction, 100);
     const withMulti = generateSynthesis(baseTech, baseSentiment, 0.6, 'MOMENTUM', 100, undefined, undefined, prediction, 100, multiPrediction);
     
-    // Expected penalty: 25 (for 1W < -5%) + 8 (for 1M < 0%) = 33 points
-    expect(withMulti.score).toBe(Math.max(0, with1DOnly.score - 33));
+    // Expected penalty: 10 (for 1W < -5%) + 4 (for 1M < 0%) = 14 points (re-balanced down from 33)
+    expect(withMulti.score).toBe(Math.max(0, with1DOnly.score - 14));
   });
 });
 

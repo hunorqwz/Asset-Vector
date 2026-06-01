@@ -16,7 +16,7 @@ const KALMAN_NOISY_BASE = Array.from({ length: 60 }, (_, i) => {
 });
 
 export function EducationDrawer() {
-  const { isOpen, activeKey, activeCategory, closeEducation } = useEducation();
+  const { isOpen, activeKey, activeCategory, contextData, closeEducation } = useEducation();
   const [activeTab, setActiveTab] = useState<"DEEP_DIVE" | "TRADER" | "INVESTOR">("DEEP_DIVE");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -32,6 +32,42 @@ export function EducationDrawer() {
 
   const kalmanCanvasRef = useRef<HTMLCanvasElement>(null);
   const mcCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Synchronize dynamic stock parameters when context updates
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (contextData) {
+      if (contextData.realizedVolatility !== undefined && !isNaN(contextData.realizedVolatility)) {
+        setMcVol(Math.max(0.05, Math.min(1.0, contextData.realizedVolatility)));
+      } else {
+        setMcVol(0.25);
+      }
+      setMcDrift(0.1);
+
+      if (contextData.dcfGrowth !== undefined && !isNaN(contextData.dcfGrowth)) {
+        setDcfGrowth(Math.max(-0.1, Math.min(0.3, contextData.dcfGrowth)));
+      } else {
+        setDcfGrowth(0.08);
+      }
+      if (contextData.dcfDiscount !== undefined && !isNaN(contextData.dcfDiscount)) {
+        setDcfDiscount(Math.max(0.05, Math.min(0.2, contextData.dcfDiscount)));
+      } else {
+        setDcfDiscount(0.1);
+      }
+
+      const targetBeta = contextData.beta !== undefined && !isNaN(contextData.beta) ? contextData.beta : 1.0;
+      setBetaMktVar(0.016);
+      setBetaCov(targetBeta * 0.016);
+    } else {
+      setMcVol(0.25);
+      setMcDrift(0.1);
+      setDcfGrowth(0.08);
+      setDcfDiscount(0.1);
+      setBetaMktVar(0.016);
+      setBetaCov(0.024);
+    }
+  }, [contextData, activeKey, isOpen]);
 
   // Retrieve glossary data
   let insight: DeepInsight | undefined;
@@ -54,11 +90,18 @@ export function EducationDrawer() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Run 1D Kalman Filter over constant sequence
+    let dataset = contextData?.history && contextData.history.length > 5
+      ? contextData.history.slice(-60).filter(p => typeof p === 'number' && !isNaN(p))
+      : KALMAN_NOISY_BASE;
+    if (dataset.length < 5) {
+      dataset = KALMAN_NOISY_BASE;
+    }
+
+    // Run 1D Kalman Filter over sequence
     const smoothed: number[] = [];
-    let x = KALMAN_NOISY_BASE[0];
+    let x = dataset[0];
     let P = 1.0;
-    KALMAN_NOISY_BASE.forEach((price) => {
+    dataset.forEach((price) => {
       P = P + kalmanQ;
       const K = P / (P + kalmanR);
       x = x + K * (price - x);
@@ -77,20 +120,20 @@ export function EducationDrawer() {
       ctx.beginPath(); ctx.moveTo(xGrid, 0); ctx.lineTo(xGrid, canvas.height); ctx.stroke();
     }
 
-    const min = Math.min(...KALMAN_NOISY_BASE) - 2;
-    const max = Math.max(...KALMAN_NOISY_BASE) + 2;
+    const min = Math.min(...dataset) - 2;
+    const max = Math.max(...dataset) + 2;
     const range = max - min || 1;
 
-    const getX = (idx: number) => (idx / (KALMAN_NOISY_BASE.length - 1)) * canvas.width;
+    const getX = (idx: number) => (idx / (dataset.length - 1)) * canvas.width;
     const getY = (val: number) => canvas.height - ((val - min) / range) * canvas.height;
 
     // Draw Raw Noisy
     ctx.strokeStyle = "rgba(239, 68, 68, 0.35)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(getX(0), getY(KALMAN_NOISY_BASE[0]));
-    for (let i = 1; i < KALMAN_NOISY_BASE.length; i++) {
-      ctx.lineTo(getX(i), getY(KALMAN_NOISY_BASE[i]));
+    ctx.moveTo(getX(0), getY(dataset[0]));
+    for (let i = 1; i < dataset.length; i++) {
+      ctx.lineTo(getX(i), getY(dataset[i]));
     }
     ctx.stroke();
 
@@ -106,7 +149,7 @@ export function EducationDrawer() {
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
-  }, [activeKey, isOpen, kalmanQ, kalmanR, isFullscreen]);
+  }, [activeKey, isOpen, kalmanQ, kalmanR, isFullscreen, contextData]);
 
   // Monte Carlo Simulator Canvas Redraw
   useEffect(() => {
@@ -117,7 +160,9 @@ export function EducationDrawer() {
 
     // Generate deterministic seed paths based on drift/vol to prevent screen flickering
     const dt = 1 / 252;
-    const startPrice = 100;
+    const startPrice = contextData?.currentPrice !== undefined && !isNaN(contextData.currentPrice) && contextData.currentPrice > 0
+      ? contextData.currentPrice
+      : 100;
     const days = 30;
     const pathsCount = 15;
     const paths: number[][] = [];
@@ -192,12 +237,14 @@ export function EducationDrawer() {
     for (let d = 1; d <= days; d++) ctx.lineTo(getX(d), getY(p90[d]));
     ctx.stroke();
     ctx.setLineDash([]);
-  }, [activeKey, isOpen, mcDrift, mcVol, isFullscreen]);
+  }, [activeKey, isOpen, mcDrift, mcVol, isFullscreen, contextData]);
 
   if (!isOpen || !insight) return null;
 
   // DCF Calculation variables
-  const dcfBaseCf = 1000;
+  const dcfBaseCf = contextData?.dcfBaseCf !== undefined && !isNaN(contextData.dcfBaseCf) && contextData.dcfBaseCf > 0
+    ? contextData.dcfBaseCf
+    : 1000;
   const dcfYears = Array.from({ length: 5 }, (_, i) => {
     const year = i + 1;
     const cf = dcfBaseCf * Math.pow(1 + dcfGrowth, year);
@@ -208,6 +255,11 @@ export function EducationDrawer() {
 
   // Beta Calculation variables
   const computedBeta = betaMktVar > 0 ? betaCov / betaMktVar : 0;
+
+  const formatCf = (val: number) => {
+    if (val >= 10000) return fmtBigNum(val);
+    return `$${val.toFixed(2)}`;
+  };
 
   const drawerWidthClass = isFullscreen ? "w-full" : "w-full sm:w-[480px]";
 
@@ -368,13 +420,13 @@ export function EducationDrawer() {
                   {dcfYears.map((y) => (
                     <div key={y.year} className="grid grid-cols-3 px-4 py-2 border-b border-white/5 font-mono text-zinc-400">
                       <span>Year {y.year}</span>
-                      <span className="text-right">${y.cf.toFixed(2)}</span>
-                      <span className="text-right text-white">${y.pv.toFixed(2)}</span>
+                      <span className="text-right">{formatCf(y.cf)}</span>
+                      <span className="text-right text-white">{formatCf(y.pv)}</span>
                     </div>
                   ))}
                   <div className="grid grid-cols-3 bg-white/[0.01] px-4 py-3.5 font-bold">
                     <span className="text-zinc-500 uppercase col-span-2">Sum of present values (FCF Intrinsic base)</span>
-                    <span className="text-right font-mono text-amber-500 text-sm">${dcfSum.toFixed(2)}</span>
+                    <span className="text-right font-mono text-amber-500 text-sm">{formatCf(dcfSum)}</span>
                   </div>
                 </div>
               </div>
@@ -594,13 +646,13 @@ export function EducationDrawer() {
                     {dcfYears.map((y) => (
                       <div key={y.year} className="grid grid-cols-3 px-3 py-1.5 border-b border-white/5 font-mono text-zinc-400">
                         <span>Year {y.year}</span>
-                        <span className="text-right">${y.cf.toFixed(0)}</span>
-                        <span className="text-right text-white">${y.pv.toFixed(0)}</span>
+                        <span className="text-right">{formatCf(y.cf)}</span>
+                        <span className="text-right text-white">{formatCf(y.pv)}</span>
                       </div>
                     ))}
                     <div className="grid grid-cols-3 bg-white/[0.01] px-3 py-2 font-bold">
                       <span className="text-zinc-500 uppercase col-span-2">Sum of present values</span>
-                      <span className="text-right font-mono text-amber-500">${dcfSum.toFixed(2)}</span>
+                      <span className="text-right font-mono text-amber-500">{formatCf(dcfSum)}</span>
                     </div>
                   </div>
                 </section>

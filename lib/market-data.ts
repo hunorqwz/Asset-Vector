@@ -1,4 +1,5 @@
 import YahooFinance from 'yahoo-finance2';
+import { after } from 'next/server';
 import { predictNextHorizon, predictMultiHorizon, PredictionResult, MultiHorizonPrediction } from "./inference";
 import { OrderBlock } from "./technical-analysis";
 import { KalmanFilter } from "./kalman";
@@ -7,6 +8,7 @@ import { RegimeDetector, MarketRegime } from "./regime";
 import { SentimentAnalyzer, SentimentReport, SentimentFallback } from "./sentiment";
 import { generateTechnicalConfluence, TechnicalIndicators } from "./technical-analysis";
 import { generateSynthesis, MarketSynthesis } from "./synthesis";
+import { ForensicAlert, detectForensicAlerts } from "./forensic-analyst";
 import { 
   calculateReturns, 
   calculateVariance, 
@@ -52,9 +54,11 @@ export type MarketSignal = {
   sector?: string;
   companyName?: string;
   changePercent?: number;
+  forwardPE?: number;
   structuralProbability?: LevelTouchProbability[];
   orderBlocks?: OrderBlock[];
   darkPoolBlocks?: { price: number; volume: number }[];
+  forensicAlerts?: ForensicAlert[];
 };
 
 export const RANGE_INTERVAL_MAP: Record<string, { interval: ChartInterval; lookbackSeconds: number }> = {
@@ -431,6 +435,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
   let sector: string | undefined = undefined;
   let companyName: string | undefined = undefined;
   let changePercent: number | undefined = undefined;
+  let forwardPE: number | undefined = undefined;
 
   if (fundamentals) {
     const f = fundamentals as any;
@@ -439,6 +444,7 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     changePercent = f.price?.regularMarketChangePercent !== undefined 
         ? f.price.regularMarketChangePercent * 100 
         : undefined;
+    forwardPE = f.summaryDetail?.forwardPE;
 
     quality = calculateQualityScore({
         profitability: {
@@ -534,10 +540,13 @@ export async function fetchMarketData(ticker: string, len: number = 2500): Promi
     sector,
     companyName,
     changePercent,
+    forwardPE,
     structuralProbability,
     orderBlocks,
     darkPoolBlocks
   };
+
+  signal.forensicAlerts = detectForensicAlerts(signal);
 
   // 5. Persist to DB for SPLR Architecture (v3.0)
   try {
@@ -618,13 +627,22 @@ export async function getPersistentSignal(ticker: string, len: number = 2500): P
         signal.history = await fetchHistoryWithInterval(ticker, '1d', lookbackSeconds).then(h => h.slice(-len));
       }
 
+      // Populate alerts if missing from legacy records
+      if (!signal.forensicAlerts) {
+        signal.forensicAlerts = detectForensicAlerts(signal);
+      }
+
       // If extremely fresh (< 1 min), just return
       if (age < 60000) return signal;
 
       // If within refresh window (1-5 mins), return signal BUT trigger async refresh
       if (age < REFRESH_WINDOW_MS) {
-        // We trigger the refresh but don't await it to keep the response fast (SPLR)
-        fetchMarketData(ticker, len).catch(e => console.error(`[SPLR Background Refresh] ${ticker} failed:`, e));
+        const refresh = () => fetchMarketData(ticker, len).catch(e => console.error(`[SPLR Background Refresh] ${ticker} failed:`, e));
+        try {
+          after(refresh);
+        } catch {
+          refresh();
+        }
         return signal;
       }
     }

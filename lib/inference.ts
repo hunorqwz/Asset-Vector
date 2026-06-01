@@ -98,7 +98,7 @@ export async function predictNextHorizon(
           p10: Number(data.p10),
           p50: Number(data.p50),
           p90: Number(data.p90),
-          source: "Neural Ensemble Multi-Horizon",
+          source: "Forensic Ensemble Multi-Horizon",
           horizon,
           confidence: data.confidence || 0.85
         };

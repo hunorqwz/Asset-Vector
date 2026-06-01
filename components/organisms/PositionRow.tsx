@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { updatePosition, deletePosition } from "@/app/actions/portfolio";
 import { addAsset } from "@/app/actions";
+import { useToast } from "@/components/providers/ToastProvider";
 
 interface PositionRowProps {
   id: string;
@@ -22,6 +23,7 @@ function fmt(n: number, decimals = 2) {
 function fmtCurrency(n: number) { return "$" + fmt(n); }
 
 export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, pnl, pnlPct, isWatchlisted }: PositionRowProps) {
+  const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [sharesVal, setSharesVal] = useState(shares.toString());
   const [costVal, setCostVal] = useState(avgCost.toString());
@@ -56,15 +58,23 @@ export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, p
     setSaving(false);
     if (result.success) {
       setEditing(false);
+      showToast(`Updated ${ticker} position: ${newShares} shares`, "success");
     } else {
       setError("Failed to save. Please try again.");
+      showToast(`Failed to update ${ticker} position`, "error");
     }
   };
 
   const handleDelete = async () => {
+    if (!confirm(`Remove ${ticker} position from your portfolio?`)) return;
     setDeleting(true);
-    await deletePosition(id);
+    const result = await deletePosition(id);
     setDeleting(false);
+    if (result.success) {
+      showToast(`Removed ${ticker} position`, "success");
+    } else {
+      showToast(`Failed to remove ${ticker} position`, "error");
+    }
   };
 
   const handleAddWatch = async () => {
@@ -74,11 +84,14 @@ export function PositionRow({ id, ticker, name, shares, avgCost, currentPrice, p
     setAddingWatch(false);
     if (result.success) {
       setJustAdded(true);
+      showToast(`Added ${ticker} to watchlist`, "success");
     } else {
       if (result.error === "LIMIT_REACHED") {
-        setError("Watchlist limit (12) reached.");
+        setError("Watchlist limit (100) reached.");
+        showToast("Watchlist limit (100) reached", "error");
       } else {
         setError("Failed to add to watchlist.");
+        showToast(`Failed to add ${ticker} to watchlist`, "error");
       }
       setTimeout(() => setError(null), 3000);
     }

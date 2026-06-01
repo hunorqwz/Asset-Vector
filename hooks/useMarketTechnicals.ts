@@ -90,7 +90,7 @@ export function useMarketTechnicals(data: OHLCV[], mode: OpticMode): Technicals 
       macd = { macd: m.map(x => x.MACD!), signal: m.map(x => x.signal!), histogram: m.map(x => x.histogram!) };
     }
 
-    // 4. NEURAL VECTOR LAYER (Kalman Filter)
+    // 4. FORENSIC TELEMETRY LAYER (Kalman Filter)
     const kalmanObjects = runKalmanBatch(prices);
     const kalman = kalmanObjects.map(k => k.prediction);
     const kalmanUncertainty = kalmanObjects.map(k => k.uncertainty);

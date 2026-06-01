@@ -57,7 +57,7 @@ export function LiveHeaderPrice({
         </div>
       </div>
       <div className="flex flex-col items-center">
-        <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)] mb-0.5 transition-colors ${lastTick ? 'bg-bull animate-pulse' : 'bg-zinc-600'}`} />
+        <div className={`w-1.5 h-1.5 rounded-full mb-0.5 transition-colors ${lastTick ? 'bg-bull' : 'bg-zinc-600'}`} />
         <span className={`text-[11px] font-bold uppercase tracking-widest ${lastTick ? 'text-bull' : 'text-zinc-500'}`}>Live</span>
       </div>
     </div>

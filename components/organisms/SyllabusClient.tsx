@@ -1,15 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { GlobalHeader } from "@/components/organisms/GlobalHeader";
+import Link from "next/link";
 import { useEducation } from "@/components/providers/EducationProvider";
 import { QUANT_DEEP_DIVES, FUNDAMENTAL_DEEP_DIVES } from "@/lib/education";
-
-interface SyllabusClientProps {
-  alerts: any[];
-  insights: any[];
-  regimeBreakout: any;
-}
 
 const STAGES = [
   {
@@ -86,7 +80,7 @@ const EDGES = [
   { from: "CORRELATION", to: "CONFLUENCE" },
 ];
 
-export function SyllabusClient({ alerts, insights, regimeBreakout }: SyllabusClientProps) {
+export function SyllabusClient() {
   const { openEducation } = useEducation();
   const [filter, setFilter] = useState<"ALL" | "QUANT" | "FUNDAMENTAL">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -109,22 +103,25 @@ export function SyllabusClient({ alerts, insights, regimeBreakout }: SyllabusCli
   };
 
   return (
-    <>
-      <GlobalHeader alerts={alerts} insights={insights} regimeBreakout={regimeBreakout} />
-
-      <main className="overflow-y-auto scrollbar-hide px-8 py-10">
+    <main className="flex-1 overflow-y-auto px-8 py-10">
         <div className="max-w-[1400px] mx-auto space-y-12">
           {/* Header Banner */}
           <div className="border-b border-white/5 pb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
               <h1 className="text-3xl lg:text-5xl font-bold tracking-tightest leading-none mb-4">Syllabus</h1>
               <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
-                Step into the quantitative cockpit. This syllabus outlines the progression from standard fundamental balance-sheet analysis to advanced stochastic modeling and signal filtering.
+                Systematic roadmap outlining the progression from core financial fundamentals to advanced risk modeling and signal filtering.
               </p>
             </div>
 
-            {/* Reset/Overview stats */}
-            <div className="flex gap-4">
+            {/* Reset/Overview stats & Lab Link */}
+            <div className="flex gap-4 items-center">
+              <Link 
+                href="/education/stress-test"
+                className="bg-matrix/10 border border-matrix/30 hover:border-matrix/50 text-matrix px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,255,163,0.05)] hover:shadow-[0_0_20px_rgba(0,255,163,0.15)] flex items-center gap-2"
+              >
+                <span>Interactive Stress Lab ➔</span>
+              </Link>
               <div className="bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-lg text-right">
                 <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-0.5">Total Curriculum</span>
                 <span className="text-lg font-mono font-bold text-white">23 Math Models</span>
@@ -195,14 +192,8 @@ export function SyllabusClient({ alerts, insights, regimeBreakout }: SyllabusCli
                 <div className="min-w-[1000px] relative">
                   <svg viewBox="0 0 1000 360" className="w-full h-auto select-none">
                     <style dangerouslySetInnerHTML={{ __html: `
-                      @keyframes flowDash {
-                        to {
-                          stroke-dashoffset: -20;
-                        }
-                      }
                       .animate-flow-forward {
                         stroke-dasharray: 6, 4;
-                        animation: flowDash 0.8s linear infinite;
                       }
                     `}} />
                     
@@ -463,6 +454,5 @@ export function SyllabusClient({ alerts, insights, regimeBreakout }: SyllabusCli
           </div>
         </div>
       </main>
-    </>
   );
 }

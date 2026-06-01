@@ -97,12 +97,10 @@ export function calculateJensensAlpha(
   const windowDays = Math.min(assetPriceHistory.length, 252);
   if (windowDays < 2 || benchmarkPriceHistory.length < windowDays) return 0;
   
-  const scaledRf = riskFreeRate * (windowDays / 252);
-  
   const aSlice = assetPriceHistory.slice(-windowDays);
   const bSlice = benchmarkPriceHistory.slice(-windowDays);
 
-  // Use Continuous Compounding (Log Returns) for accurate institutional risk calculation
+  // Use Linear Arithmetic compounding for returns consistency across portfolio risk components
   if (aSlice.length > 0 && bSlice.length > 0) {
     const aFirst = aSlice[0].close;
     const aLast = aSlice[aSlice.length - 1].close;
@@ -110,12 +108,12 @@ export function calculateJensensAlpha(
     const bLast = bSlice[bSlice.length - 1].close;
 
     if (aFirst > 0 && bFirst > 0) {
-      const assetLogRet = Math.log(aLast / aFirst);
-      const benchLogRet = Math.log(bLast / bFirst);
+      const assetArithRet = (aLast - aFirst) / aFirst;
+      const benchArithRet = (bLast - bFirst) / bFirst;
       
       // Annualize the returns
-      const assetAnnRet = (assetLogRet / windowDays) * 252;
-      const benchAnnRet = (benchLogRet / windowDays) * 252;
+      const assetAnnRet = (assetArithRet / windowDays) * 252;
+      const benchAnnRet = (benchArithRet / windowDays) * 252;
       
       // alpha = R_p - [R_f + Beta * (R_m - R_f)]
       return assetAnnRet - (riskFreeRate + beta * (benchAnnRet - riskFreeRate));

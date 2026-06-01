@@ -10,6 +10,7 @@ import { predictNextHorizon } from "@/lib/inference";
 import { fetchStockDetails } from "@/lib/stock-details";
 import { archiveSignal, evaluateOldSignals } from "@/app/actions/signals";
 import { fetchOptionsIntelligence } from "@/lib/options-pricing";
+import { getFromCache, setInCache } from "@/lib/cache";
 
 import { fetchMarketPulse, MarketPulseData } from "@/lib/market-pulse";
 import { getAlpacaAccount, getAlpacaPositions, getAlpacaQuote } from "@/lib/alpaca-client";
@@ -42,7 +43,60 @@ export async function getLiveQuote(symbol: string) {
   }
 }
 
-const WATCHLIST_LIMIT = 12;
+const WATCHLIST_LIMIT = 250;
+
+export interface MacroMarketIndex {
+  symbol: string;
+  name: string;
+  price: number | null;
+  changePercent: number | null;
+}
+
+export async function getMacroMarketData(): Promise<MacroMarketIndex[]> {
+  const CACHE_KEY = "macro_market_indices_v2";
+  const cached = await getFromCache<MacroMarketIndex[]>(CACHE_KEY);
+  if (cached) return cached;
+
+  const symbols = ['SPY', 'QQQ', 'DIA', '^VIX', '^TNX'];
+  const names: Record<string, string> = {
+    'SPY': 'S&P 500',
+    'QQQ': 'Nasdaq',
+    'DIA': 'Dow Jones',
+    '^VIX': 'VIX',
+    '^TNX': '10Y Yield'
+  };
+
+  try {
+    const results = await Promise.all(
+      symbols.map(async (symbol) => {
+        try {
+          const quote = await yahooFinance.quote(symbol, {}, { validateResult: false }) as any;
+          return {
+            symbol,
+            name: names[symbol],
+            price: quote?.regularMarketPrice ?? null,
+            changePercent: quote?.regularMarketChangePercent ?? null
+          };
+        } catch (err) {
+          console.warn(`[Macro Market Data] Failed to fetch macro quote for ${symbol}:`, err);
+          return {
+            symbol,
+            name: names[symbol],
+            price: null,
+            changePercent: null
+          };
+        }
+      })
+    );
+
+    // Cache for 30 seconds
+    await setInCache(CACHE_KEY, results, 30 * 1000);
+    return results;
+  } catch (err) {
+    console.error("[Macro Market Data] General fetch error:", err);
+    return symbols.map(s => ({ symbol: s, name: names[s], price: null, changePercent: null }));
+  }
+}
 
 export async function getMarketPulse(): Promise<MarketPulseData> {
   return fetchMarketPulse();
@@ -74,9 +128,9 @@ export async function getMarketSignals(): Promise<MarketSignal[]> {
     const dbWatchlist = await db.query.userWatchlists.findMany({
       where: eq(userWatchlists.userId, session.user.id),
       limit: WATCHLIST_LIMIT
-    });
+    }) as { ticker: string }[];
     if (dbWatchlist.length > 0) {
-      tickers = dbWatchlist.map((w: any) => w.ticker);
+      tickers = dbWatchlist.map(w => w.ticker);
     }
   } catch (error) {
     console.error(`[Watchlist Sync] Failed to retrieve system routing for user ${session.user.id}:`, error);
@@ -223,8 +277,8 @@ export async function getWatchlistTickers(): Promise<string[]> {
   const current = await db.query.userWatchlists.findMany({ 
     where: eq(userWatchlists.userId, session.user.id),
     columns: { ticker: true } 
-  });
-  return current.map((c: any) => c.ticker);
+  }) as { ticker: string }[];
+  return current.map(c => c.ticker);
 }
 
 export async function addAllToWatchlist() {
@@ -236,18 +290,18 @@ export async function addAllToWatchlist() {
     const currentWatchlist = await db.query.userWatchlists.findMany({ 
       where: eq(userWatchlists.userId, session.user.id),
       columns: { ticker: true } 
-    });
+    }) as { ticker: string }[];
     
     if (currentWatchlist.length >= WATCHLIST_LIMIT) return { success: false, error: "LIMIT_REACHED" };
 
     const positions = await db.query.userPositions.findMany({
       where: eq(userPositions.userId, session.user.id),
-    });
+    }) as { ticker: string; name: string }[];
 
-    const watchlistTickers = new Set(currentWatchlist.map((c: any) => c.ticker));
+    const watchlistTickers = new Set(currentWatchlist.map(c => c.ticker));
     // Use a Map or unique by ticker to avoid duplicates if multiple positions for same ticker exist
-    const uniquePositions = Array.from(new Map(positions.map((p: any) => [p.ticker, p])).values() as IterableIterator<any>);
-    const toAdd = uniquePositions.filter((p: any) => !watchlistTickers.has(p.ticker));
+    const uniquePositions = Array.from(new Map(positions.map(p => [p.ticker, p])).values());
+    const toAdd = uniquePositions.filter(p => !watchlistTickers.has(p.ticker));
 
     if (toAdd.length === 0) return { success: true, addedCount: 0 };
 
@@ -255,7 +309,7 @@ export async function addAllToWatchlist() {
     const finallyToAdd = toAdd.slice(0, availableSlots);
 
     // Batch upsert assets globally
-    const assetEntries = finallyToAdd.map((pos: any) => ({
+    const assetEntries = finallyToAdd.map(pos => ({
         ticker: pos.ticker,
         name: pos.name.substring(0, 50),
         isActive: true,

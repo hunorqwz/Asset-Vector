@@ -33,6 +33,16 @@ vi.mock('../lib/macro-analysis', () => {
   };
 });
 
+vi.mock('../lib/market-pulse', () => {
+  return {
+    fetchMarketPulse: vi.fn().mockResolvedValue({
+      macro: {
+        vix: { value: 15 }
+      }
+    })
+  };
+});
+
 describe('Inference Engine - Circuit Breaker (lib/inference)', () => {
   const dummySequence = Array(50).fill([100, 101, 99, 100, 1000]);
 

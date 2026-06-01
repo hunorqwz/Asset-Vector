@@ -62,6 +62,32 @@ export function PortfolioClientContainer({
   const totalPnl = totalValue - totalInvested;
   const totalPnlPct = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
 
+  const exportPositionsToCSV = () => {
+    const headers = ["Ticker", "Name", "Shares", "Avg Cost", "Current Price", "Invested", "Current Value", "P&L", "P&L %"];
+    const rows = enrichedPositions.map(p => [
+      p.ticker,
+      `"${p.name.replace(/"/g, '""')}"`,
+      p.shares,
+      p.avgCost,
+      p.currentPrice ?? "—",
+      p.invested,
+      p.currentValue ?? "—",
+      p.pnl ?? "—",
+      p.pnlPct !== null ? `${p.pnlPct.toFixed(2)}%` : "—"
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `portfolio_positions_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Calculate weights for risk computation
   const positionsForRisk = React.useMemo(() => {
     if (totalValue === 0) return [];
@@ -190,7 +216,25 @@ export function PortfolioClientContainer({
                     <span className="w-1.5 h-1.5 rounded-full bg-matrix" />
                     Holdings
                   </h2>
-                  {enrichedPositions.length > 0 && <AddAllToWatchlist />}
+                  <div className="flex items-center gap-3">
+                    {enrichedPositions.length > 0 && (
+                      <>
+                        <button
+                          onClick={exportPositionsToCSV}
+                          className="px-3 py-1.5 border border-white/10 hover:bg-white/5 transition-all text-[10px] font-bold uppercase tracking-wider rounded-md text-zinc-400 hover:text-white flex items-center gap-1.5 cursor-pointer"
+                          aria-label="Export Positions to CSV"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                          </svg>
+                          Export CSV
+                        </button>
+                        <AddAllToWatchlist />
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {enrichedPositions.length === 0 ? (
