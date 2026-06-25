@@ -19,6 +19,8 @@ import { FiftyTwoWeekBar } from "@/components/molecules/FiftyTwoWeekBar";
 import { AIIntelligencePanel } from "@/components/organisms/AIIntelligencePanel";
 import { DCFSandbox } from "@/components/organisms/DCFSandbox";
 import { MultiModelValuation } from "@/components/organisms/MultiModelValuation";
+import { CorporateQualityPanel } from "@/components/organisms/CorporateQualityPanel";
+import { WaccCalculator } from "@/components/organisms/WaccCalculator";
 import { MonteCarloSimulation } from "@/components/organisms/MonteCarloSimulation";
 import { TechnicalConfluencePanel } from "@/components/organisms/TechnicalConfluencePanel";
 import { AlgorithmicTargetsPanel } from "@/components/organisms/AlgorithmicTargetsPanel";
@@ -335,7 +337,12 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
             </div>
 
             <div className="lg:col-span-4 space-y-10">
-              <InstitutionalFlowPanel tech={signal.tech} optionsFlow={d.optionsFlow} currentPrice={p.current} />
+              <InstitutionalFlowPanel 
+                tech={signal.tech} 
+                optionsFlow={d.optionsFlow} 
+                currentPrice={p.current} 
+                optionsIntelligence={signal.optionsIntelligence}
+              />
               
               <div className="bg-white/[0.01] border border-white/5 rounded-xl p-6">
                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-4">52-Week Range Spectrum</h3>
@@ -383,6 +390,8 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
                 <>
                   <DCFSandbox details={d} currentPrice={d.price.current} />
                   <MultiModelValuation details={d} />
+                  <CorporateQualityPanel details={d} />
+                  <WaccCalculator details={d} />
                 </>
               )}
               

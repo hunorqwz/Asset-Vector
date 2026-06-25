@@ -2,6 +2,7 @@ import { getFromCache, setInCache, CACHE_TTL } from "./cache";
 import { SentimentReport } from "./sentiment";
 import { fetchMarketPulse } from "./market-pulse";
 import { getMacroSnapshot } from "./macro-analysis";
+import { fetchOptionsIntelligence } from "./options-pricing";
 import {
   localPrecisionForecast,
   type PredictionHorizon,
@@ -127,6 +128,8 @@ export async function predictNextHorizon(
   const macro = await getMacroSnapshot().catch(() => null);
   const macroRegime = macro?.regime;
   const creditSpread = macro?.creditSpread?.currentValue;
+
+  const optionsIntel = await fetchOptionsIntelligence(ticker, lastPrice).catch(() => null);
   
   const result = localPrecisionForecast(
     inputSequence,
@@ -137,7 +140,9 @@ export async function predictNextHorizon(
     vix,
     beta,
     macroRegime,
-    creditSpread
+    creditSpread,
+    macro || undefined,
+    optionsIntel
   );
   
   // Sanity Guard: P10 < P50 < P90

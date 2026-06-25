@@ -54,7 +54,7 @@ function generateMockSeries(seriesId: string): FredObservation[] {
   const data: FredObservation[] = [];
   const now = new Date();
   
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 50; i++) {
     const d = new Date(now);
     d.setMonth(now.getMonth() - i);
     

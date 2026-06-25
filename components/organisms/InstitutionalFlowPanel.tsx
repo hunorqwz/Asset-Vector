@@ -1,16 +1,18 @@
 import React from 'react';
 import { TechnicalIndicators } from "@/lib/technical-analysis";
 import { OptionsFlow } from "@/lib/stock-details";
-import { fmt, fmtPct } from "@/lib/format";
+import { OptionsIntelligence } from "@/lib/options-pricing";
+import { fmt, fmtPct, fmtCount } from "@/lib/format";
 import { AIIcon } from "@/components/Icons";
 
 interface InstitutionalFlowPanelProps {
   tech: TechnicalIndicators;
   optionsFlow: OptionsFlow | null;
   currentPrice: number;
+  optionsIntelligence?: OptionsIntelligence | null;
 }
 
-export const InstitutionalFlowPanel = React.memo(function InstitutionalFlowPanel({ tech, optionsFlow, currentPrice }: InstitutionalFlowPanelProps) {
+export const InstitutionalFlowPanel = React.memo(function InstitutionalFlowPanel({ tech, optionsFlow, currentPrice, optionsIntelligence }: InstitutionalFlowPanelProps) {
   const blocks = tech.orderBlocks || [];
 
   let impliedMove = null;
@@ -102,6 +104,82 @@ export const InstitutionalFlowPanel = React.memo(function InstitutionalFlowPanel
         </div>
 
       </div>
+
+      {optionsIntelligence && optionsIntelligence.isValid && (
+        <div className="mt-8 pt-6 border-t border-white/5 relative z-10">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-[10px] tracking-widest uppercase font-bold text-zinc-300">Dealer positioning & Hedging Pressures</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* GEX CARD */}
+            <div className="bg-black/30 border border-white/5 p-4 rounded-lg">
+              <span className="block text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Net Gamma Exposure (GEX)</span>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-[15px] font-mono font-black ${optionsIntelligence.totalGEX >= 0 ? "text-bull" : "text-bear"}`}>
+                  {optionsIntelligence.totalGEX >= 0 ? "+" : ""}{fmtCount(optionsIntelligence.totalGEX)}
+                </span>
+                <span className={`text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                  optionsIntelligence.totalGEX >= 0 ? "bg-bull/10 text-bull border border-bull/20" : "bg-bear/10 text-bear border border-bear/20"
+                }`}>
+                  {optionsIntelligence.totalGEX >= 0 ? "Long Gamma" : "Short Gamma"}
+                </span>
+              </div>
+              <p className="text-[9px] text-zinc-500 uppercase tracking-wider mt-2 leading-relaxed font-bold">
+                {optionsIntelligence.totalGEX >= 0 
+                  ? "Volatility Dampening (Dealers buying dips / selling rallies)." 
+                  : "Volatility Accelerating (Dealers selling dips / buying rallies)."}
+              </p>
+            </div>
+
+            {/* SKEW CARD */}
+            <div className="bg-black/30 border border-white/5 p-4 rounded-lg">
+              <span className="block text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1">IV Skew (90%-110%)</span>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-[15px] font-mono font-black ${optionsIntelligence.ivSkew > 0.05 ? "text-bear" : "text-zinc-300"}`}>
+                  {(optionsIntelligence.ivSkew * 100).toFixed(2)}%
+                </span>
+                <span className={`text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-white/5 border border-white/10 ${
+                  optionsIntelligence.ivSkew > 0.05 ? "text-bear border-bear/20 bg-bear/5" : "text-zinc-400"
+                }`}>
+                  {optionsIntelligence.ivSkew > 0.08 ? "Steep Downside" : optionsIntelligence.ivSkew > 0.03 ? "Moderate Skew" : "Flat Skew"}
+                </span>
+              </div>
+              <p className="text-[9px] text-zinc-500 uppercase tracking-wider mt-2 leading-relaxed font-bold">
+                {optionsIntelligence.ivSkew > 0.05 
+                  ? "High Put demand (Bearish hedging sentiment drag)." 
+                  : "Balanced Put/Call demand (Neutral hedging pressure)."}
+              </p>
+            </div>
+
+            {/* VANNA CARD */}
+            <div className="bg-black/30 border border-white/5 p-4 rounded-lg">
+              <span className="block text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Dealer Vanna Exposure</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[15px] font-mono font-black text-white">
+                  {optionsIntelligence.totalVanna >= 0 ? "+" : ""}{fmtCount(optionsIntelligence.totalVanna)}
+                </span>
+              </div>
+              <p className="text-[9px] text-zinc-500 uppercase tracking-wider mt-2 leading-relaxed font-bold">
+                Dealer hedging response to changes in Implied Volatility.
+              </p>
+            </div>
+
+            {/* CHARM CARD */}
+            <div className="bg-black/30 border border-white/5 p-4 rounded-lg">
+              <span className="block text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Dealer Charm (Delta Decay)</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[15px] font-mono font-black text-white">
+                  {optionsIntelligence.totalCharm >= 0 ? "+" : ""}{fmtCount(optionsIntelligence.totalCharm)}
+                </span>
+              </div>
+              <p className="text-[9px] text-zinc-500 uppercase tracking-wider mt-2 leading-relaxed font-bold">
+                Time-decay dealer rebalancing pressure.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
     </section>
   );
 });

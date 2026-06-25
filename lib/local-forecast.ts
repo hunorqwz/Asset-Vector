@@ -1,9 +1,10 @@
-import { calculateReturns, calculateVariance, runARIMAForecast, calculateGARCHVolatility } from "./math";
+import { calculateReturns, calculateVariance, runARIMAForecast, runARIMAXForecast, calculateGARCHVolatility } from "./math";
 import { KalmanFilter } from "./kalman";
 import { RegimeDetector } from "./regime";
 import { SentimentReport } from "./sentiment";
 import { detectVolumeProfileNodes } from "./technical-analysis";
-import type { MacroRegime } from "./macro-analysis";
+import type { MacroRegime, MacroSnapshot } from "./macro-analysis";
+import type { OptionsIntelligence } from "./options-pricing";
 
 export type PredictionHorizon = "4H" | "1D" | "3D" | "1W" | "1M";
 
@@ -39,7 +40,10 @@ export function localPrecisionForecast(
   vix?: number,
   beta: number = 1.0,
   macroRegime?: MacroRegime,
-  creditSpread?: number
+  creditSpread?: number,
+  macroSnapshot?: MacroSnapshot,
+  optionsIntelligence?: OptionsIntelligence | null,
+  disableFeedback: boolean = false
 ): PredictionResult {
   const prices = seq.map((x) => x[3]);
   const last = prices[prices.length - 1];
@@ -98,14 +102,110 @@ export function localPrecisionForecast(
     }
   }
 
-  const effectiveVol = Math.sqrt(Math.pow(localVol, 2) + Math.pow(vixDaily * systemicExpansion, 2)) * stressMultiplier * regimeVolMultiplier;
+  let optionsVolMultiplier = 1.0;
+  let optionsDriftTilt = 0;
+
+  if (optionsIntelligence && optionsIntelligence.isValid) {
+    const totalGEX = optionsIntelligence.totalGEX;
+    const totalVanna = optionsIntelligence.totalVanna;
+    const totalCharm = optionsIntelligence.totalCharm;
+    const ivSkew = optionsIntelligence.ivSkew;
+
+    // 1. GEX Volatility Adjustment (Long GEX dampens, Short GEX amplifies)
+    const gexFactor = totalGEX / 1e8;
+    if (gexFactor >= 0) {
+      optionsVolMultiplier = 1.0 - Math.min(0.20, Math.tanh(gexFactor) * 0.20);
+    } else {
+      optionsVolMultiplier = 1.0 + Math.min(0.30, Math.tanh(Math.abs(gexFactor)) * 0.30);
+    }
+
+    // 2. Vanna & Charm Drift Tilt (Dealer positioning buy/sell flows)
+    const vannaFactor = totalVanna / 1e8;
+    const charmFactor = totalCharm / 1e8;
+    const vannaDrift = (Math.tanh(vannaFactor) * 0.0005) / barsPerDay;
+    const charmDrift = (Math.tanh(charmFactor) * 0.0005) / barsPerDay;
+
+    // 3. IV Skew Drift Drag (Bearish hedging premium drag)
+    const skewFactor = Math.max(0, ivSkew);
+    const skewDrift = -(Math.min(0.10, skewFactor) * 0.005) / barsPerDay;
+
+    optionsDriftTilt = vannaDrift + charmDrift + skewDrift;
+  }
+
+  let feedbackVolMultiplier = 1.0;
+  let feedbackDriftCorrection = 0;
+  let feedbackConfidencePen = 0;
+
+  if (!disableFeedback && prices.length >= 40) {
+    const feedback = runWalkForwardFeedback(
+      seq,
+      realizedVol,
+      barsPerDay,
+      vix,
+      beta,
+      macroRegime,
+      creditSpread,
+      macroSnapshot,
+      optionsIntelligence
+    );
+
+    if (feedback.isValid) {
+      // Proportional correction gain to offset forecast drift bias
+      feedbackDriftCorrection = feedback.bias * 0.4;
+      // Widen the volatility cone when recent RMSE is high
+      feedbackVolMultiplier = 1.0 + Math.min(0.50, feedback.rmse * 2.0);
+      // Penalize prediction confidence under high error rate
+      feedbackConfidencePen = feedback.rmse * 1.5;
+    }
+  }
+
+  const effectiveVol = Math.sqrt(Math.pow(localVol, 2) + Math.pow(vixDaily * systemicExpansion, 2)) * stressMultiplier * regimeVolMultiplier * optionsVolMultiplier * feedbackVolMultiplier;
 
   const targetTotalBars = targetBars * barsPerDay;
 
-  // ── Estimator 1: ARIMA(1,1,0) ──────────────────────────────────────────
+  // ── Estimator 1: ARIMAX(1,1,0) or ARIMA(1,1,0) ──────────────────────────
   const arimaBars = Math.max(1, Math.round(targetTotalBars)); 
-  const arima = runARIMAForecast(prices, arimaBars);
-  const arimaP50 = arima.forecast.length > 0 ? arima.forecast[arima.forecast.length - 1] : null;
+  let arimaResult;
+  if (macroSnapshot && barsPerDay === 1) {
+    // Generate business days matching the sequence length
+    const dates = generateHistoricalDates(prices.length, barsPerDay);
+    
+    // Construct matched exogenous regressor matrix
+    const exogenousMatrix: number[][] = [];
+    const fedHistory = macroSnapshot.fedFunds.history;
+    const yieldHistory = macroSnapshot.yieldCurve.history;
+    const infHistory = macroSnapshot.inflation.history;
+    const creditHistory = macroSnapshot.creditSpread.history;
+
+    for (let t = 0; t < prices.length; t++) {
+      const dateStr = dates[t];
+      const findValue = (history: { date: string; value: number }[]) => {
+        const matches = history
+          .filter(h => new Date(h.date) <= new Date(dateStr))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return matches.length > 0 ? matches[0].value : (history[history.length - 1]?.value || 0);
+      };
+
+      exogenousMatrix.push([
+        findValue(fedHistory),
+        findValue(yieldHistory),
+        findValue(infHistory),
+        findValue(creditHistory)
+      ]);
+    }
+
+    const latestChanges = [
+      macroSnapshot.fedFunds.change,
+      macroSnapshot.yieldCurve.change,
+      macroSnapshot.inflation.change,
+      macroSnapshot.creditSpread.change
+    ];
+
+    arimaResult = runARIMAXForecast(prices, exogenousMatrix, arimaBars, latestChanges);
+  } else {
+    arimaResult = runARIMAForecast(prices, arimaBars);
+  }
+  const arimaP50 = arimaResult.forecast.length > 0 ? arimaResult.forecast[arimaResult.forecast.length - 1] : null;
 
   // ── Estimator 2: Adaptive Kalman Trend Projection ──────────────────────
   const kalmanWindow = prices.slice(-60);
@@ -152,7 +252,7 @@ export function localPrecisionForecast(
   const structuralTilt = (gapToPoc * magnetStrength) / barsPerDay;
 
   // Final drift aggregation with a safety cap for institutional stability
-  let totalDrift = finalDrift + structuralTilt;
+  let totalDrift = finalDrift + structuralTilt + optionsDriftTilt + feedbackDriftCorrection;
   const driftCap = 0.01; // Max 1% move per bar (prevents extrapolation madness)
   totalDrift = Math.max(-driftCap, Math.min(driftCap, totalDrift));
   
@@ -184,7 +284,7 @@ export function localPrecisionForecast(
 
   const kfSNR = kf.getSNR();
   const predictability = Math.abs(hurst - 0.5) * 2;
-  const confidence = Number(((kfSNR * 0.4) + (predictability * 0.6)).toFixed(4));
+  const confidence = Number(Math.max(0, ((kfSNR * 0.4) + (predictability * 0.6)) - feedbackConfidencePen).toFixed(4));
 
   return {
     p10: Number(Math.max(0, p10).toFixed(4)),
@@ -195,4 +295,103 @@ export function localPrecisionForecast(
     confidence,
     tilt: Number((tilt * 100).toFixed(4))
   };
+}
+
+/**
+ * Reconstructs business dates backwards from today.
+ */
+function generateHistoricalDates(length: number, barsPerDay: number): string[] {
+  const dates: string[] = [];
+  const now = new Date();
+  
+  if (barsPerDay === 1) {
+    let current = new Date(now);
+    for (let i = 0; i < length; i++) {
+      while (current.getDay() === 0 || current.getDay() === 6) {
+        current.setDate(current.getDate() - 1);
+      }
+      dates.push(current.toISOString().split('T')[0]);
+      current.setDate(current.getDate() - 1);
+    }
+    return dates.reverse();
+  } else {
+    let current = new Date(now);
+    const minStep = Math.max(1, Math.round(390 / barsPerDay));
+    for (let i = 0; i < length; i++) {
+      dates.push(current.toISOString().split('T')[0]);
+      current.setMinutes(current.getMinutes() - minStep);
+    }
+    return dates.reverse();
+  }
+}
+
+export interface FeedbackMetrics {
+  bias: number;
+  rmse: number;
+  isValid: boolean;
+}
+
+/**
+ * Performs a rolling 1-step-ahead (1D) walk-forward calibration of the forecasting ensemble
+ * over the past 10 bars to calculate forecast bias and root mean squared error.
+ */
+export function runWalkForwardFeedback(
+  seq: number[][],
+  realizedVol: number,
+  barsPerDay: number,
+  vix?: number,
+  beta: number = 1.0,
+  macroRegime?: MacroRegime,
+  creditSpread?: number,
+  macroSnapshot?: MacroSnapshot,
+  optionsIntelligence?: OptionsIntelligence | null
+): FeedbackMetrics {
+  const prices = seq.map((x) => x[3]);
+  const n = prices.length;
+
+  // Require at least 30 training bars + 10 walk-forward evaluation bars
+  if (n < 40) {
+    return { bias: 0, rmse: 0, isValid: false };
+  }
+
+  let squaredErrorSum = 0;
+  let errorSum = 0;
+  let count = 0;
+
+  const lookback = 10;
+  for (let t = n - lookback; t < n; t++) {
+    const subSeq = seq.slice(0, t);
+    const actualPrice = prices[t];
+
+    const pred = localPrecisionForecast(
+      subSeq,
+      realizedVol,
+      "1D",
+      undefined,
+      barsPerDay,
+      vix,
+      beta,
+      macroRegime,
+      creditSpread,
+      macroSnapshot,
+      optionsIntelligence,
+      true // disableFeedback to prevent infinite recursion
+    );
+
+    if (pred.p50 > 0 && actualPrice > 0) {
+      const err = (actualPrice - pred.p50) / actualPrice;
+      errorSum += err;
+      squaredErrorSum += err * err;
+      count++;
+    }
+  }
+
+  if (count === 0) {
+    return { bias: 0, rmse: 0, isValid: false };
+  }
+
+  const bias = errorSum / count;
+  const rmse = Math.sqrt(squaredErrorSum / count);
+
+  return { bias, rmse, isValid: true };
 }

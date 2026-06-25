@@ -273,3 +273,188 @@ export function runARIMAForecast(prices: number[], periods: number = 5): ARIMAPr
     confidence95: { upper: upperPrices, lower: lowerPrices }
   };
 }
+
+/**
+ * Ridge OLS Solver (Gauss-Jordan with L2 Regularization)
+ * Solves X * B = Y for coefficients B
+ */
+export function solveOLS(X: number[][], Y: number[], ridge: number = 1e-4): number[] {
+  const n = X.length;
+  if (n === 0) return [];
+  const k = X[0].length;
+
+  // Compute XtX = X^T * X
+  const XtX: number[][] = Array.from({ length: k }, () => new Array(k).fill(0));
+  for (let i = 0; i < k; i++) {
+    for (let j = 0; j < k; j++) {
+      let sum = 0;
+      for (let t = 0; t < n; t++) {
+        sum += X[t][i] * X[t][j];
+      }
+      XtX[i][j] = sum;
+    }
+    // Add ridge penalty to diagonal for numerical stability
+    XtX[i][i] += ridge;
+  }
+
+  // Compute XtY = X^T * Y
+  const XtY: number[] = new Array(k).fill(0);
+  for (let i = 0; i < k; i++) {
+    let sum = 0;
+    for (let t = 0; t < n; t++) {
+      sum += X[t][i] * Y[t];
+    }
+    XtY[i] = sum;
+  }
+
+  // Solve XtX * B = XtY using Gauss-Jordan elimination
+  // Augment XtX with XtY: A = [XtX | XtY]
+  const A: number[][] = XtX.map((row, i) => [...row, XtY[i]]);
+
+  for (let i = 0; i < k; i++) {
+    // Find pivot
+    let maxEl = Math.abs(A[i][i]);
+    let maxRow = i;
+    for (let r = i + 1; r < k; r++) {
+      if (Math.abs(A[r][i]) > maxEl) {
+        maxEl = Math.abs(A[r][i]);
+        maxRow = r;
+      }
+    }
+
+    // Swap max row with current row
+    const temp = A[maxRow];
+    A[maxRow] = A[i];
+    A[i] = temp;
+
+    const pivot = A[i][i];
+    if (Math.abs(pivot) < 1e-12) {
+      // Singular matrix fallback: return zero coefficients
+      return new Array(k).fill(0);
+    }
+
+    // Normalize current row
+    for (let c = i; c <= k; c++) {
+      A[i][c] /= pivot;
+    }
+
+    // Eliminate other rows
+    for (let r = 0; r < k; r++) {
+      if (r !== i) {
+        const factor = A[r][i];
+        for (let c = i; c <= k; c++) {
+          A[r][c] -= factor * A[i][c];
+        }
+      }
+    }
+  }
+
+  // Coefficients are in the last column
+  return A.map(row => row[k]);
+}
+
+/**
+ * Institutional ARIMAX(1,1,0) Engine
+ * Incorporates exogenous macro variables (e.g. Fed Funds, Yield Curve)
+ * directly into the autoregressive return model via Ridge regression.
+ * Y_t = alpha + phi * Y_{t-1} + sum(beta_i * dX_{i,t}) + e_t
+ */
+export function runARIMAXForecast(
+  prices: number[],
+  exogenousData: number[][], // prices.length x num_features
+  periods: number = 5,
+  latestExogenousChanges: number[] = []
+): ARIMAProjection {
+  if (prices.length < 20 || exogenousData.length < prices.length) {
+    // Fallback to classic ARIMA if exogenous data is incomplete
+    return runARIMAForecast(prices, periods);
+  }
+
+  // 1. Difference prices for return stationarity (I=1)
+  const returns = calculateReturns(prices);
+  const n = returns.length; // prices.length - 1
+
+  // 2. Difference exogenous variables for stationarity
+  const k = exogenousData[0].length; // number of features
+  const dX: number[][] = Array.from({ length: n }, () => new Array(k).fill(0));
+  for (let t = 1; t < prices.length; t++) {
+    for (let j = 0; j < k; j++) {
+      dX[t - 1][j] = exogenousData[t][j] - (exogenousData[t - 1]?.[j] ?? exogenousData[t][j]);
+    }
+  }
+
+  // 3. Build regression matrix [Intercept, Lagged_Y, dX_1, dX_2, ...]
+  // We align from t = 1 to n-1 (since lagged return requires t-1)
+  const OLS_X: number[][] = [];
+  const OLS_Y: number[] = [];
+
+  for (let t = 1; t < n; t++) {
+    const row = [
+      1.0,               // Intercept
+      returns[t - 1],    // Lagged Return
+      ...dX[t]           // dX features
+    ];
+    OLS_X.push(row);
+    OLS_Y.push(returns[t]);
+  }
+
+  // Solve OLS coefficients
+  const coefficients = solveOLS(OLS_X, OLS_Y);
+  if (coefficients.length === 0 || coefficients.every(c => c === 0)) {
+    // Fallback to classic ARIMA if OLS is unstable
+    return runARIMAForecast(prices, periods);
+  }
+
+  const alpha = coefficients[0];
+  const phi = Math.max(-0.99, Math.min(0.99, coefficients[1])); // clamp AR(1)
+  const betas = coefficients.slice(2);
+
+  // Residual variance to compute Standard Error
+  let residualSumSq = 0;
+  for (let i = 0; i < OLS_X.length; i++) {
+    let fitted = alpha + phi * OLS_X[i][1];
+    for (let j = 0; j < k; j++) {
+      fitted += betas[j] * OLS_X[i][2 + j];
+    }
+    residualSumSq += Math.pow(OLS_Y[i] - fitted, 2);
+  }
+  const df = OLS_X.length - OLS_X[0].length;
+  const stdError = Math.sqrt(Math.max(1e-10, residualSumSq / (df > 0 ? df : 1)));
+
+  // 4. Project future returns and reconstruct prices
+  const forecastPrices: number[] = [];
+  const upperPrices: number[] = [];
+  const lowerPrices: number[] = [];
+
+  let lastPrice = prices[prices.length - 1];
+  let lastRet = returns[returns.length - 1];
+
+  for (let t = 1; t <= periods; t++) {
+    // Exogenous change contribution for future steps (assumed zero-drift except for the first step)
+    let exoContribution = 0;
+    if (t === 1 && latestExogenousChanges.length === k) {
+      for (let j = 0; j < k; j++) {
+        exoContribution += betas[j] * latestExogenousChanges[j];
+      }
+    }
+
+    const nextRet = alpha + phi * lastRet + exoContribution;
+    const nextPrice = lastPrice * Math.exp(nextRet);
+
+    forecastPrices.push(nextPrice);
+
+    // 95% Confidence Interval
+    const cumulativeError = stdError * Math.sqrt(t) * 1.96;
+    upperPrices.push(nextPrice * Math.exp(cumulativeError));
+    lowerPrices.push(nextPrice * Math.exp(-cumulativeError));
+
+    lastPrice = nextPrice;
+    lastRet = nextRet;
+  }
+
+  return {
+    forecast: forecastPrices,
+    standardError: stdError,
+    confidence95: { upper: upperPrices, lower: lowerPrices }
+  };
+}

@@ -30,6 +30,9 @@ export interface OptionsIntelligence {
   zeroGammaLevel: number;
   gravityWells: number[];
   totalGEX: number;
+  totalVanna: number;
+  totalCharm: number;
+  ivSkew: number;
   isValid: boolean;
 }
 
@@ -47,6 +50,37 @@ export function calculateGamma(S: number, K: number, T: number, sigma: number, r
   const d1 = (Math.log(S / K) + (r + (sigma * sigma) / 2) * T) / (sigma * Math.sqrt(T));
   const npDF = (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * d1 * d1);
   return npDF / (S * sigma * Math.sqrt(T));
+}
+
+// Black-Scholes Vanna (sensitivity of Delta to Implied Volatility)
+export function calculateVanna(S: number, K: number, T: number, sigma: number, r: number = 0.04): number {
+  if (T <= 0 || sigma <= 0) return 0;
+  const d1 = (Math.log(S / K) + (r + (sigma * sigma) / 2) * T) / (sigma * Math.sqrt(T));
+  const d2 = d1 - sigma * Math.sqrt(T);
+  const npDF = (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * d1 * d1);
+  return -npDF * (d2 / sigma);
+}
+
+// Black-Scholes Charm for Call option (delta time-decay)
+export function calculateCharmCall(S: number, K: number, T: number, sigma: number, r: number = 0.04): number {
+  if (T <= 0 || sigma <= 0) return 0;
+  const d1 = (Math.log(S / K) + (r + (sigma * sigma) / 2) * T) / (sigma * Math.sqrt(T));
+  const d2 = d1 - sigma * Math.sqrt(T);
+  const npDF = (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * d1 * d1);
+  const nCDF = normalCDF(d1);
+  const term1 = npDF * (r / (sigma * Math.sqrt(T)) - d2 / (2 * T));
+  return -term1 - r * nCDF;
+}
+
+// Black-Scholes Charm for Put option (delta time-decay)
+export function calculateCharmPut(S: number, K: number, T: number, sigma: number, r: number = 0.04): number {
+  if (T <= 0 || sigma <= 0) return 0;
+  const d1 = (Math.log(S / K) + (r + (sigma * sigma) / 2) * T) / (sigma * Math.sqrt(T));
+  const d2 = d1 - sigma * Math.sqrt(T);
+  const npDF = (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * d1 * d1);
+  const nCDF = normalCDF(d1);
+  const term1 = npDF * (r / (sigma * Math.sqrt(T)) - d2 / (2 * T));
+  return -term1 + r * (1 - nCDF);
 }
 
 export async function fetchOptionsIntelligence(ticker: string, currentPrice: number): Promise<OptionsIntelligence> {
@@ -68,6 +102,9 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
     zeroGammaLevel: 0,
     gravityWells: [],
     totalGEX: 0,
+    totalVanna: 0,
+    totalCharm: 0,
+    ivSkew: 0,
     isValid: false
   };
 
@@ -113,7 +150,6 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
     const daysToExpiration = Math.max(1, msToExpiration / (1000 * 60 * 60 * 24)); // Minimum 1 day to prevent 0 division
 
     // Market Maker Expected Move Formula: Price * IV * sqrt(Days/365)
-    // Sometimes a simpler rule of thumb for 1 StdDev is used: Price * IV * sqrt(Days/365)
     const expectedMovePercentage = atmIV * Math.sqrt(daysToExpiration / 365);
     const expectedMoveDollars = currentPrice * expectedMovePercentage;
 
@@ -186,7 +222,58 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
       .sort((a, b) => a.strike - b.strike);
 
     let totalGEX = 0;
-    strikes.forEach(s => totalGEX += s.netGamma);
+    let totalVanna = 0;
+    let totalCharm = 0;
+
+    strikes.forEach(s => {
+      totalGEX += s.netGamma;
+
+      const callIV = s.callIV || atmIV;
+      const putIV = s.putIV || atmIV;
+
+      const vannaCall = calculateVanna(currentPrice, s.strike, T, callIV);
+      const vannaPut = calculateVanna(currentPrice, s.strike, T, putIV);
+
+      const charmCall = calculateCharmCall(currentPrice, s.strike, T, callIV);
+      const charmPut = calculateCharmPut(currentPrice, s.strike, T, putIV);
+
+      // Net dealer exposures (short call -> negative exposure, short put -> positive exposure)
+      const netVanna = (vannaCall * s.callOI - vannaPut * s.putOI) * 100;
+      const netCharm = (charmCall * s.callOI - charmPut * s.putOI) * 100;
+
+      totalVanna += netVanna;
+      totalCharm += netCharm;
+    });
+
+    // Find IV Skew: IV of OTM Put (closest to 90% currentPrice) - IV of OTM Call (closest to 110% currentPrice)
+    const targetPutStrike = currentPrice * 0.90;
+    const targetCallStrike = currentPrice * 1.10;
+    
+    let closestPut: OptionStrike | null = null;
+    let closestCall: OptionStrike | null = null;
+    let minPutDiff = Infinity;
+    let minCallDiff = Infinity;
+    
+    strikes.forEach(s => {
+      if (s.putOI > 0 || s.putIV > 0) {
+        const diff = Math.abs(s.strike - targetPutStrike);
+        if (diff < minPutDiff) {
+          minPutDiff = diff;
+          closestPut = s;
+        }
+      }
+      if (s.callOI > 0 || s.callIV > 0) {
+        const diff = Math.abs(s.strike - targetCallStrike);
+        if (diff < minCallDiff) {
+          minCallDiff = diff;
+          closestCall = s;
+        }
+      }
+    });
+
+    const putIV = closestPut ? (closestPut.putIV || (closestPut as any).callIV || atmIV) : atmIV;
+    const callIV = closestCall ? (closestCall.callIV || (closestCall as any).putIV || atmIV) : atmIV;
+    const ivSkew = putIV - callIV;
 
     // Find Gravity Wells (Highest absolute netGamma)
     const gravityWells = [...strikes]
@@ -195,9 +282,6 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
       .map(s => s.strike);
 
     // Calculate Zero Gamma Level (Approximate point where Call GEX + Put GEX = 0)
-    // A simple approximation is the strike where netGamma flips from positive to negative, 
-    // or the strike with netGamma closest to 0 if we're interpolating.
-    // For simplicity, we find the cumulative GEX and the flip point.
     let zeroGammaLevel = currentPrice;
     let minGammaAbs = Infinity;
     strikes.forEach(s => {
@@ -221,6 +305,9 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
       zeroGammaLevel,
       gravityWells,
       totalGEX,
+      totalVanna,
+      totalCharm,
+      ivSkew,
       isValid: true
     };
 
