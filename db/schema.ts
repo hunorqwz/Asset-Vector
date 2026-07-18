@@ -168,3 +168,60 @@ export const systemKv = pgTable("system_kv", {
   value: jsonb("value").notNull(),
   expiresAt: timestamp("expires_at").notNull()
 });
+
+export const futuresCandles = pgTable("futures_candles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+  open: numeric("open", { precision: 18, scale: 8 }).notNull(),
+  high: numeric("high", { precision: 18, scale: 8 }).notNull(),
+  low: numeric("low", { precision: 18, scale: 8 }).notNull(),
+  close: numeric("close", { precision: 18, scale: 8 }).notNull(),
+  volume: numeric("volume", { precision: 18, scale: 8 }).notNull(),
+  cvd: numeric("cvd", { precision: 18, scale: 8 }).notNull(),
+  poc: numeric("poc", { precision: 18, scale: 8 }).notNull(),
+  vah: numeric("vah", { precision: 18, scale: 8 }).notNull(),
+  val: numeric("val", { precision: 18, scale: 8 }).notNull(),
+  imbalance: numeric("imbalance", { precision: 10, scale: 4 }).notNull(),
+}, (table) => {
+  return {
+    tickerTimeIdx: index("idx_futures_candles_ticker_time").on(table.ticker, table.timestamp),
+  };
+});
+
+export const futuresAlerts = pgTable("futures_alerts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  message: text("message").notNull(),
+  price: numeric("price", { precision: 18, scale: 8 }).notNull(),
+  cvd: numeric("cvd", { precision: 18, scale: 8 }),
+  imbalance: numeric("imbalance", { precision: 10, scale: 4 }),
+  isRead: boolean("is_read").default(false).notNull(),
+}, (table) => {
+  return {
+    tickerGenIdx: index("idx_futures_alerts_ticker").on(table.ticker),
+  };
+});
+
+export const futuresPositions = pgTable("futures_positions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  direction: varchar("direction", { length: 10 }).notNull(), // "BUY" | "SELL"
+  size: numeric("size", { precision: 18, scale: 8 }).notNull(),
+  entryPrice: numeric("entry_price", { precision: 18, scale: 8 }).notNull(),
+  stopLoss: numeric("stop_loss", { precision: 18, scale: 8 }),
+  takeProfit: numeric("take_profit", { precision: 18, scale: 8 }),
+  status: varchar("status", { length: 20 }).default("OPEN").notNull(), // "OPEN" | "CLOSED"
+  exitPrice: numeric("exit_price", { precision: 18, scale: 8 }),
+  pnl: numeric("pnl", { precision: 18, scale: 8 }),
+  openedAt: timestamp("opened_at").defaultNow().notNull(),
+  closedAt: timestamp("closed_at"),
+}, (table) => {
+  return {
+    userPosIdx: index("idx_futures_pos_user").on(table.userId),
+  };
+});
+

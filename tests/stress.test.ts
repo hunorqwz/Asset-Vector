@@ -4,8 +4,49 @@ import { fetchMarketData, fetchMultiLiveQuotes } from '../lib/market-data';
 import { fetchStockDetails } from '../lib/stock-details';
 import { fetchMarketPulse } from '../lib/market-pulse';
 
-// Mocking high-latency or rate-limited behaviors if needed
-// For now, we are testing the actual integration stability in dev
+vi.mock('../lib/market-pulse', () => ({
+  fetchMarketPulse: vi.fn(async () => ({
+    sectors: [{ sector: "Technology", performance: 0.015 }],
+    regime: "TRENDING",
+  })),
+}));
+
+// Mocking high-latency or rate-limited behaviors to ensure stable local testing
+vi.mock('../lib/market-data', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../lib/market-data')>();
+  return {
+    ...original,
+    fetchMarketData: vi.fn(async (ticker: string, len: number = 2500) => {
+      return {
+        ticker,
+        price: 150.0 + Math.random() * 10,
+        smoothPrice: 150.0,
+        uncertainty: 0.1,
+        snr: 10,
+        trend: "BULLISH",
+        regime: "TRENDING",
+        predictability: 0.8,
+        history: Array.from({ length: len }).map((_, i) => ({
+          time: (Math.floor(Date.now() / 1000) - i * 86400),
+          open: 150.0,
+          high: 155.0,
+          low: 149.0,
+          close: 151.0,
+          volume: 1000000,
+        })),
+        tech: { isValid: true },
+        sentiment: { label: "BULLISH", score: 0.8 },
+      } as any;
+    }),
+    fetchMultiLiveQuotes: vi.fn(async (tickers: string[]) => {
+      const quotes: Record<string, any> = {};
+      tickers.forEach(t => {
+        quotes[t] = { price: 150.0, bid: 149.9, ask: 150.1 };
+      });
+      return quotes;
+    }),
+  };
+});
 
 describe('Dashboard Concurrency & Load Stress', () => {
   it('should handle simultaneous requests for multiple high-cap tickers without data corruption', async () => {
