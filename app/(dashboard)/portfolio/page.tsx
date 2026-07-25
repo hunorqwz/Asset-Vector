@@ -7,8 +7,8 @@ import { PortfolioClientContainer } from "@/components/organisms/PortfolioClient
 import { PageHeader } from "@/components/organisms/PageHeader";
 
 export const metadata: Metadata = {
-  title: "Portfolio Analytics Dashboard | Asset Vector",
-  description: "Track your holdings and see your performance against AI price targets.",
+  title: "Portfolio Desk | Asset Vector",
+  description: "Track positions, equity curves, and performance against AI price targets.",
 };
 
 export const dynamic = "force-dynamic";
@@ -20,11 +20,9 @@ export default async function PortfolioPage() {
     getRegimeBreakout(),
   ]);
 
-  // Fetch live prices directly for all portfolio tickers — independent of watchlist
   const tickers = [...new Set(positions.map((p) => p.ticker))];
   const priceMap = await getPortfolioPrices(tickers);
 
-  // Compute per-position stats
   const enriched = positions.map((pos) => {
     const currentPrice = priceMap[pos.ticker] ?? null;
     const invested = pos.shares * pos.avgCost;
@@ -34,29 +32,40 @@ export default async function PortfolioPage() {
     return { ...pos, currentPrice, invested, currentValue, pnl, pnlPct };
   });
 
-  // Portfolio analytics computation
   const analytics = computePortfolioAnalytics(enriched);
 
-  // Check and perform institutional audit
   await checkAndTriggerAlerts(priceMap);
   const alerts = await getAlerts();
-  // All portfolio tickers + watchlist tickers for the alert quick-select
   const alertTickers = [...new Set([...tickers, ...watchlist])];
 
   return (
     <>
       <PageHeader />
 
-      <main className="flex-1 overflow-y-auto px-8 py-10">
-        <div className="max-w-[1400px] mx-auto">
-          {/* Page Heading */}
-          <div className="mb-12 flex items-end justify-between border-b border-border-light pb-10">
+      <main className="flex-1 overflow-y-auto px-8 py-8 bg-[#f8fafc]">
+        <div className="max-w-[1600px] mx-auto space-y-8">
+          
+          {/* TOP PAGE HEADER CARD */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)] flex flex-wrap items-center justify-between gap-6">
             <div>
-              <h1 className="text-5xl font-bold tracking-tightest leading-[1]">Portfolio</h1>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Institutional Portfolio Desk</span>
+                <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider border border-emerald-200">
+                  Analytics Active
+                </span>
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 mt-1">Portfolio & Equity Analytics</h1>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Real-time position tracking, PnL metrics, and multi-asset exposure analytics.
+              </p>
             </div>
-            <p className="text-sm text-zinc-400 text-right leading-relaxed">
-              {positions.length} positions
-            </p>
+
+            <div className="flex items-center gap-4">
+              <div className="bg-slate-50 border border-slate-200/60 rounded-xl px-4 py-2 text-right">
+                <span className="block text-[10px] font-bold uppercase text-slate-400">Active Positions</span>
+                <span className="text-lg font-mono font-bold text-slate-800 tabular-nums">{positions.length} Open</span>
+              </div>
+            </div>
           </div>
 
           <PortfolioClientContainer

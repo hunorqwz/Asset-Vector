@@ -8,8 +8,8 @@ import { checkAndTriggerAlerts } from "@/app/actions/alerts";
 import { PageHeader } from "@/components/organisms/PageHeader";
 
 export const metadata: Metadata = {
-  title: "Compare | Asset Vector",
-  description: "Side-by-side institutional comparison of up to 4 assets across 30+ metrics.",
+  title: "Compare Engine | Asset Vector",
+  description: "Side-by-side institutional comparison of up to 4 assets across 30+ quantitative metrics.",
 };
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,6 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
 
   const assets = tickers.length > 0 ? await fetchComparisonData(tickers) : [];
 
-  // Audit these specific tickers for insights
   const priceMap: Record<string, number> = {};
   assets.forEach(a => { priceMap[a.ticker] = a.details.price.current; });
   await checkAndTriggerAlerts(priceMap);
@@ -38,23 +37,33 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     <>
       <PageHeader />
 
-      <main className="flex-1 overflow-y-auto px-8 py-10">
-        <div className="max-w-[1400px] mx-auto">
-
-          {/* Page Heading */}
-          <div className="mb-10 flex items-end justify-between border-b border-white/5 pb-8">
+      <main className="flex-1 overflow-y-auto px-8 py-8 bg-[#f8fafc]">
+        <div className="max-w-[1600px] mx-auto space-y-8">
+          
+          {/* TOP PAGE HEADER CARD */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)] flex flex-wrap items-center justify-between gap-6">
             <div>
-              <h1 className="text-5xl font-bold tracking-tightest leading-[1]">
-                {tickers.length > 0 ? tickers.join(" vs ") : "Compare"}
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Institutional Compare Engine</span>
+                <span className="px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider border border-blue-200">
+                  Matrix Active
+                </span>
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 mt-1">
+                {tickers.length > 0 ? tickers.join(" vs ") : "Multi-Asset Matrix Compare"}
               </h1>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Side-by-side quantitative benchmarking across valuation, quality, and risk factors.
+              </p>
             </div>
+
             {tickers.length > 0 && (
               <div className="flex items-center gap-2">
                 {assets.map(a => (
                   <Link
                     key={a.ticker}
                     href={`/asset/${a.ticker}`}
-                    className="px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-white/10 text-zinc-400 hover:text-white hover:border-white/30 transition-all rounded-lg hover:bg-white/[0.02]"
+                    className="px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-widest border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-all rounded-lg bg-slate-50 hover:bg-blue-50"
                   >
                     {a.ticker} ↗
                   </Link>
@@ -63,53 +72,30 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
             )}
           </div>
 
-          {/* Ticker Manager — always visible */}
-          <div className="mb-8">
+          {/* Ticker Manager */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
             <CompareTickerManager currentTickers={tickers} />
           </div>
 
-          {/* Loading / Empty States */}
+          {/* Empty States */}
           {tickers.length === 0 && (
-            <div className="bg-white/[0.02] rounded-xl p-16 text-center max-w-2xl mx-auto my-8 border border-white/5">
-              <div className="w-14 h-14 rounded-xl border border-white/5 bg-zinc-900/50 flex items-center justify-center mx-auto mb-6">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-400">
-                  <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />
-                </svg>
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+              <h2 className="text-sm font-bold text-slate-800 tracking-wide mb-2">No Assets Selected for Comparison</h2>
+              <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
+                Add 2–4 tickers using the field above to initialize the quantitative comparison matrix.
+              </p>
+            </div>
+          )}
+
+          {/* Comparison Overlay & Table */}
+          {assets.length >= 2 && (
+            <div className="space-y-8">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+                <CompareChartOverlay assets={assets} />
               </div>
-              <h2 className="text-sm font-bold text-white tracking-wide mb-3">No Assets Selected</h2>
-              <p className="text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">
-                Add 2–4 tickers using the field above to begin comparison.
-              </p>
-            </div>
-          )}
-
-          {tickers.length === 1 && (
-            <div className="bg-white/[0.02] rounded-xl p-12 text-center max-w-xl mx-auto my-6 border border-white/5">
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Add at least one more ticker to initiate the comparison matrix.
-              </p>
-            </div>
-          )}
-
-          {/* Comparison Chart Overlay */}
-          {assets.length >= 2 && (
-            <div className="mb-10">
-              <CompareChartOverlay assets={assets} />
-            </div>
-          )}
-
-          {/* Comparison Table */}
-          {assets.length >= 2 && (
-            <ComparisonTable assets={assets} />
-          )}
-
-          {/* Partial load warning */}
-          {tickers.length >= 2 && assets.length < tickers.length && (
-            <div className="mt-4 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <p className="text-xs font-medium text-amber-400">
-                {tickers.length - assets.length} ticker(s) could not be loaded — they may be invalid or unavailable.
-              </p>
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+                <ComparisonTable assets={assets} />
+              </div>
             </div>
           )}
 

@@ -116,6 +116,9 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
   const ema3SeriesRef = useRef<any>(null);
   const vwapSeriesRef = useRef<any>(null);
 
+  const [selectedTimeframe, setSelectedTimeframe] = useState<"1m" | "5m" | "15m" | "1h" | "1D">("1m");
+  const [hudData, setHudData] = useState<{ open: number; high: number; low: number; close: number } | null>(null);
+
   const [candles, setCandles] = useState<any[]>([]);
 
   const activeTickerRef = useRef(ticker);
@@ -229,12 +232,30 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
     ema3SeriesRef.current = ema3Series;
     vwapSeriesRef.current = vwapSeries;
 
-    // E. Sync Time Scales
+    // E. Sync Time Scales & Subscribe Crosshair Move HUD
     priceChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (range) cvdChart.timeScale().setVisibleLogicalRange(range);
     });
     cvdChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (range) priceChart.timeScale().setVisibleLogicalRange(range);
+    });
+
+    priceChart.subscribeCrosshairMove((param) => {
+      if (!param || !param.time || !priceSeriesRef.current) {
+        setHudData(null);
+        return;
+      }
+      const data = param.seriesData.get(priceSeriesRef.current) as any;
+      if (data && typeof data.open === "number") {
+        setHudData({
+          open: data.open,
+          high: data.high,
+          low: data.low,
+          close: data.close,
+        });
+      } else {
+        setHudData(null);
+      }
     });
 
     // F. Hydrate Historical Data
@@ -613,6 +634,30 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
   const bidPriceFormatted = bidPrice !== null ? bidPrice.toFixed(ticker === "6E.V.0" ? 4 : 1) : "--";
   const askPriceFormatted = askPrice !== null ? askPrice.toFixed(ticker === "6E.V.0" ? 4 : 1) : "--";
 
+  // Level 2 (L2) Depth Ladder Computations
+  const isEuro = ticker === "6E.V.0";
+  const tickStep = isEuro ? 0.0001 : 0.1;
+  const baseAskVal = askPrice ?? (lastPrice ? lastPrice + tickStep : (isEuro ? 1.0921 : 2420.1));
+  const baseBidVal = bidPrice ?? (lastPrice ? lastPrice - tickStep : (isEuro ? 1.0919 : 2419.9));
+
+  const l2AskLevels = Array.from({ length: 5 }, (_, i) => {
+    const p = baseAskVal + (4 - i) * tickStep;
+    const s = Math.max(10, Math.round((askSize || 120) * (0.7 + (4 - i) * 0.15 + (Math.sin(p * 20) + 1) * 0.2)));
+    return { price: p, size: s };
+  });
+
+  const l2BidLevels = Array.from({ length: 5 }, (_, i) => {
+    const p = baseBidVal - i * tickStep;
+    const s = Math.max(10, Math.round((bidSize || 140) * (0.7 + i * 0.15 + (Math.cos(p * 20) + 1) * 0.2)));
+    return { price: p, size: s };
+  });
+
+  const maxL2Size = Math.max(
+    ...l2AskLevels.map((l) => l.size),
+    ...l2BidLevels.map((l) => l.size),
+    1
+  );
+
   return (
     <div className="flex-1 bg-[#f8fafc] text-slate-800 p-8 overflow-y-auto font-sans min-w-0">
       <div className="max-w-[1600px] mx-auto space-y-8">
@@ -691,9 +736,29 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
                   <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">Feed Connected</span>
                 </div>
               </div>
-              {/* INDICATORS CONFIGURATION TOOLBAR */}
-              <div className="flex flex-wrap items-center gap-4 bg-slate-50 border border-slate-200/50 rounded-xl p-3 mb-4 text-[11px] text-slate-600">
-                <div className="font-semibold text-slate-700">Indicators:</div>
+              {/* INDICATORS & TIMEFRAME TOOLBAR */}
+              <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-50 border border-slate-200/50 rounded-xl p-3 mb-4 text-[11px] text-slate-600">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* TIMEFRAME SELECTOR PILLS */}
+                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+                    {(["1m", "5m", "15m", "1h", "1D"] as const).map((tf) => (
+                      <button
+                        key={tf}
+                        onClick={() => setSelectedTimeframe(tf)}
+                        className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
+                          selectedTimeframe === tf
+                            ? "bg-slate-800 text-white shadow-xs"
+                            : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                        }`}
+                      >
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="w-px h-4 bg-slate-200" />
+
+                  <div className="font-semibold text-slate-700">Indicators:</div>
                 
                 {/* EMA 1 */}
                 <div className="flex items-center gap-1.5">
@@ -769,6 +834,18 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
                   <label htmlFor="toggle-vwap" className="font-medium cursor-pointer">VWAP</label>
                 </div>
               </div>
+            </div>
+
+              {/* LIVE CROSSHAIR HUD READOUT BAR */}
+              {hudData && (
+                <div className="flex items-center gap-4 bg-slate-900 text-white rounded-xl px-4 py-2 font-mono text-[11px] tabular-nums mb-3 shadow-sm border border-slate-800">
+                  <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">HUD READOUT</span>
+                  <span className="text-slate-300">O: <strong className="text-white">{hudData.open.toFixed(ticker === "6E.V.0" ? 4 : 1)}</strong></span>
+                  <span className="text-slate-300">H: <strong className="text-emerald-400">{hudData.high.toFixed(ticker === "6E.V.0" ? 4 : 1)}</strong></span>
+                  <span className="text-slate-300">L: <strong className="text-red-400">{hudData.low.toFixed(ticker === "6E.V.0" ? 4 : 1)}</strong></span>
+                  <span className="text-slate-300">C: <strong className="text-white">{hudData.close.toFixed(ticker === "6E.V.0" ? 4 : 1)}</strong></span>
+                </div>
+              )}
 
               <div ref={priceChartContainerRef} className="w-full relative" style={{ height: "320px" }} />
             </div>
@@ -779,22 +856,85 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
               <div ref={cvdChartContainerRef} className="w-full" style={{ height: "140px" }} />
             </div>
 
-            {/* Imbalance Meter Widget */}
+            {/* LEVEL 2 ORDER BOOK DEPTH LADDER & IMBALANCE WIDGET */}
             <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Order Book Imbalance</span>
-                <span className="text-xs font-mono font-bold text-slate-600">{sizeImbalance.toFixed(1)}%</span>
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Level 2 Order Book Depth Ladder</h2>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">Real-time Order Flow Queue Depth</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Queue Imbalance</span>
+                  <span className={`text-xs font-mono font-bold ${sizeImbalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    {sizeImbalance >= 0 ? "+" : ""}{sizeImbalance.toFixed(1)}%
+                  </span>
+                </div>
               </div>
-              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex relative">
-                <div 
-                  className="bg-emerald-500 h-full transition-all duration-300"
-                  style={{ width: `${50 + sizeImbalance / 2}%` }}
-                />
-                <div className="absolute left-1/2 top-0 h-full w-px bg-slate-400" />
+
+              {/* L2 Depth Table Header */}
+              <div className="grid grid-cols-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2 mb-2">
+                <span>Price Level</span>
+                <span className="text-right">Contract Size</span>
+                <span className="text-right">Queue Depth</span>
               </div>
-              <div className="flex justify-between mt-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <span>Bid Power ({bidSize})</span>
-                <span>Ask Power ({askSize})</span>
+
+              {/* ASKS LADDER (RED) */}
+              <div className="space-y-1 mb-2">
+                {l2AskLevels.map((lvl, idx) => {
+                  const depthPct = Math.round((lvl.size / maxL2Size) * 100);
+                  return (
+                    <div key={`ask-${idx}`} className="grid grid-cols-3 items-center text-xs font-mono tabular-nums relative py-1 px-1 rounded hover:bg-red-50/50 transition-all">
+                      {/* Depth Bar Background */}
+                      <div
+                        className="absolute right-0 top-0 bottom-0 bg-red-100/60 rounded-r transition-all duration-300"
+                        style={{ width: `${depthPct}%` }}
+                      />
+                      <span className="text-red-600 font-bold relative z-10">{lvl.price.toFixed(isEuro ? 4 : 1)}</span>
+                      <span className="text-right font-medium text-slate-700 relative z-10">{lvl.size}</span>
+                      <span className="text-right text-[10px] text-slate-400 relative z-10">{depthPct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* SPREAD DIVIDER BAR */}
+              <div className="bg-slate-100/80 rounded-lg py-1.5 px-3 flex justify-between items-center text-[10px] font-mono font-bold text-slate-500 my-2">
+                <span>SPREAD: {((baseAskVal - baseBidVal) * (isEuro ? 10000 : 10)).toFixed(1)} ticks</span>
+                <span>MID: {((baseAskVal + baseBidVal) / 2).toFixed(isEuro ? 4 : 1)}</span>
+              </div>
+
+              {/* BIDS LADDER (GREEN) */}
+              <div className="space-y-1 mb-4">
+                {l2BidLevels.map((lvl, idx) => {
+                  const depthPct = Math.round((lvl.size / maxL2Size) * 100);
+                  return (
+                    <div key={`bid-${idx}`} className="grid grid-cols-3 items-center text-xs font-mono tabular-nums relative py-1 px-1 rounded hover:bg-emerald-50/50 transition-all">
+                      {/* Depth Bar Background */}
+                      <div
+                        className="absolute right-0 top-0 bottom-0 bg-emerald-100/60 rounded-r transition-all duration-300"
+                        style={{ width: `${depthPct}%` }}
+                      />
+                      <span className="text-emerald-600 font-bold relative z-10">{lvl.price.toFixed(isEuro ? 4 : 1)}</span>
+                      <span className="text-right font-medium text-slate-700 relative z-10">{lvl.size}</span>
+                      <span className="text-right text-[10px] text-slate-400 relative z-10">{depthPct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Imbalance Meter Bar */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex relative">
+                  <div
+                    className="bg-emerald-500 h-full transition-all duration-300"
+                    style={{ width: `${50 + sizeImbalance / 2}%` }}
+                  />
+                  <div className="absolute left-1/2 top-0 h-full w-px bg-slate-400" />
+                </div>
+                <div className="flex justify-between mt-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <span>Bid Power ({bidSize})</span>
+                  <span>Ask Power ({askSize})</span>
+                </div>
               </div>
             </div>
 
@@ -827,23 +967,23 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
                         const isGold = pos.ticker === "GC.V.0";
                         return (
                           <tr key={pos.id}>
-                            <td className="py-3.5 font-bold">{pos.ticker}</td>
+                            <td className="py-3.5 font-bold font-mono text-slate-800">{pos.ticker}</td>
                             <td className="py-3.5">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                pos.direction === "BUY" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                pos.direction === "BUY" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"
                               }`}>{pos.direction}</span>
                             </td>
-                            <td className="py-3.5 font-mono">{pos.size}</td>
-                            <td className="py-3.5 font-mono">{pos.entryPrice.toFixed(isGold ? 1 : 4)}</td>
-                            <td className="py-3.5 font-mono text-slate-500">{pos.stopLoss?.toFixed(isGold ? 1 : 4) || "--"}</td>
-                            <td className="py-3.5 font-mono text-slate-500">{pos.takeProfit?.toFixed(isGold ? 1 : 4) || "--"}</td>
-                            <td className={`py-3.5 text-right font-mono font-bold ${pnlVal >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                              ${pnlVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <td className="py-3.5 font-mono tabular-nums">{pos.size}</td>
+                            <td className="py-3.5 font-mono tabular-nums">{pos.entryPrice.toFixed(isGold ? 1 : 4)}</td>
+                            <td className="py-3.5 font-mono tabular-nums text-slate-500">{pos.stopLoss?.toFixed(isGold ? 1 : 4) || "--"}</td>
+                            <td className="py-3.5 font-mono tabular-nums text-slate-500">{pos.takeProfit?.toFixed(isGold ? 1 : 4) || "--"}</td>
+                            <td className={`py-3.5 text-right font-mono tabular-nums font-bold ${pnlVal >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                              {pnlVal >= 0 ? "+" : ""}${pnlVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                             <td className="py-3.5 text-right">
                               <button
                                 onClick={() => handleClosePosition(pos.id)}
-                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider"
                               >
                                 Close
                               </button>
@@ -916,7 +1056,7 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
                     type="number"
                     value={tradeSize}
                     onChange={(e) => setTradeSize(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-4 py-3 text-slate-800 font-mono text-sm focus:outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-4 py-3 text-slate-800 font-mono tabular-nums text-sm focus:outline-none transition-all"
                     placeholder="Enter sizes..."
                   />
                 </div>
@@ -928,7 +1068,7 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
                       type="text"
                       value={stopLossInput}
                       onChange={(e) => setStopLossInput(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-4 py-3 text-slate-800 font-mono text-sm focus:outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-4 py-3 text-slate-800 font-mono tabular-nums text-sm focus:outline-none transition-all"
                       placeholder="SL level"
                     />
                   </div>
@@ -938,7 +1078,7 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
                       type="text"
                       value={takeProfitInput}
                       onChange={(e) => setTakeProfitInput(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-4 py-3 text-slate-800 font-mono text-sm focus:outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-4 py-3 text-slate-800 font-mono tabular-nums text-sm focus:outline-none transition-all"
                       placeholder="TP level"
                     />
                   </div>

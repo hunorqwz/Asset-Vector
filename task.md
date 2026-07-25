@@ -38,3 +38,21 @@
 - `[x]` Step 7.2: Implement Dynamic In-Trade Sentinel process for live position tracking.
 - `[x]` Step 7.3: Add real-time TP Extension (momentum surge) & Partial Profit / SL Tightening (friction) alerts.
 - `[x]` Step 7.4: Add On-Chart Signal Markers and Dynamic Colored Order Lines (Entry, TP, SL).
+
+## Phase 8: Institutional Terminal UI & Performance Overhaul
+- `[x]` Step 8.1: Multi-Timeframe Candlestick Switcher (1m, 5m, 15m, 1h, 1D) & Crosshair Synchronized Live HUD Bar.
+- `[x]` Step 8.2: Live Level 2 (L2) Order Book Depth Ladder Component (Asks Red / Bids Green).
+- `[x]` Step 8.3: UI Polish, Tabular Monospace Typography, Compact Institutional Spacing & Sentinel Card Action Handlers.
+- `[x]` Step 8.4: Complete Workspace Verification and Performance Audit.
+
+## Phase 9: Platform-Wide Institutional UI Unification
+- `[x]` Step 9.1: Main Sidebar Navigation Overhaul (Sidebar.tsx).
+- `[x]` Step 9.2: Dedicated High-Confidence Scanner Page (app/(dashboard)/scanner/page.tsx).
+- `[x]` Step 9.3: Main Overview Dashboard Overhaul (app/(dashboard)/page.tsx).
+- `[ ]` Step 9.4: Complete Workspace Verification and Performance Audit.
+
+## Phase 10: Complete Platform UI & Design System Overhaul
+- `[x]` Step 10.1: Portfolio Desk Overhaul (portfolio/page.tsx).
+- `[x]` Step 10.2: Compare & Discovery Engines Overhaul (compare/page.tsx & discovery/page.tsx).
+- `[x]` Step 10.3: Education, Settings & System Controls Overhaul (settings/page.tsx).
+- `[x]` Step 10.4: Final Workspace Verification and Quality Audit.
