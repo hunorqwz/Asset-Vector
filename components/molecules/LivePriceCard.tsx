@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt } from "@/lib/format";
-import { AlpacaTick } from "@/hooks/useAlpacaTape";
+import { MarketTick } from "@/hooks/useMarketDataTape";
 
 export function LivePriceCard({ 
   label, 
@@ -11,7 +11,7 @@ export function LivePriceCard({
 }: { 
   label: string; 
   initialPrice: number; 
-  lastTick: AlpacaTick | null;
+  lastTick: MarketTick | null;
   dayChange: number;
 }) {
   const [displayPrice, setDisplayPrice] = useState(initialPrice);

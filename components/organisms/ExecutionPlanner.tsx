@@ -24,7 +24,10 @@ export function ExecutionPlanner({ ticker, signal }: ExecutionPlannerProps) {
     
     const res = await executeTrade(ticker, side, notionalValue, price);
     if (res.success) {
-      setTradeStatus({ status: 'success', message: `Execution Filled: ${res.status.toUpperCase()} (${res.filledQty} shares @ $${res.filledAvgPrice})` });
+      setTradeStatus({ 
+        status: 'success', 
+        message: `Execution Filled: ${(res.status || 'filled').toUpperCase()} (${res.filledQty || '0'} shares @ $${res.filledAvgPrice || '0'})` 
+      });
     } else {
       setTradeStatus({ status: 'error', message: res.error || "Execution failed due to liquidity/routing." });
     }

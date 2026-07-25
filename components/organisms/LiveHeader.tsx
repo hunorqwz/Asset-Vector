@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { LiveHeaderPrice } from "@/components/molecules/LiveHeaderPrice";
-import { useAlpacaTape } from "@/hooks/useAlpacaTape";
+import { useMarketDataTape } from "@/hooks/useMarketDataTape";
 
 interface LiveHeaderProps {
   ticker: string;
@@ -27,7 +27,7 @@ export function LiveHeader({
   initialDayChangePercent,
   currency
 }: LiveHeaderProps) {
-  const { lastTick } = useAlpacaTape(ticker);
+  const { lastTick } = useMarketDataTape(ticker);
 
   return (
     <header className="glass-panel z-[100] flex items-center px-8 sticky top-0 border-b border-white/5 bg-black/40 backdrop-blur-md">

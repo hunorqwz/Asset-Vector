@@ -17,7 +17,6 @@ import {
   calculateJensensAlpha,
   validateAndCleanData
 } from "./math";
-import { getAlpacaQuote, fetchAlpacaBars } from "./alpaca-client";
 import { db } from "@/db";
 import { marketSignals, latestSignals } from "@/db/schema";
 import { desc, eq, and, gt } from "drizzle-orm";
@@ -73,14 +72,6 @@ export const RANGE_INTERVAL_MAP: Record<string, { interval: ChartInterval; lookb
   'ALL': { interval: '1d', lookbackSeconds: 0 },
 };
 
-// Mapping from internal ChartInterval to Alpaca timeframe strings
-const ALPACA_TIMEFRAME_MAP: Partial<Record<ChartInterval, "1Min" | "5Min" | "15Min" | "1Hour">> = {
-  '1m': '1Min',
-  '5m': '5Min',
-  '15m': '15Min',
-  '1h': '1Hour',
-};
-
 export async function fetchHistoryWithInterval(
   ticker: string, 
   interval: ChartInterval = '1d',
@@ -92,32 +83,6 @@ export async function fetchHistoryWithInterval(
 
   const startEpochMs = lookbackSeconds === 0 ? 0 : Date.now() - lookbackSeconds * 1000;
   const startEpochSec = Math.floor(startEpochMs / 1000);
-
-  // ── Tier 1: Alpaca Data API (Primary for intraday US equities) ─────────────
-  // Alpaca provides properly split-adjusted NBBO bars for US equities on intraday
-  // timeframes. Far more reliable than Yahoo's unofficial intraday scrape.
-  // Only applies to US equities (not crypto/ETFs with -USD suffix or ^ indices).
-  const alpacaTimeframe = ALPACA_TIMEFRAME_MAP[interval];
-  const isUsEquity = !ticker.includes('-') && !ticker.startsWith('^') && ticker.length <= 5;
-
-  if (alpacaTimeframe && isUsEquity) {
-    try {
-      const startIso = new Date(startEpochMs || (Date.now() - 30 * 86400 * 1000)).toISOString();
-      const alpacaBars = await fetchAlpacaBars(ticker, alpacaTimeframe, startIso, undefined, 10000);
-
-      if (alpacaBars.length > 0) {
-        // Apply MAD outlier filter for data integrity
-        let data: OHLCV[] = alpacaBars;
-        if (data.length >= 20) {
-          const cleanPrices = validateAndCleanData(data.map(d => d.close));
-          data = data.map((d, i) => ({ ...d, close: cleanPrices[i] }));
-        }
-        await setInCache(cacheKey, data, CACHE_TTL.CHART_INTRADAY);
-        console.log(`[Market Data] ✓ Alpaca source: ${ticker} ${alpacaTimeframe} (${data.length} bars)`);
-        return data;
-      }
-    } catch { /* Fall through to Yahoo */ }
-  }
 
   // ── Tier 2: Yahoo Finance (Fallback + Crypto + Daily bars) ─────────────────
   try {
@@ -195,21 +160,7 @@ export async function fetchLiveQuote(ticker: string): Promise<number | null> {
     
     let price: number | null = quote?.regularMarketPrice as number;
 
-    // 2. Cross-Check Verification: Verify against Alpaca SIP Feed for Equities (Priority Path)
-    const isEquity = !ticker.includes("-") && !ticker.includes("^");
-    if (isEquity) {
-      const alpacaQuote = await getAlpacaQuote(ticker).catch(() => null);
-      if (alpacaQuote?.ap) {
-        const alpacaPrice = Number(alpacaQuote.ap);
-        // If Yahoo price differs from Alpaca by more than 1%, trust Alpaca (Primary Exchange Data)
-        if (price !== null && price > 0 && Math.abs(price - alpacaPrice) / price > 0.01) {
-          console.warn(`[Data Integrity] Divergence detected for ${ticker}. Yahoo: ${price}, Alpaca: ${alpacaPrice}. Standardizing to Alpaca.`);
-          price = alpacaPrice;
-        } else if (price === null || price === 0) {
-          price = alpacaPrice;
-        }
-      }
-    }
+    // Trust Yahoo Finance price directly
 
     if (price === null || typeof price !== 'number' || isNaN(price)) {
       return null; // Return null instead of 0 to prevent risk model corruption
@@ -256,25 +207,7 @@ export async function fetchMultiLiveQuotes(tickers: string[]): Promise<Record<st
       }
     }
 
-    // 2. SIP Cross-Validation for high-confidence equities
-    const crossCheckLimit = tickers.filter(t => !t.includes("-") && !t.includes("^")).slice(0, 3);
-    
-    await Promise.all(crossCheckLimit.map(async (ticker) => {
-      try {
-        const alpaca = await getAlpacaQuote(ticker);
-        if (alpaca?.ap) {
-          const alpacaPrice = Number(alpaca.ap);
-          const current = results[ticker];
-          
-          if (current && (current.price === 0 || Math.abs(current.price - alpacaPrice) / alpacaPrice > 0.01)) {
-             results[ticker] = { 
-               price: alpacaPrice, 
-               changePercent: current?.changePercent || 0 
-             };
-          }
-        }
-      } catch { /* Silent fail for backup provider */ }
-    }));
+    // No cross-validation needed for equities - using direct data feed
 
     // Consistency Check: Ensure every requested ticker exists in results, even if null
     tickers.forEach(t => {

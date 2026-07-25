@@ -13,19 +13,11 @@ import { fetchOptionsIntelligence } from "@/lib/options-pricing";
 import { getFromCache, setInCache } from "@/lib/cache";
 
 import { fetchMarketPulse, MarketPulseData } from "@/lib/market-pulse";
-import { getAlpacaAccount, getAlpacaPositions, getAlpacaQuote } from "@/lib/alpaca-client";
 import { after } from "next/server";
 
 export async function getAlpacaData() {
-  try {
-    const [account, positions] = await Promise.all([
-      getAlpacaAccount(),
-      getAlpacaPositions()
-    ]);
-    return { account, positions };
-  } catch (err) {
-    return null;
-  }
+  // Alpaca has been eliminated, return mock empty data structure
+  return { account: null, positions: [] as any[] } as any;
 }
 
 // NOTE: executeTrade has been removed from this file.
@@ -35,9 +27,9 @@ export async function getAlpacaData() {
 
 export async function getLiveQuote(symbol: string) {
   try {
-    const q = await getAlpacaQuote(symbol);
-    if (!q) return null;
-    return { ap: q.ap, bp: q.bp };
+    const price = await fetchLiveQuote(symbol);
+    if (!price) return null;
+    return { ap: price, bp: price };
   } catch {
     return null;
   }

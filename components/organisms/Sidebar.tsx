@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useAlpacaContext } from "@/components/providers/AlpacaProvider";
+import { useMarketDataContext } from "@/components/providers/MarketDataProvider";
 import { LogoutButton } from "@/components/LogoutButton";
 import { AlertBell } from "@/components/AlertBell";
 import { PriceAlert, Insight } from "@/app/actions/alerts";
@@ -18,7 +18,7 @@ interface SidebarProps {
 export function Sidebar({ alerts, insights, regimeBreakout }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isConnected } = useAlpacaContext();
+  const { isConnected, latency } = useMarketDataContext();
 
   // Navigation hotkeys: Alt + 1/2/3/4/5/6/7
   useEffect(() => {
@@ -146,9 +146,9 @@ export function Sidebar({ alerts, insights, regimeBreakout }: SidebarProps) {
   ];
 
   return (
-    <aside className="w-[240px] shrink-0 border-r border-slate-200/80 bg-[#f8fafc] flex flex-col h-full z-50">
+    <aside className="w-[240px] shrink-0 border-r border-border/60 bg-[#09090b] flex flex-col h-full z-50">
       {/* Brand Header */}
-      <div className="h-16 border-b border-slate-200/80 flex items-center px-6 bg-white">
+      <div className="h-16 border-b border-border/60 flex items-center px-6 bg-[#0f0f11]">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-600 text-white shadow-sm shadow-blue-500/20 transition-all group-hover:bg-blue-700">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -156,10 +156,10 @@ export function Sidebar({ alerts, insights, regimeBreakout }: SidebarProps) {
             </svg>
           </div>
           <div>
-            <span className="font-sans font-black tracking-tight text-sm text-slate-800 block leading-none">
+            <span className="font-sans font-black tracking-tight text-sm text-foreground block leading-none">
               Asset Vector
             </span>
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mt-0.5">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block mt-0.5">
               Institutional Terminal
             </span>
           </div>
@@ -179,12 +179,12 @@ export function Sidebar({ alerts, insights, regimeBreakout }: SidebarProps) {
               href={item.href}
               className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold tracking-wide rounded-xl transition-all ${
                 isActive
-                  ? "bg-white border border-slate-200/80 text-blue-600 shadow-sm shadow-slate-200/50 font-bold"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 border border-transparent"
+                  ? "bg-slate-900/60 border border-border text-blue-400 font-bold"
+                  : "text-slate-400 hover:text-foreground hover:bg-slate-950 border border-transparent"
               }`}
             >
               <div className="flex items-center gap-3">
-                <span className={isActive ? "text-blue-600" : "text-slate-400"}>
+                <span className={isActive ? "text-blue-400" : "text-slate-500"}>
                   {item.icon}
                 </span>
                 <span>{item.name}</span>
@@ -195,7 +195,7 @@ export function Sidebar({ alerts, insights, regimeBreakout }: SidebarProps) {
       </nav>
 
       {/* Bottom Telemetry Section */}
-      <div className="border-t border-slate-200/80 p-4 bg-white space-y-4">
+      <div className="border-t border-border/60 p-4 bg-[#0f0f11] space-y-4">
         {/* Indicators */}
         <div className="space-y-2.5 px-1">
           {/* Telemetry Status */}
@@ -204,13 +204,15 @@ export function Sidebar({ alerts, insights, regimeBreakout }: SidebarProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Order Flow Engine
             </span>
-            <span className="text-[9px] font-mono tabular-nums font-bold text-emerald-600">Active</span>
+            <span className="text-[9px] font-mono tabular-nums font-bold text-emerald-500">
+              {latency !== null && latency > 0 ? `${latency}ms` : "Active"}
+            </span>
           </div>
 
           {/* Alpaca API Status */}
           <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
             <span className="flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-emerald-500" : "bg-slate-400"}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-emerald-500" : "bg-slate-600"}`} />
               Broker Stream
             </span>
             <span className="text-[9px] font-mono tabular-nums font-bold text-slate-500">
@@ -220,7 +222,7 @@ export function Sidebar({ alerts, insights, regimeBreakout }: SidebarProps) {
         </div>
 
         {/* Account controls */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+        <div className="pt-2 border-t border-border/60 flex items-center justify-between">
           <LogoutButton />
           
           {/* Alerts mini button */}
@@ -230,7 +232,7 @@ export function Sidebar({ alerts, insights, regimeBreakout }: SidebarProps) {
         </div>
 
         {/* Copyright */}
-        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">
+        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center">
           Asset Vector © 2026
         </div>
       </div>

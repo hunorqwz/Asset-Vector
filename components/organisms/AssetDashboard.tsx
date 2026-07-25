@@ -26,7 +26,7 @@ import { TechnicalConfluencePanel } from "@/components/organisms/TechnicalConflu
 import { AlgorithmicTargetsPanel } from "@/components/organisms/AlgorithmicTargetsPanel";
 import { InstitutionalFlowPanel } from "@/components/organisms/InstitutionalFlowPanel";
 import { AIForecastPanel } from "@/components/organisms/AIForecastPanel";
-import { useAlpacaTape } from "@/hooks/useAlpacaTape";
+import { useMarketDataTape } from "@/hooks/useMarketDataTape";
 import { useStreamingPrediction } from "@/hooks/useStreamingPrediction";
 import { LivePriceCard } from "@/components/molecules/LivePriceCard";
 import { ForensicAnalystReport } from "@/components/organisms/ForensicAnalystReport";
@@ -106,7 +106,7 @@ export function AssetDashboard({ ticker, signal, macroSnapshot }: { ticker: stri
   const d = signal.stockDetails;
   const p = d.price;
 
-  const { lastTick } = useAlpacaTape(ticker);
+  const { lastTick } = useMarketDataTape(ticker);
 
   const realizedVol = signal.history.length > 30
     ? Math.sqrt(

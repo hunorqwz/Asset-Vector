@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { fmt, fmtChange } from "@/lib/format";
-import { AlpacaTick } from "@/hooks/useAlpacaTape";
+import { MarketTick } from "@/hooks/useMarketDataTape";
 
 export function LiveHeaderPrice({ 
   initialPrice, 
@@ -11,7 +11,7 @@ export function LiveHeaderPrice({
   currency 
 }: { 
   initialPrice: number; 
-  lastTick: AlpacaTick | null;
+  lastTick: MarketTick | null;
   initialDayChange: number;
   initialDayChangePercent: number;
   currency: string;

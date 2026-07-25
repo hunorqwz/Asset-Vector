@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
-export interface AlpacaTick {
+export interface MarketTick {
   ticker: string;
   price: number;
   size: number;
@@ -9,23 +9,26 @@ export interface AlpacaTick {
   exchange: string;
 }
 
-interface AlpacaContextType {
+interface MarketDataContextType {
   isConnected: boolean;
+  latency: number | null;
   subscribe: (ticker: string) => void;
   unsubscribe: (ticker: string) => void;
-  ticks: Record<string, AlpacaTick>;
+  ticks: Record<string, MarketTick>;
 }
 
-const AlpacaContext = createContext<AlpacaContextType>({
+const MarketDataContext = createContext<MarketDataContextType>({
   isConnected: false,
+  latency: null,
   subscribe: () => {},
   unsubscribe: () => {},
   ticks: {}
 });
 
-export function AlpacaProvider({ children }: { children: React.ReactNode }) {
+export function MarketDataProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
-  const [ticks, setTicks] = useState<Record<string, AlpacaTick>>({});
+  const [latency, setLatency] = useState<number | null>(null);
+  const [ticks, setTicks] = useState<Record<string, MarketTick>>({});
   
   const eventSourceRef = useRef<EventSource | null>(null);
   const subscribersRef = useRef<Record<string, number>>({});
@@ -44,8 +47,9 @@ export function AlpacaProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const url = `/api/ticks?tickers=${encodeURIComponent(tickers.join(","))}`;
-    console.log(`[Alpaca Provider] Subscribing via SSE stream: ${url}`);
+    // Connect to the unified Databento CME GLOBEX streaming endpoint
+    const url = `/api/futures/stream?symbols=${encodeURIComponent(tickers.join(","))}`;
+    console.log(`[Market Data Provider] Connecting to Databento SSE stream: ${url}`);
     
     try {
       const es = new EventSource(url);
@@ -57,18 +61,38 @@ export function AlpacaProvider({ children }: { children: React.ReactNode }) {
 
       es.onmessage = (event) => {
         try {
-          const tick = JSON.parse(event.data);
-          if (tick && tick.ticker) {
-            setTicks((prev) => {
-              const existing = prev[tick.ticker];
-              if (existing && existing.price === tick.price && existing.timestamp === tick.timestamp) {
-                return prev;
+          const envelope = JSON.parse(event.data);
+          
+          if (envelope && envelope.type === "tick") {
+            const tick = envelope;
+            
+            // Calculate streaming latency from Databento ticks timestamps
+            if (tick.timestamp) {
+              const now = Date.now();
+              const sentTime = new Date(tick.timestamp).getTime();
+              if (!isNaN(sentTime)) {
+                setLatency(Math.max(0, now - sentTime));
               }
-              return {
-                ...prev,
-                [tick.ticker]: tick,
-              };
-            });
+            }
+            
+            if (tick.event === "trade") {
+              setTicks((prev) => {
+                const existing = prev[tick.ticker];
+                if (existing && existing.price === tick.price && existing.timestamp === tick.timestamp) {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  [tick.ticker]: {
+                    ticker: tick.ticker,
+                    price: tick.price,
+                    size: tick.size ?? 0,
+                    timestamp: tick.timestamp,
+                    exchange: tick.side ?? "N",
+                  },
+                };
+              });
+            }
           }
         } catch {
           // ignore malformed SSE messages
@@ -79,7 +103,7 @@ export function AlpacaProvider({ children }: { children: React.ReactNode }) {
         setIsConnected(false);
       };
     } catch (err) {
-      console.error("[Alpaca Provider] Failed to connect EventSource:", err);
+      console.error("[Market Data Provider] Failed to connect EventSource:", err);
       setIsConnected(false);
     }
   }, []);
@@ -128,10 +152,10 @@ export function AlpacaProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AlpacaContext.Provider value={{ isConnected, subscribe, unsubscribe, ticks }}>
+    <MarketDataContext.Provider value={{ isConnected, latency, subscribe, unsubscribe, ticks }}>
       {children}
-    </AlpacaContext.Provider>
+    </MarketDataContext.Provider>
   );
 }
 
-export const useAlpacaContext = () => useContext(AlpacaContext);
+export const useMarketDataContext = () => useContext(MarketDataContext);

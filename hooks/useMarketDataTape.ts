@@ -1,11 +1,11 @@
 "use client";
 import { useEffect } from 'react';
-import { useAlpacaContext, AlpacaTick } from '@/components/providers/AlpacaProvider';
+import { useMarketDataContext, MarketTick } from '@/components/providers/MarketDataProvider';
 
-export type { AlpacaTick };
+export type { MarketTick };
 
-export function useAlpacaTape(ticker: string) {
-  const { isConnected, subscribe, unsubscribe, ticks } = useAlpacaContext();
+export function useMarketDataTape(ticker: string) {
+  const { isConnected, subscribe, unsubscribe, ticks } = useMarketDataContext();
 
   useEffect(() => {
     if (ticker) subscribe(ticker);

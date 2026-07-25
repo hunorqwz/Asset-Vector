@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useAlpacaContext, AlpacaTick } from "@/components/providers/AlpacaProvider";
+import { useMarketDataContext, MarketTick } from "@/components/providers/MarketDataProvider";
 import {
   RawTick,
   buildOHLCVFromTicks,
@@ -67,11 +67,11 @@ export function useStreamingPrediction({
   basePrediction,
   enabled = true,
 }: UseStreamingPredictionOptions): StreamingPredictionState {
-  const { isConnected, subscribe, unsubscribe, ticks } = useAlpacaContext();
+  const { isConnected, subscribe, unsubscribe, ticks } = useMarketDataContext();
 
   // Rolling tick buffer — we keep the last 30 minutes of ticks in memory
   const tickBufferRef = useRef<RawTick[]>([]);
-  const lastTickRef = useRef<AlpacaTick | null>(null);
+  const lastTickRef = useRef<MarketTick | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [state, setState] = useState<StreamingPredictionState>({

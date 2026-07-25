@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useAlpacaTape } from '@/hooks/useAlpacaTape';
+import { useMarketDataTape } from '@/hooks/useMarketDataTape';
 import { executeTrade } from '@/app/actions/execute';
 import { getAlpacaData, getLiveQuote } from '@/app/actions';
 import { fmt } from '@/lib/format';
@@ -14,7 +14,7 @@ interface AlpacaTerminalProps {
 }
 
 export function AlpacaTerminal({ ticker, signal }: AlpacaTerminalProps) {
-  const { isConnected, lastTick } = useAlpacaTape(ticker);
+  const { isConnected, lastTick } = useMarketDataTape(ticker);
   const [quote, setQuote] = useState<{ ap: number; bp: number } | null>(null);
   const [account, setAccount] = useState<any>(null);
   const [position, setPosition] = useState<any>(null);

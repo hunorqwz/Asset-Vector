@@ -65,7 +65,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/components/providers/SessionProvider";
-import { AlpacaProvider } from "@/components/providers/AlpacaProvider";
+import { MarketDataProvider } from "@/components/providers/MarketDataProvider";
 import { EducationProvider } from "@/components/providers/EducationProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 
@@ -80,7 +80,7 @@ export default function RootLayout({
         className={`${inter.variable} ${geistMono.variable} ${displayFont.variable} antialiased select-none`}
       >
         <AuthProvider>
-          <AlpacaProvider>
+          <MarketDataProvider>
             <EducationProvider>
               <ToastProvider>
                 <div className="app-grid bg-background overflow-hidden relative">
@@ -88,7 +88,7 @@ export default function RootLayout({
                 </div>
               </ToastProvider>
             </EducationProvider>
-          </AlpacaProvider>
+          </MarketDataProvider>
         </AuthProvider>
       </body>
     </html>
