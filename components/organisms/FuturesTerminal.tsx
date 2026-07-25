@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { createChart, ColorType, IChartApi, UTCTimestamp, CrosshairMode, CandlestickSeries, AreaSeries, LineSeries } from "lightweight-charts";
+import { createChart, ColorType, IChartApi, UTCTimestamp, CrosshairMode, CandlestickSeries, AreaSeries, LineSeries, LineStyle } from "lightweight-charts";
 import { logManualTrade, closeManualTrade, markAlertAsRead, getFuturesPositions } from "@/app/actions/futures";
+import { evaluatePositionSentinel, SentinelRecommendation } from "@/lib/trade-sentinel";
 
 interface FuturesPosition {
   id: string;
@@ -91,6 +92,8 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
   const [takeProfitInput, setTakeProfitInput] = useState("");
   const [selectedAlert, setSelectedAlert] = useState<FuturesAlert | null>(null);
   const [ledgerStatus, setLedgerStatus] = useState<string | null>(null);
+  const [sentinelRec, setSentinelRec] = useState<SentinelRecommendation | null>(null);
+  const activePriceLinesRef = useRef<any[]>([]);
 
   // Indicators Configuration State
   const [showEma1, setShowEma1] = useState(true);
@@ -339,17 +342,39 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
               return updatedCVD;
             });
 
-            // Update price series candle
-            if (priceSeriesRef.current) {
-              const nowSec = Math.floor(Date.now() / 1000) as UTCTimestamp;
-              priceSeriesRef.current.update({
-                time: nowSec,
-                open: data.price,
-                high: data.price,
-                low: data.price,
-                close: data.price,
-              });
-            }
+            // Real-time 1-minute candle state aggregation and chart update
+            const nowSec = Math.floor(Date.now() / 1000);
+            const minuteSec = (Math.floor(nowSec / 60) * 60) as UTCTimestamp;
+            const tradePrice = data.price;
+            const tradeSize = data.size || 1;
+
+            setCandles((prevCandles) => {
+              if (prevCandles.length === 0) {
+                const newBar = { time: minuteSec, open: tradePrice, high: tradePrice, low: tradePrice, close: tradePrice, volume: tradeSize };
+                if (priceSeriesRef.current) priceSeriesRef.current.update(newBar);
+                return [newBar];
+              }
+
+              const lastBar = prevCandles[prevCandles.length - 1];
+
+              if (lastBar.time === minuteSec) {
+                const updatedBar = {
+                  ...lastBar,
+                  high: Math.max(lastBar.high, tradePrice),
+                  low: Math.min(lastBar.low, tradePrice),
+                  close: tradePrice,
+                  volume: (lastBar.volume || 0) + tradeSize,
+                };
+                if (priceSeriesRef.current) priceSeriesRef.current.update(updatedBar);
+                return [...prevCandles.slice(0, -1), updatedBar];
+              } else if (minuteSec > lastBar.time) {
+                const newBar = { time: minuteSec, open: tradePrice, high: tradePrice, low: tradePrice, close: tradePrice, volume: tradeSize };
+                if (priceSeriesRef.current) priceSeriesRef.current.update(newBar);
+                return [...prevCandles, newBar];
+              }
+
+              return prevCandles;
+            });
           } else if (data.event === "quote") {
             setBidPrice(data.bid);
             setAskPrice(data.ask);
@@ -433,6 +458,81 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
       })
     );
   }, [lastPrice, ticker]);
+
+  // Render Dynamic Order Price Lines (Entry = Blue, SL = Red, TP = Green)
+  useEffect(() => {
+    if (!priceSeriesRef.current) return;
+
+    // Clear existing price lines
+    activePriceLinesRef.current.forEach((line) => {
+      try {
+        priceSeriesRef.current.removePriceLine(line);
+      } catch {}
+    });
+    activePriceLinesRef.current = [];
+
+    const activePositions = positions.filter((p) => p.ticker === ticker && p.status === "OPEN");
+    activePositions.forEach((pos) => {
+      // Entry Line (Blue)
+      const entryLine = priceSeriesRef.current.createPriceLine({
+        price: pos.entryPrice,
+        color: "#3b82f6",
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `ENTRY (${pos.direction})`,
+      });
+      activePriceLinesRef.current.push(entryLine);
+
+      // Stop Loss Line (Red)
+      if (pos.stopLoss) {
+        const slLine = priceSeriesRef.current.createPriceLine({
+          price: pos.stopLoss,
+          color: "#ef4444",
+          lineWidth: 2,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: "SL",
+        });
+        activePriceLinesRef.current.push(slLine);
+      }
+
+      // Take Profit Line (Green)
+      if (pos.takeProfit) {
+        const tpLine = priceSeriesRef.current.createPriceLine({
+          price: pos.takeProfit,
+          color: "#10b981",
+          lineWidth: 2,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: "TP",
+        });
+        activePriceLinesRef.current.push(tpLine);
+      }
+    });
+  }, [positions, ticker]);
+
+  // Update On-Chart Signal Markers
+  useEffect(() => {
+    if (!priceSeriesRef.current) return;
+    const markers = alerts
+      .filter((a) => a.ticker === ticker)
+      .slice(0, 15)
+      .map((a) => {
+        const isBullish = a.type.includes("BULLISH") || a.message.toLowerCase().includes("buy");
+        return {
+          time: (Math.floor(new Date(a.timestamp).getTime() / 1000)) as UTCTimestamp,
+          position: isBullish ? ("belowBar" as const) : ("aboveBar" as const),
+          color: isBullish ? "#10b981" : "#ef4444",
+          shape: isBullish ? ("arrowUp" as const) : ("arrowDown" as const),
+          text: isBullish ? "BUY" : "SELL",
+        };
+      });
+
+    try {
+      priceSeriesRef.current.setMarkers(markers);
+    } catch {}
+  }, [alerts, ticker]);
 
   // 3. Execution & Manual Fills Logging Actions
   const handleLogManualPosition = async (direction: "BUY" | "SELL") => {
@@ -767,6 +867,36 @@ export function FuturesTerminal({ initialPositions, initialAlerts }: FuturesTerm
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6">Manual Execution Planner</h2>
               
               <div className="space-y-4">
+                {/* DYNAMIC SENTINEL ACTION RECOMMENDATION CARD */}
+                {sentinelRec && sentinelRec.type !== "HOLD" && (
+                  <div className={`p-4 rounded-xl border text-xs relative transition-all shadow-sm mb-4 ${
+                    sentinelRec.type === "TP_EXTENSION" 
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-900" 
+                      : "bg-amber-50 border-amber-200 text-amber-900"
+                  }`}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/80 border border-current">
+                        Sentinel Alert: {sentinelRec.type.replace("_", " ")}
+                      </span>
+                      <button onClick={() => setSentinelRec(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                    </div>
+                    <h4 className="font-bold text-xs mb-1">{sentinelRec.headline}</h4>
+                    <p className="text-[11px] leading-relaxed opacity-90 mb-3">{sentinelRec.rationale}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (sentinelRec.suggestedTakeProfit) setTakeProfitInput(sentinelRec.suggestedTakeProfit.toString());
+                          if (sentinelRec.suggestedStopLoss) setStopLossInput(sentinelRec.suggestedStopLoss.toString());
+                          setSentinelRec(null);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider transition-all"
+                      >
+                        Apply Target Updates
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {selectedAlert && (
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-blue-800 relative">
                     <span className="font-bold block uppercase tracking-wider text-[10px] mb-1">Loaded Alert Template</span>

@@ -271,8 +271,8 @@ export async function fetchOptionsIntelligence(ticker: string, currentPrice: num
       }
     });
 
-    const putIV = closestPut ? (closestPut.putIV || (closestPut as any).callIV || atmIV) : atmIV;
-    const callIV = closestCall ? (closestCall.callIV || (closestCall as any).putIV || atmIV) : atmIV;
+    const putIV = (closestPut as any) ? ((closestPut as any).putIV || (closestPut as any).callIV || atmIV) : atmIV;
+    const callIV = (closestCall as any) ? ((closestCall as any).callIV || (closestCall as any).putIV || atmIV) : atmIV;
     const ivSkew = putIV - callIV;
 
     // Find Gravity Wells (Highest absolute netGamma)
